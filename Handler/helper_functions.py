@@ -1,60 +1,15 @@
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 import numpy as np
+from natsort import natsorted
+import imageio
+import os
 import torch
-import corner
 # import healpy as hp
 import pandas as pd
 """import warnings
 
 warnings.filterwarnings("error")"""
-
-
-def create_corner_plot(lst_arr, lst_arr_compare, lst_labels):
-    """"""
-    _lst = []
-    for idx, row in enumerate(lst_arr[0]):
-        _lst.append([
-            row,
-            lst_arr[1][idx],
-            lst_arr[2][idx],
-            lst_arr[3][idx],
-            lst_arr[4][idx]
-        ])
-    _arr = np.array(_lst)
-
-    _lst_comp = []
-    for idx, row in enumerate(lst_arr_compare[0]):
-        _lst_comp.append([
-            row,
-            lst_arr_compare[1][idx],
-            lst_arr_compare[2][idx],
-            lst_arr_compare[3][idx],
-            lst_arr_compare[4][idx]
-        ])
-    _arr_comp = np.array(_lst_comp)
-
-    figure_1 = corner.corner(
-        _arr,
-        bins=40,
-        labels=lst_labels,
-        # show_titles=True,
-        # title_kwargs={"fontsize": 12},
-        # smooth=2.8,
-        # smooth1d=2.8
-    )
-
-    corner.corner(
-        _arr_comp,
-        bins=40,
-        fig=figure_1,
-        labels=lst_labels,
-        show_titles=True,
-        title_kwargs={"fontsize": 12},
-        # smooth=2.8,
-        # smooth1d=2.8,
-        color='red'
-    )
 
 
 def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title="", color=None):
@@ -450,3 +405,16 @@ def flux2mag(flux, zero_pt=30, clip=0.001):
         return zero_pt - 2.5 * np.log10(flux)
     return zero_pt - 2.5 * np.log10(flux.clip(clip))
     # return np.array(lst_mag)
+
+def make_gif(frame_folder, name_save_folder, fps=10):
+    filenames = natsorted(os.listdir(frame_folder))
+    images_data = []
+    for filename in filenames:
+        image = imageio.imread(f"{frame_folder}/{filename}")
+        images_data.append(image)
+    imageio.mimwrite(
+        uri=f"{name_save_folder}",
+        ims=images_data,
+        format='.gif',
+        fps=fps
+    )

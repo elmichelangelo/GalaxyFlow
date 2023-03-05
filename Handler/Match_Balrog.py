@@ -1,4 +1,4 @@
-from src.Handler.helper_functions import flux2mag, plot_2d_kde
+from Handler.helper_functions import flux2mag, plot_2d_kde
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde

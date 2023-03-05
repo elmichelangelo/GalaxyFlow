@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-import src.GANdalfflow.flow as fnn
+import galaxyflow.flow as fnn
 
 EPS = 1e-5
 BATCH_SIZE = 32

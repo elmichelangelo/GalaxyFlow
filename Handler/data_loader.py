@@ -1,5 +1,5 @@
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
-from src.Handler.helper_functions import flux2mag
+from Handler.helper_functions import flux2mag
 import numpy as np
 import pandas as pd
 import pickle
@@ -9,8 +9,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 
-def load_data(path_training_data, input_discriminator, input_generator, output_generator, analytical_data, apply_cuts,
-              only_detected, selected_scaler):
+def load_data(path_training_data, input_flow, output_flow, selected_scaler):
     """
     Load the Data from *.pkl-file
 
@@ -30,23 +29,6 @@ def load_data(path_training_data, input_discriminator, input_generator, output_g
     # close file
     infile.close()
 
-    if apply_cuts is True:
-        df_data = data_cuts(df_data, analytical_data, only_detected)
-
-    if analytical_data is not True:
-        df_data[f"BDF_MAG_DERED_CALIB_U"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_U"])
-        df_data[f"BDF_MAG_DERED_CALIB_G"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_G"])
-        df_data[f"BDF_MAG_DERED_CALIB_R"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_R"])
-        df_data[f"BDF_MAG_DERED_CALIB_I"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_I"])
-        df_data[f"BDF_MAG_DERED_CALIB_Z"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_Z"])
-        df_data[f"BDF_MAG_DERED_CALIB_J"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_J"])
-        df_data[f"BDF_MAG_DERED_CALIB_H"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_H"])
-        df_data[f"BDF_MAG_DERED_CALIB_KS"] = flux2mag(df_data[f"BDF_FLUX_DERED_CALIB_KS"])
-        df_data[f"BDF_G"] = np.sqrt(df_data["BDF_G_0"] ** 2 + df_data["BDF_G_1"] ** 2)
-        df_data["unsheared/mag_r"] = flux2mag(df_data["unsheared/flux_r"])
-        df_data["unsheared/mag_i"] = flux2mag(df_data["unsheared/flux_i"])
-        df_data["unsheared/mag_z"] = flux2mag(df_data["unsheared/flux_i"])
-
     df_data["Color Mag U-G"] = df_data[f"BDF_MAG_DERED_CALIB_U"].to_numpy() - \
                                df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy()
     df_data["Color Mag G-R"] = df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy() - \
@@ -62,7 +44,7 @@ def load_data(path_training_data, input_discriminator, input_generator, output_g
     df_data["Color Mag H-KS"] = df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy() - \
                                df_data[f"BDF_MAG_DERED_CALIB_KS"].to_numpy()
 
-    df_training_data = df_data[input_discriminator]
+    df_training_data = df_data[input_flow+output_flow]
 
     scaler = None
     if selected_scaler == "MinMaxScaler":
@@ -88,33 +70,34 @@ def load_data(path_training_data, input_discriminator, input_generator, output_g
 
     df_training_data_scaled = df_training_data_scaled.sample(frac=1, random_state=1)
 
-    arr_label_generator = np.array(df_training_data_scaled[input_generator])
-    arr_output_generator = np.array(df_training_data_scaled[output_generator])
-    arr_input_discriminator = np.array(df_training_data_scaled[input_discriminator])
+    arr_label_flow = np.array(df_training_data_scaled[input_flow])
+    arr_output_flow = np.array(df_training_data_scaled[output_flow])
 
     dict_training_data = {
-        f"label generator in order {input_generator}": arr_label_generator[:int(len(arr_label_generator) * .8)],
-        f"output generator in order {output_generator}": arr_output_generator[:int(len(arr_output_generator) * .8)],
-        f"input discriminator in order {input_discriminator}": arr_input_discriminator[
-                                                               :int(len(arr_input_discriminator) * .8)],
-        "columns label generator": input_generator,
-        "columns output generator": output_generator,
-        "columns input discriminator": input_discriminator,
+        f"label flow in order {input_flow}": arr_label_flow[:int(len(arr_label_flow) * .6)],
+        f"output flow in order {output_flow}": arr_output_flow[:int(len(arr_output_flow) * .6)],
+        "columns label flow": input_flow,
+        "columns output flow": output_flow,
+        "scaler": scaler
+    }
+
+    dict_validation_data = {
+        f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .6):int(len(arr_label_flow) * .8)],
+        f"output flow in order {output_flow}": arr_output_flow[int(len(arr_label_flow) * .6):int(len(arr_output_flow) * .8)],
+        "columns label flow": input_flow,
+        "columns output flow": output_flow,
         "scaler": scaler
     }
 
     dict_test_data = {
-        f"label generator in order {input_generator}": arr_label_generator[int(len(arr_label_generator) * .8):],
-        f"output generator in order {output_generator}": arr_output_generator[int(len(arr_output_generator) * .8):],
-        f"input discriminator in order {input_discriminator}": arr_input_discriminator[
-                                                               int(len(arr_input_discriminator) * .8):],
-        "columns label generator": input_generator,
-        "columns output generator": output_generator,
-        "columns input discriminator": input_discriminator,
+        f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .8):],
+        f"output flow in order {output_flow}": arr_output_flow[int(len(arr_output_flow) * .8):],
+        "columns label flow": input_flow,
+        "columns output flow": output_flow,
         "scaler": scaler
     }
 
-    return dict_training_data, dict_test_data
+    return dict_training_data, dict_validation_data, dict_test_data
 
 
 def data_cuts(data_frame, analytical_data, only_detected):
