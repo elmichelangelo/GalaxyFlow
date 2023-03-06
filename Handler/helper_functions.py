@@ -345,6 +345,39 @@ def luptize_deep(flux, bins, var=0, zp=22.5):
     s = (10**((zp-arr_mags)/2.5)) / 10
     return luptize(flux, var, s, zp)
 
+def luptize_deep_kids(flux, bins, var=0, zp=22.5):
+    """
+    The flux must be in the same dimension as the bins.
+    The bins must be given as list like ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]
+    the ordering of the softening parameter b
+    """
+    # Todo Use kids depth
+    dict_mags = {
+        "u": 24.8,
+        "g": 25.4,
+        "r": 25.2,
+        "i": 24.2,
+        "Z": 23.1,
+        "Y": 22.3,  # y band value is copied from array above because Y band is not in the up to date catalog
+        "J": 22.1,
+        "H": 21.5,
+        "Ks": 21.2
+    }
+    lst_mags = []
+    for b in bins:
+        # if b in ["I", "G", "R", "Z", "U"]:
+        #     actual_b = b.lower()
+        # elif b in ["y", "j", "h", "k"]:
+        #     actual_b = b.upper()
+        # elif b in ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]:
+        #     actual_b = b
+        # else:
+        #     raise IOError("bin not defined")
+        lst_mags.append(dict_mags[b])
+    arr_mags = np.array(lst_mags)
+    s = (10**((zp-arr_mags)/2.5)) / 10
+    return luptize(flux, var, s, zp)
+
 
 """def luptize(flux, var, s, zp):
     # s: measurement error (variance) of the flux (with zero pt zp) of an object at the limiting magnitude of the survey

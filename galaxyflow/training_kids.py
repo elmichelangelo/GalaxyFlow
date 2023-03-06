@@ -11,7 +11,7 @@ from tqdm import tqdm
 from tensorboardX import SummaryWriter
 import galaxyflow.flow as fnn
 import pandas as pd
-from Handler.data_loader import load_data
+from Handler.data_loader import load_data_kidz
 from chainconsumer import ChainConsumer
 from Handler.helper_functions import make_gif
 import seaborn as sns
@@ -36,7 +36,8 @@ class TrainFlow(object):
                  activation_function,
                  batch_size,
                  valid_batch_size,
-                 selected_scaler):
+                 selected_scaler,
+                 apply_cuts):
         super().__init__()
         self.lr = learning_rate
         self.num_hidden = number_hidden
@@ -52,23 +53,32 @@ class TrainFlow(object):
         self.valid_batch_size = valid_batch_size
         self.test_batch_size = batch_size
         self.lst_epochs = []
+
+        self.lst_mean_mag_u = []
+        self.lst_mean_mag_g = []
         self.lst_mean_mag_r = []
         self.lst_mean_mag_i = []
-        self.lst_mean_mag_z = []
-        self.lst_mean_snr = []
-        self.lst_mean_size_ratio = []
-        self.lst_mean_t = []
+        self.lst_mean_mag_Z = []
+        self.lst_mean_mag_Y = []
+        self.lst_mean_mag_J = []
+        self.lst_mean_mag_H = []
+        self.lst_mean_mag_Ks = []
+
+        self.lst_std_mag_u = []
+        self.lst_std_mag_g = []
         self.lst_std_mag_r = []
         self.lst_std_mag_i = []
-        self.lst_std_mag_z = []
-        self.lst_std_snr = []
-        self.lst_std_size_ratio = []
-        self.lst_std_t = []
+        self.lst_std_mag_Z = []
+        self.lst_std_mag_Y = []
+        self.lst_std_mag_J = []
+        self.lst_std_mag_H = []
+        self.lst_std_mag_Ks = []
+
         self.lst_train_loss_per_batch = []
         self.lst_train_loss_per_epoch = []
         self.lst_valid_loss_per_batch = []
         self.lst_valid_loss_per_epoch = []
-        self.path_output_flow = f"{path_output}/Flow_" \
+        self.path_output_flow = f"{path_output}/Kids_flow_" \
                                 f"lr_{self.lr}_" \
                                 f"num_hidden_{self.num_hidden}_" \
                                 f"num_blocks_{self.num_blocks}"
@@ -90,7 +100,8 @@ class TrainFlow(object):
 
         self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
             path_train_data=path_train_data,
-            selected_scaler=selected_scaler
+            selected_scaler=selected_scaler,
+            apply_cuts=apply_cuts
         )
 
         self.model, self.optimizer  = self.init_network(
@@ -131,13 +142,14 @@ class TrainFlow(object):
             if not os.path.exists(self.path_save_nn):
                 os.mkdir(self.path_save_nn)
 
-    def init_dataset(self, path_train_data, selected_scaler):
+    def init_dataset(self, path_train_data, selected_scaler, apply_cuts):
         """"""
-        training_data, validation_data, test_data = load_data(
+        training_data, validation_data, test_data = load_data_kidz(
             path_training_data=path_train_data,
             input_flow=self.col_label_flow,
             output_flow=self.col_output_flow,
-            selected_scaler=selected_scaler
+            selected_scaler=selected_scaler,
+            apply_cuts=apply_cuts
         )
 
         train_tensor = torch.from_numpy(training_data[f"output flow in order {self.col_output_flow}"])
@@ -239,8 +251,7 @@ class TrainFlow(object):
             make_gif(self.path_flag_plot, f"{self.path_gifs}/flag_plot.gif")
             make_gif(self.path_detection_plot, f"{self.path_gifs}/detection_plot.gif")
         if self.save_nn is True:
-            torch.save(self.best_model, f"{self.path_save_nn}/best_model_epoch_{self.best_validation_epoch+1}.pt")
-            torch.save(self.model, f"{self.path_save_nn}/last_model_epoch_{epoch+1}.pt")
+            torch.save(self.best_model, f"{self.path_save_nn}/discriminator_epoch_{self.best_validation_epoch+1}.pt")
         self.validate(
             epoch=self.best_validation_epoch,
             loader=self.test_loader
@@ -410,176 +421,146 @@ class TrainFlow(object):
 
             df_generated = pd.DataFrame(generator_rescaled, columns=df_generator_scaled.columns)
             df_generated_measured = pd.DataFrame({
-                "unsheared/mag_r": np.array(df_generated["unsheared/mag_r"]),
-                "unsheared/mag_i": np.array(df_generated["unsheared/mag_i"]),
-                "unsheared/mag_z": np.array(df_generated["unsheared/mag_z"]),
-                "unsheared/snr": np.array(df_generated["unsheared/snr"]),
-                "unsheared/size_ratio": np.array(df_generated["unsheared/size_ratio"]),
-                "unsheared/T": np.array(df_generated["unsheared/T"])
+                "luptize_u": np.array(df_generated["luptize_u"]),
+                "luptize_r": np.array(df_generated["luptize_r"]),
+                "luptize_g": np.array(df_generated["luptize_g"]),
+                "luptize_i": np.array(df_generated["luptize_i"]),
+                "luptize_Z": np.array(df_generated["luptize_Z"]),
+                "luptize_Y": np.array(df_generated["luptize_Y"]),
+                "luptize_J": np.array(df_generated["luptize_J"]),
+                "luptize_H": np.array(df_generated["luptize_H"]),
+                "luptize_Ks": np.array(df_generated["luptize_Ks"])
             })
 
-            df_analytical_output = pd.DataFrame(data, columns=self.col_output_flow)
-            df_analytical_scaled = pd.concat([df_generator_label, df_analytical_output], axis=1)
-            analytical_rescaled = self.scaler.inverse_transform(df_analytical_scaled)
-            df_balrog = pd.DataFrame(analytical_rescaled, columns=df_analytical_scaled.columns)
-            df_balrog_measured = pd.DataFrame({
-                "unsheared/mag_r": np.array(df_balrog["unsheared/mag_r"]),
-                "unsheared/mag_i": np.array(df_balrog["unsheared/mag_i"]),
-                "unsheared/mag_z": np.array(df_balrog["unsheared/mag_z"]),
-                "unsheared/snr": np.array(df_balrog["unsheared/snr"]),
-                "unsheared/size_ratio": np.array(df_balrog["unsheared/size_ratio"]),
-                "unsheared/T": np.array(df_balrog["unsheared/T"])
+            df_true_output = pd.DataFrame(data, columns=self.col_output_flow)
+            df_true_scaled = pd.concat([df_generator_label, df_true_output], axis=1)
+            true_rescaled = self.scaler.inverse_transform(df_true_scaled)
+            df_true = pd.DataFrame(true_rescaled, columns=df_true_scaled.columns)
+            df_true_measured = pd.DataFrame({
+                "luptize_u": np.array(df_true["luptize_u"]),
+                "luptize_r": np.array(df_true["luptize_r"]),
+                "luptize_g": np.array(df_true["luptize_g"]),
+                "luptize_i": np.array(df_true["luptize_i"]),
+                "luptize_Z": np.array(df_true["luptize_Z"]),
+                "luptize_Y": np.array(df_true["luptize_Y"]),
+                "luptize_J": np.array(df_true["luptize_J"]),
+                "luptize_H": np.array(df_true["luptize_H"]),
+                "luptize_Ks": np.array(df_true["luptize_Ks"])
             })
 
-            arr_balrog = df_balrog_measured.to_numpy()
+            arr_true = df_true_measured.to_numpy()
             arr_generated = df_generated_measured.to_numpy()
             parameter = [
-                "mag r",
-                "mag i",
-                "mag z",
-                "snr",
-                "size ratio",
-                "T"
+                "luptize u",
+                "luptize r",
+                "luptize g",
+                "luptize i",
+                "luptize Z",
+                "luptize Y",
+                "luptize J",
+                "luptize H",
+                "luptize Ks",
             ]
             chainchat = ChainConsumer()
-            chainchat.add_chain(arr_balrog, parameters=parameter, name="balrog observed properties: chat")
+            chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
             chainchat.add_chain(arr_generated, parameters=parameter, name="generated observed properties: chat*")
             chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
             try:
                 chainchat.plotter.plot(
                     filename=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
                     figsize="page",
-                    extents={
-                        "mag r": (17.5, 26),
-                        "mag i": (17.5, 26),
-                        "mag z": (17.5, 26),
-                        "snr": (-11, 55),
-                        "size ratio": (-1.5, 4),
-                        "T": (-1, 2.5)
-                    }
+                    # extents={
+                    #     "luptize u": (-0.7E5, 0.7E5),
+                    #     "luptize r": (-0.5E6, 0.5E6),
+                    #     "luptize g": (-0.5E6, 0.5E6),
+                    #     "luptize i": (-0.5E6, 0.5E6),
+                    #     "luptize Z": (-0.5E6, 0.5E6),
+                    #     "luptize Y": (-0.5E6, 0.5E6),
+                    #     "luptize J": (-0.5E6, 0.5E6),
+                    #     "luptize H": (-0.5E6, 0.5E6),
+                    #     "luptize Ks": (-0.5E6, 0.5E6)
+                    # }
                 )
             except:
                 print("chain error at epoch", epoch + 1)
             plt.clf()
 
-            chaincolor = ChainConsumer()
-            df_compare_balrog = pd.DataFrame({
-                'true r': df_balrog['BDF_MAG_DERED_CALIB_R'],
-                'true i': df_balrog['BDF_MAG_DERED_CALIB_I'],
-                'true z': df_balrog['BDF_MAG_DERED_CALIB_Z'],
-                'meas r - true r': df_balrog['unsheared/mag_r'] - df_balrog['BDF_MAG_DERED_CALIB_R'],
-                'meas i - true i': df_balrog['unsheared/mag_i'] - df_balrog['BDF_MAG_DERED_CALIB_I'],
-                'meas z - true z': df_balrog['unsheared/mag_z'] - df_balrog['BDF_MAG_DERED_CALIB_Z']
-            })
-            df_compare_generated = pd.DataFrame({
-                'true r': df_generated['BDF_MAG_DERED_CALIB_R'],
-                'true i': df_generated['BDF_MAG_DERED_CALIB_I'],
-                'true z': df_generated['BDF_MAG_DERED_CALIB_Z'],
-                'meas r - true r': df_generated['unsheared/mag_r'] - df_generated['BDF_MAG_DERED_CALIB_R'],
-                'meas i - true i': df_generated['unsheared/mag_i'] - df_generated['BDF_MAG_DERED_CALIB_I'],
-                'meas z - true z': df_generated['unsheared/mag_z'] - df_generated['BDF_MAG_DERED_CALIB_Z']
-            })
-            plot_parameter = [
-                "true r",
-                "true i",
-                "true z",
-                'meas r - true r',
-                'meas i - true i',
-                'meas z - true z'
-            ]
-            chaincolor.add_chain(df_compare_balrog.to_numpy(), parameters=plot_parameter, name="Balrog color")
-            chaincolor.add_chain(df_compare_generated.to_numpy(), parameters=plot_parameter, name="generated color")
-            chaincolor.plotter.plot(
-                figsize="page",
-                extents={
-                    "true r": (18, 24),
-                    "true i": (18, 24),
-                    "true z": (18, 24),
-                    "meas r - true r": (-1, 1),
-                    "meas i - true i": (-1, 1),
-                    "meas z - true z": (-1, 1)
-                }
-            )
-            if self.show_plot is True:
-                plt.show()
-            if self.save_plot is True:
-                plt.savefig(f"{self.path_color_diff_plot}/color_diff_{epoch + 1}.png", dpi=200)
-            plt.clf()
-            plt.close()
-
-            self.lst_mean_mag_r.append(df_generated["unsheared/mag_r"].mean() / df_balrog["unsheared/mag_r"].mean())
-            self.lst_mean_mag_i.append(df_generated["unsheared/mag_i"].mean() / df_balrog["unsheared/mag_i"].mean())
-            self.lst_mean_mag_z.append(df_generated["unsheared/mag_z"].mean() / df_balrog["unsheared/mag_z"].mean())
-            self.lst_mean_snr.append(df_generated["unsheared/snr"].mean() / df_balrog["unsheared/snr"].mean())
-            self.lst_mean_size_ratio.append(
-                df_generated["unsheared/size_ratio"].mean() / df_balrog["unsheared/size_ratio"].mean())
-            self.lst_mean_t.append(df_generated["unsheared/T"].mean() / df_balrog["unsheared/T"].mean())
-
-            plt.plot(self.lst_epochs, self.lst_mean_mag_r, marker="o", linestyle='-', color="blue", label="mag r")
-            plt.plot(self.lst_epochs, self.lst_mean_mag_i, marker="^", linestyle='-', color="red", label="mag i")
-            plt.plot(self.lst_epochs, self.lst_mean_mag_z, marker="X", linestyle='-', color="green", label="mag z")
-            plt.plot(self.lst_epochs, self.lst_mean_snr, marker="d", linestyle='-', color="orange", label="snr")
-            plt.plot(self.lst_epochs, self.lst_mean_size_ratio, marker="s", linestyle='-', color="purple",
-                     label="size ratio")
-            plt.plot(self.lst_epochs, self.lst_mean_t, marker="*", linestyle='-', color="black", label="T")
-            plt.legend()
-            plt.title("plot ratio mean")
-            plt.xlabel("epoch")
-            plt.ylabel("mean(chat*) / mean(chat)")
-
-            if self.show_plot is True:
-                plt.show()
-            if self.save_plot is True:
-                plt.savefig(f"{self.path_mean_plot}/mean_{epoch+1}.png", dpi=200)
-            plt.clf()
-            plt.close()
-
-            self.lst_std_mag_r.append(df_generated["unsheared/mag_r"].std() / df_balrog["unsheared/mag_r"].std())
-            self.lst_std_mag_i.append(df_generated["unsheared/mag_i"].std() / df_balrog["unsheared/mag_i"].std())
-            self.lst_std_mag_z.append(df_generated["unsheared/mag_z"].std() / df_balrog["unsheared/mag_z"].std())
-            self.lst_std_snr.append(df_generated["unsheared/snr"].std() / df_balrog["unsheared/snr"].std())
-            self.lst_std_size_ratio.append(
-                df_generated["unsheared/size_ratio"].std() / df_balrog["unsheared/size_ratio"].std())
-            self.lst_std_t.append(df_generated["unsheared/T"].std() / df_balrog["unsheared/T"].std())
-
-            plt.plot(self.lst_epochs, self.lst_std_mag_r, marker="o", linestyle='-', color="blue", label="mag r")
-            plt.plot(self.lst_epochs, self.lst_std_mag_i, marker="^", linestyle='-', color="red", label="mag i")
-            plt.plot(self.lst_epochs, self.lst_std_mag_z, marker="X", linestyle='-', color="green", label="mag z")
-            plt.plot(self.lst_epochs, self.lst_std_snr, marker="d", linestyle='-', color="orange", label="snr")
-            plt.plot(self.lst_epochs, self.lst_std_size_ratio, marker="s", linestyle='-', color="purple",
-                     label="size ratio")
-            plt.plot(self.lst_epochs, self.lst_std_t, marker="*", linestyle='-', color="black", label="T")
-            plt.legend()
-            plt.title("plot ratio standard deviation")
-            plt.xlabel("epoch")
-            plt.ylabel("std(chat*) / std(chat)")
-
-            if self.show_plot is True:
-                plt.show()
-            if self.save_plot is True:
-                plt.savefig(f"{self.path_std_plot}/std_{epoch+1}.png", dpi=200)
-            plt.clf()
-            plt.close()
-
-            plt.plot(df_generated["unsheared/flags"], ".b", label="generated flag")
-            plt.plot(df_balrog["unsheared/flags"], ".g", label="true flag")
-            plt.title(f"Compare flags, epoch {epoch}")
-            plt.xlabel("flags")
-            plt.legend()
-            if self.show_plot is True:
-                plt.show()
-            if self.save_plot is True:
-                plt.savefig(f"{self.path_flag_plot}/flags_{epoch}.png", dpi=200)
-            plt.clf()
-
-            plt.plot(df_generated["detected"], ".b", label="generated detected")
-            plt.plot(df_balrog["detected"], ".g", label="true detected")
-            plt.title(f"Compare detected, epoch {epoch}")
-            plt.xlabel("detected")
-            plt.legend()
-            if self.show_plot is True:
-                plt.show()
-            if self.save_plot is True:
-                plt.savefig(f"{self.path_detection_plot}/detection_{epoch}.png", dpi=200)
-            plt.clf()
+            # self.lst_mean_mag_u.append(df_generated["FLUX_GAAP_u"].mean() / df_true["FLUX_GAAP_u"].mean())
+            # self.lst_mean_mag_g.append(df_generated["FLUX_GAAP_g"].mean() / df_true["FLUX_GAAP_g"].mean())
+            # self.lst_mean_mag_r.append(df_generated["FLUX_GAAP_r"].mean() / df_true["FLUX_GAAP_r"].mean())
+            # self.lst_mean_mag_i.append(df_generated["FLUX_GAAP_i"].mean() / df_true["FLUX_GAAP_i"].mean())
+            # self.lst_mean_mag_Z.append(df_generated["FLUX_GAAP_Z"].mean() / df_true["FLUX_GAAP_Z"].mean())
+            # self.lst_mean_mag_Y.append(df_generated["FLUX_GAAP_Y"].mean() / df_true["FLUX_GAAP_Y"].mean())
+            # self.lst_mean_mag_J.append(df_generated["FLUX_GAAP_J"].mean() / df_true["FLUX_GAAP_J"].mean())
+            # self.lst_mean_mag_H.append(df_generated["FLUX_GAAP_H"].mean() / df_true["FLUX_GAAP_H"].mean())
+            # self.lst_mean_mag_Ks.append(df_generated["FLUX_GAAP_Ks"].mean() / df_true["FLUX_GAAP_Ks"].mean())
+            #
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_u, marker="o", linestyle='-', color="blue", label="mag u")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_g, marker="^", linestyle='-', color="red", label="mag g")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_r, marker="X", linestyle='-', color="green", label="mag r")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_i, marker="d", linestyle='-', color="orange", label="mag i")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_Z, marker="s", linestyle='-', color="purple", label="mag Z")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_Y, marker="*", linestyle='-', color="black", label="mag Y")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_J, marker="a", linestyle='-', color="grey", label="mag J")
+            # plt.plot(self.lst_epochs, self.lst_mean_mag_Ks, marker="w", linestyle='-', color="darkred", label="mag Ks")
+            # plt.legend()
+            # plt.title("plot ratio mean")
+            # plt.xlabel("epoch")
+            # plt.ylabel("mean(chat*) / mean(chat)")
+            #
+            # if self.show_plot is True:
+            #     plt.show()
+            # if self.save_plot is True:
+            #     plt.savefig(f"{self.path_mean_plot}/mean_{epoch+1}.png", dpi=200)
+            # plt.clf()
+            # plt.close()
+            #
+            # self.lst_std_mag_r.append(df_generated["unsheared/mag_r"].std() / df_true["unsheared/mag_r"].std())
+            # self.lst_std_mag_i.append(df_generated["unsheared/mag_i"].std() / df_true["unsheared/mag_i"].std())
+            # self.lst_std_mag_z.append(df_generated["unsheared/mag_z"].std() / df_true["unsheared/mag_z"].std())
+            # self.lst_std_snr.append(df_generated["unsheared/snr"].std() / df_true["unsheared/snr"].std())
+            # self.lst_std_size_ratio.append(
+            #     df_generated["unsheared/size_ratio"].std() / df_true["unsheared/size_ratio"].std())
+            # self.lst_std_t.append(df_generated["unsheared/T"].std() / df_true["unsheared/T"].std())
+            #
+            # plt.plot(self.lst_epochs, self.lst_std_mag_r, marker="o", linestyle='-', color="blue", label="mag r")
+            # plt.plot(self.lst_epochs, self.lst_std_mag_i, marker="^", linestyle='-', color="red", label="mag i")
+            # plt.plot(self.lst_epochs, self.lst_std_mag_z, marker="X", linestyle='-', color="green", label="mag z")
+            # plt.plot(self.lst_epochs, self.lst_std_snr, marker="d", linestyle='-', color="orange", label="snr")
+            # plt.plot(self.lst_epochs, self.lst_std_size_ratio, marker="s", linestyle='-', color="purple",
+            #          label="size ratio")
+            # plt.plot(self.lst_epochs, self.lst_std_t, marker="*", linestyle='-', color="black", label="T")
+            # plt.legend()
+            # plt.title("plot ratio standard deviation")
+            # plt.xlabel("epoch")
+            # plt.ylabel("std(chat*) / std(chat)")
+            #
+            # if self.show_plot is True:
+            #     plt.show()
+            # if self.save_plot is True:
+            #     plt.savefig(f"{self.path_std_plot}/std_{epoch+1}.png", dpi=200)
+            # plt.clf()
+            # plt.close()
+            #
+            # plt.plot(df_generated["unsheared/flags"], ".b", label="generated flag")
+            # plt.plot(df_true["unsheared/flags"], ".g", label="true flag")
+            # plt.title(f"Compare flags, epoch {epoch}")
+            # plt.xlabel("flags")
+            # plt.legend()
+            # if self.show_plot is True:
+            #     plt.show()
+            # if self.save_plot is True:
+            #     plt.savefig(f"{self.path_flag_plot}/flags_{epoch}.png", dpi=200)
+            # plt.clf()
+            #
+            # plt.plot(df_generated["detected"], ".b", label="generated detected")
+            # plt.plot(df_true["detected"], ".g", label="true detected")
+            # plt.title(f"Compare detected, epoch {epoch}")
+            # plt.xlabel("detected")
+            # plt.legend()
+            # if self.show_plot is True:
+            #     plt.show()
+            # if self.save_plot is True:
+            #     plt.savefig(f"{self.path_detection_plot}/detection_{epoch}.png", dpi=200)
+            # plt.clf()
 
