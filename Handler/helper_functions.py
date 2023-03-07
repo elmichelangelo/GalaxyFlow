@@ -345,7 +345,7 @@ def luptize_deep(flux, bins, var=0, zp=22.5):
     s = (10**((zp-arr_mags)/2.5)) / 10
     return luptize(flux, var, s, zp)
 
-def luptize_deep_kids(flux, bins, var=0, zp=22.5):
+def luptize_deep_kids(flux, bins, var=0, zp=30):
     """
     The flux must be in the same dimension as the bins.
     The bins must be given as list like ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]

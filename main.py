@@ -219,7 +219,7 @@ if __name__ == '__main__':
     path = os.path.abspath(sys.path[1])
 
     main_kids(
-        path_train_data=f"{path}/Data/kids_training_catalog_lup.pkl",
+        path_train_data=f"{path}/Data/kids_training_catalog_lup_small.pkl",
         path_output=f"{path}/Output",
         plot_test=True,
         show_plot=False,
@@ -228,7 +228,7 @@ if __name__ == '__main__':
         learning_rate=1E-6,
         number_hidden=64,
         number_blocks=3,
-        epochs=2,
+        epochs=100,
         device="cpu",
         activation_function="tanh",
         batch_size=64,

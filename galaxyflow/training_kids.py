@@ -251,7 +251,8 @@ class TrainFlow(object):
             make_gif(self.path_flag_plot, f"{self.path_gifs}/flag_plot.gif")
             make_gif(self.path_detection_plot, f"{self.path_gifs}/detection_plot.gif")
         if self.save_nn is True:
-            torch.save(self.best_model, f"{self.path_save_nn}/discriminator_epoch_{self.best_validation_epoch+1}.pt")
+            torch.save(self.best_model, f"{self.path_save_nn}/best_model_epoch_{self.best_validation_epoch + 1}.pt")
+            torch.save(self.model, f"{self.path_save_nn}/last_model_epoch_{epoch + 1}.pt")
         self.validate(
             epoch=self.best_validation_epoch,
             loader=self.test_loader

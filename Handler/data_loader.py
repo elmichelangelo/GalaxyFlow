@@ -1,6 +1,7 @@
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
 from Handler.helper_functions import flux2mag
 from chainconsumer import ChainConsumer
+import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -125,11 +126,11 @@ def load_data_kidz(path_training_data, input_flow, output_flow, selected_scaler,
     print(f'Length of catalog: {len(df_data)}')
 
     if apply_cuts is True:
-        print(f"Apply some cuts to avoid negative fluxes")
+        print(f"Apply some star cuts")
         df_data = data_cuts_kids(df_data)
         print(f'Length of catalog now: {len(df_data)}')
 
-    plot_true_dataset(df_data)
+    # plot_true_dataset(df_data)
 
     # Use only necessary columns
     df_training_data = df_data[input_flow+output_flow]
@@ -218,16 +219,16 @@ def data_cuts(data_frame, analytical_data, only_detected):
 def data_cuts_kids(data_frame):
     """"""
     input_cut = (
-        (data_frame["axis_ratio_input"] != -999) &
-        (data_frame["luptize_u"] < 25) &
-        (data_frame["luptize_g"] < 25) &
-        (data_frame["luptize_r"] < 25) &
-        (data_frame["luptize_i"] < 25) &
-        (data_frame["luptize_Z"] < 25) &
-        (data_frame["luptize_Y"] < 25) &
-        (data_frame["luptize_J"] < 25) &
-        (data_frame["luptize_H"] < 25) &
-        (data_frame["luptize_Ks"] < 25)
+        (data_frame["axis_ratio_input"] != -999) #&
+        # (data_frame["luptize_u"] < 25) &
+        # (data_frame["luptize_g"] < 25) &
+        # (data_frame["luptize_r"] < 25) &
+        # (data_frame["luptize_i"] < 25) &
+        # (data_frame["luptize_Z"] < 25) &
+        # (data_frame["luptize_Y"] < 25) &
+        # (data_frame["luptize_J"] < 25) &
+        # (data_frame["luptize_H"] < 25) &
+        # (data_frame["luptize_Ks"] < 25)
     )
     data_frame = data_frame[input_cut]
     return data_frame
@@ -265,15 +266,15 @@ def plot_true_dataset(data_frame):
         # filename=f'{self.path_chain_plot}/Loaded_data.png',
         figsize="page",
         extents={
-            "luptize u": (10, 25),
-            "luptize g": (10, 25),
-            "luptize r": (10, 25),
-            "luptize i": (10, 25),
-            "luptize Z": (10, 25),
-            "luptize Y": (10, 25),
-            "luptize J": (10, 25),
-            "luptize H": (10, 25),
-            "luptize Ks": (10, 25)
+            "luptize u": (17, 30),
+            "luptize g": (17, 30),
+            "luptize r": (17, 30),
+            "luptize i": (17, 30),
+            "luptize Z": (17, 30),
+            "luptize Y": (17, 30),
+            "luptize J": (17, 30),
+            "luptize H": (17, 30),
+            "luptize Ks": (17, 30)
         }
     )
     plt.show()
@@ -354,10 +355,6 @@ def main(filename):
         selected_scaler="MaxAbsScaler",
         apply_cuts=True
     )
-
-    print(train_data)
-    print(valid_data)
-    print(test_data)
 
 
 if __name__ == "__main__":
