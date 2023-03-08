@@ -1,5 +1,6 @@
 from Handler.data_loader import load_data_kidz
 from chainconsumer import ChainConsumer
+from scipy.stats import binned_statistic, median_abs_deviation
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -14,8 +15,8 @@ def load_model(path_model):
     return model
 
 
-def main(path_training_data, path_model, path_save_plots, number_samples, plot_chain, plot_luptize_conditions,
-         conditions, plot_luptize_input, plot_color_color, bands, colors):
+def main(path_training_data, path_model, path_save_plots, number_samples, plot_chain, plot_residual,
+         plot_luptize_conditions, conditions, bands, colors):
     col_label_flow = [
         "axis_ratio_input",
         "Re_input",
@@ -119,18 +120,17 @@ def main(path_training_data, path_model, path_save_plots, number_samples, plot_c
             scaler=scaler,
             data=data[0],
             plot_chain=plot_chain,
+            plot_residual=plot_residual,
             plot_luptize_conditions=plot_luptize_conditions,
             conditions=conditions,
-            plot_luptize_input=plot_luptize_input,
-            plot_color_color=plot_color_color,
             bands=bands,
-            colors=colors,
+            colors=colors
         )
         break
 
 
 def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_output_flow, scaler, data, plot_chain,
-              plot_luptize_conditions, conditions, plot_luptize_input, plot_color_color, bands, colors):
+              plot_residual, plot_luptize_conditions, conditions, bands, colors):
 
     df_generator_label = pd.DataFrame(cond_data.numpy(), columns=col_label_flow)
     df_generator_output = pd.DataFrame(test_output.numpy(), columns=col_output_flow)
@@ -144,42 +144,25 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
     df_true = pd.DataFrame(true_rescaled, columns=df_true_scaled.columns)
 
     if plot_chain is True:
-        df_generated_measured = pd.DataFrame({
-            "luptize_u": np.array(df_generated["luptize_u"]),
-            "luptize_r": np.array(df_generated["luptize_r"]),
-            "luptize_g": np.array(df_generated["luptize_g"]),
-            "luptize_i": np.array(df_generated["luptize_i"]),
-            "luptize_Z": np.array(df_generated["luptize_Z"]),
-            "luptize_Y": np.array(df_generated["luptize_Y"]),
-            "luptize_J": np.array(df_generated["luptize_J"]),
-            "luptize_H": np.array(df_generated["luptize_H"]),
-            "luptize_Ks": np.array(df_generated["luptize_Ks"])
-        })
-
-        df_true_measured = pd.DataFrame({
-            "luptize_u": np.array(df_true["luptize_u"]),
-            "luptize_r": np.array(df_true["luptize_r"]),
-            "luptize_g": np.array(df_true["luptize_g"]),
-            "luptize_i": np.array(df_true["luptize_i"]),
-            "luptize_Z": np.array(df_true["luptize_Z"]),
-            "luptize_Y": np.array(df_true["luptize_Y"]),
-            "luptize_J": np.array(df_true["luptize_J"]),
-            "luptize_H": np.array(df_true["luptize_H"]),
-            "luptize_Ks": np.array(df_true["luptize_Ks"])
-        })
+        df_generated_measured = pd.DataFrame({})
+        df_true_measured = pd.DataFrame({})
+        for color in colors:
+            df_generated_measured[f"{color[0]}-{color[1]}"] = \
+                np.array(df_generated[f"luptize_{color[0]}"]) - np.array(df_generated[f"luptize_{color[1]}"])
+            df_true_measured[f"{color[0]}-{color[1]}"] = \
+                np.array(df_true[f"luptize_{color[0]}"]) - np.array(df_true[f"luptize_{color[1]}"])
 
         arr_true = df_true_measured.to_numpy()
         arr_generated = df_generated_measured.to_numpy()
         parameter = [
-            "luptize u",
-            "luptize r",
-            "luptize g",
-            "luptize i",
-            "luptize Z",
-            "luptize Y",
-            "luptize J",
-            "luptize H",
-            "luptize Ks",
+            "luptize u-g",
+            "luptize g-r",
+            "luptize r-i",
+            "luptize i-Z",
+            "luptize Z-Y",
+            "luptize Y-J",
+            "luptize J-H",
+            "luptize H-Ks"
         ]
         chainchat = ChainConsumer()
         chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
@@ -188,142 +171,224 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         chainchat.plotter.plot(
             filename=f'{path_save_plots}/chainplot.png',
             figsize="page",
+            extents={
+                "luptize u-g": (-4, 7),
+                "luptize g-r": (-1, 3),
+                "luptize r-i": (-3, 3),
+                "luptize i-Z": (-3, 4),
+                "luptize Z-Y": (-3, 3),
+                "luptize Y-J": (-4, 4),
+                "luptize J-H": (-3, 3),
+                "luptize H-Ks": (-4, 4)
+            }
         )
-        # plt.show()
+        plt.savefig(f"{path_save_plots}/chain_color_plot.png")
+        plt.show()
         plt.clf()
+        plt.close()
+
+    if plot_residual:
+        hist_figure, ((stat_ax1, stat_ax2, stat_ax3), (stat_ax4, stat_ax5, stat_ax6), (stat_ax7, stat_ax8, stat_ax9)) = \
+            plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
+        hist_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
+        hist_figure.suptitle(r"residual", fontsize=16)
+
+        lst_axis_res = [
+            stat_ax1,
+            stat_ax2,
+            stat_ax3,
+            stat_ax4,
+            stat_ax5,
+            stat_ax6,
+            stat_ax7,
+            stat_ax8,
+            stat_ax9
+        ]
+
+        lst_xlim_res = [
+            (-2, 2),
+            (-2, 2),
+            (-2, 2),
+            (-2, 2),
+            (-2, 2),
+            (-2, 2),
+            (-2, 2),
+            (-2, 2),
+            (-2, 2)
+        ]
+
+        df_hist_skills = pd.DataFrame({
+            "dataset": ["skillz" for _ in range(len(df_true[f"luptize_u"]))]
+        })
+        df_hist_generated = pd.DataFrame({
+            "dataset": ["generated" for _ in range(len(df_true[f"luptize_u"]))]
+        })
+        for band in bands:
+            df_hist_skills[f"input - luptize {band}"] = df_true[f"{band}_input"] - df_true[f"luptize_{band}"]
+            df_hist_generated[f"input - luptize {band}"] = df_true[f"{band}_input"] - df_generated[f"luptize_{band}"]
+
+        for idx, band in enumerate(bands):
+            sns.histplot(
+                data=df_hist_skills,
+                x=f"input - luptize {band}",
+                ax=lst_axis_res[idx],
+                element="step",
+                stat="density",
+                color="dodgerblue",
+                bins=50,
+                label="skills"
+            )
+            sns.histplot(
+                data=df_hist_generated,
+                x=f"input - luptize {band}",
+                ax=lst_axis_res[idx],
+                element="step",
+                stat="density",
+                color="darkorange",
+                fill=False,
+                bins=50,
+                label="generated"
+            )
+            lst_axis_res[idx].axvline(
+                x=df_hist_skills[f"input - luptize {band}"].median(),
+                color='dodgerblue',
+                ls='--',
+                lw=1.5,
+                label="Mean skills"
+            )
+            lst_axis_res[idx].axvline(
+                x=df_hist_generated[f"input - luptize {band}"].median(),
+                color='darkorange',
+                ls='--',
+                lw=1.5,
+                label="Mean generated"
+            )
+            lst_axis_res[idx].set_xlim(lst_xlim_res[idx][0], lst_xlim_res[idx][1])
+            if idx == 0:
+                lst_axis_res[idx].legend()
+            else:
+                lst_axis_res[idx].legend([], [], frameon=False)
+        hist_figure.tight_layout()
+        plt.savefig(f"{path_save_plots}/residual_plot.png")
+        plt.show()
+        plt.clf()
+        plt.close()
 
     if plot_luptize_conditions is True:
         for condition in conditions:
-            df_lineplot_u = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_u"]-df_generated["luptize_u"],
-                "band": ["u" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_g = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_g"] - df_generated["luptize_g"],
-                "band": ["g" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_r = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_r"] - df_generated["luptize_r"],
-                "band": ["r" for _ in range(len(df_true[condition]))]
-            })
+            cond_figure, (
+            (stat_ax1, stat_ax2, stat_ax3), (stat_ax4, stat_ax5, stat_ax6), (stat_ax7, stat_ax8, stat_ax9)) = \
+                plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
+            cond_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
+            cond_figure.suptitle(f"input - luptize", fontsize=16)
 
-            df_lineplot_i = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_i"] - df_generated["luptize_i"],
-                "band": ["i" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_Z = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_Z"] - df_generated["luptize_Z"],
-                "band": ["Z" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_Y = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_Y"] - df_generated["luptize_Y"],
-                "band": ["Y" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_J = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_J"] - df_generated["luptize_J"],
-                "band": ["J" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_H = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_H"] - df_generated["luptize_H"],
-                "band": ["H" for _ in range(len(df_true[condition]))]
-            })
-            df_lineplot_Ks = pd.DataFrame({
-                condition: df_true[condition],
-                "measured luptize - generated luptize": df_true["luptize_Ks"] - df_generated["luptize_Ks"],
-                "band": ["Ks" for _ in range(len(df_true[condition]))]
-            })
+            outputs = ['luptize_' + b for b in bands]
+            output_errs = ['luptize_err_' + b for b in bands]
 
+            lst_axis_con = [
+                stat_ax1,
+                stat_ax2,
+                stat_ax3,
+                stat_ax4,
+                stat_ax5,
+                stat_ax6,
+                stat_ax7,
+                stat_ax8,
+                stat_ax9
+            ]
 
-            df_lineplot = pd.concat(
-                [
-                    df_lineplot_u,
-                    df_lineplot_g,
-                    df_lineplot_r,
-                    df_lineplot_i,
-                    df_lineplot_Z,
-                    df_lineplot_Y,
-                    df_lineplot_J,
-                    df_lineplot_H,
-                    df_lineplot_Ks,
-                ],
-                ignore_index=True,
-                sort=False
-            )
+            cond_lims = np.percentile(df_true[condition], [2, 98])
 
-            sns.lineplot(data=df_lineplot, x=condition, y="measured luptize - generated luptize", hue="band")
-            plt.savefig(f"{path_save_plots}/luptize_{condition}_plot.png")
-            # plt.show()
+            for idx, out in enumerate(zip(outputs, output_errs)):
+                output_ = out[0]
+                output_err_ = out[1]
+                diff_true = (df_true['r_input'] - df_true[output_]) / df_true[output_err_]
+                df_conditional_true = pd.DataFrame({
+                    condition: df_true[condition],
+                    f"residual band {bands[idx]}": diff_true,
+                    "dataset": ["skills" for _ in range(len(df_true[condition]))]
+                })
+                bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
+                    df_true[condition], diff_true, statistic='median', bins=10, range=cond_lims)
+                bin_stds_true, bin_edges_true, binnumber_true = binned_statistic(
+                    df_true[condition], diff_true, statistic=median_abs_deviation, bins=10, range=cond_lims)
+                xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
+                xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
+                lst_axis_con[idx].errorbar(
+                    xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, color='dodgerblue', lw=2, label='skills')
+
+                diff_generated = (df_generated['r_input'] - df_generated[output_]) / df_generated[output_err_]
+                df_conditional_generated = pd.DataFrame({
+                    condition: df_generated[condition],
+                    f"residual band {bands[idx]}": diff_generated,
+                    "dataset": ["generated" for _ in range(len(df_true[condition]))]
+                })
+                bin_means_generated, bin_edges_mean_generated, binnumber_mean_generated = binned_statistic(
+                    df_generated[condition], diff_generated, statistic='median', bins=10, range=cond_lims)
+                bin_stds_generated, bin_edges_generated, binnumber_generated = binned_statistic(
+                    df_generated[condition], diff_generated, statistic=median_abs_deviation, bins=10, range=cond_lims)
+                xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
+                xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+                lst_axis_con[idx].errorbar(
+                    xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, color='darkorange', lw=2, label='generated')
+                m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
+                range_ = [m - 4 * s, m + 4 * s]
+
+                sns.kdeplot(
+                    data=df_conditional_true,
+                    x=condition,
+                    y=f"residual band {bands[idx]}",
+                    fill=True,
+                    thresh=0,
+                    levels=10,
+                    color="dodgerblue",
+                    legend="skills",
+                    ax=lst_axis_con[idx]
+                )
+                sns.kdeplot(
+                    data=df_conditional_generated,
+                    x=condition,
+                    y=f"residual band {bands[idx]}",
+                    fill=False,
+                    thresh=0,
+                    levels=10,
+                    alpha=.5,
+                    color="darkorange",
+                    legend="generated",
+                    ax=lst_axis_con[idx]
+                )
+                lst_axis_con[idx].set_xlim(cond_lims)
+                lst_axis_con[idx].set_ylim(range_)
+                lst_axis_con[idx].axhline(np.median(diff_true), c='dodgerblue', ls='--', label='median skills')
+                lst_axis_con[idx].axhline(0, c='grey', ls='--', label='zero')
+                lst_axis_con[idx].axhline(np.median(diff_generated), c='darkorange', ls='--', label='median generated')
+                lst_axis_con[idx].axvline(np.median(df_true[condition]), c='grey', ls='--', label='median conditional')
+            lst_axis_con[0].legend()
+            cond_figure.tight_layout()
+            plt.savefig(f"{path_save_plots}/condition_{condition}_plot.png")
+            plt.show()
             plt.clf()
-
-        if plot_luptize_input is True:
-            for band in bands:
-                df_lineplot_input_true = pd.DataFrame({
-                    f"{band}_input": df_true[f"{band}_input"],
-                    "true - luptize": df_true[f"{band}_input"] - df_true[f"luptize_{band}"],
-                    "dataset": ["skills" for _ in range(len(df_true[f"{band}_input"]))]
-                })
-
-                df_lineplot_input_generated = pd.DataFrame({
-                    f"{band}_input": df_true[f"{band}_input"],
-                    "true - luptize": df_true[f"{band}_input"] - df_generated[f"luptize_{band}"],
-                    "dataset": ["generated" for _ in range(len(df_true[f"{band}_input"]))]
-                })
-
-                df_lineplot_input = pd.concat(
-                    [
-                        df_lineplot_input_true,
-                        df_lineplot_input_generated
-                    ],
-                    ignore_index=True,
-                    sort=False
-                )
-
-                sns.displot(data=df_lineplot_input, x=f"{band}_input", y="true - luptize", hue="dataset")
-                plt.savefig(f"{path_save_plots}/luptize_input_{band}.plot.png")
-                # plt.show()
-                plt.clf()
-
-        if plot_color_color is True:
-            for color in colors:
-                df_color_color_generated = pd.DataFrame({
-                    f"luptize {color[0]} - luptize {color[1]}": df_generated[f"luptize_{color[0]}"] - df_generated[f"luptize_{color[1]}"],
-                    f"luptize {color[1]} - luptize {color[2]}": df_generated[f"luptize_{color[1]}"] - df_generated[f"luptize_{color[2]}"],
-                    "dataset": ["generated" for _ in range(len(df_generated[f"luptize_{color[0]}"]))]
-                })
-                df_color_color_skills = pd.DataFrame({
-                    f"luptize {color[0]} - luptize {color[1]}": df_true[f"luptize_{color[0]}"] - df_true[f"luptize_{color[1]}"],
-                    f"luptize {color[1]} - luptize {color[2]}": df_true[f"luptize_{color[1]}"] - df_true[f"luptize_{color[2]}"],
-                    "dataset": ["skills" for _ in range(len(df_true[f"luptize_{color[0]}"]))]
-                })
-
-                df_color_color = pd.concat(
-                    [
-                        df_color_color_generated,
-                        df_color_color_skills
-                    ],
-                    ignore_index=True,
-                    sort=False
-                )
-
-                sns.displot(data=df_color_color, x=f"luptize {color[0]} - luptize {color[1]}", y=f"luptize {color[1]} - luptize {color[2]}", hue="dataset")
-                plt.savefig(f"{path_save_plots}/color_color_{color}.plot.png")
-                # plt.show()
-                plt.clf()
-
+            plt.close()
 
 
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[0])
     lst_conditions = [
-        "sersic_n_input"
+        "sersic_n_input",
+        # "axis_ratio_input",
+        # "Re_input",
+        "u_input",
+        # "g_input",
+        "InputSeeing_u",
+        # "InputSeeing_g",
+        # "InputSeeing_r",
+        "InputBeta_u",
+        # "InputBeta_g",
+        # "InputBeta_r",
+        "rmsAW_u",
+        # "rmsAW_g",
+        # "rms_Z",
+        # "rms_Y"
     ]
     lst_bands = [
         "u",
@@ -337,24 +402,24 @@ if __name__ == '__main__':
         "Ks"
     ]
     lst_colors = [
-        ("u", "g", "r"),
-        ("g", "r", "i"),
-        ("r", "i", "Z"),
-        ("i", "Z", "Y"),
-        ("Z", "Y", "J"),
-        ("Y", "J", "H"),
-        ("J", "H", "Ks"),
+        ("u", "g"),
+        ("g", "r"),
+        ("r", "i"),
+        ("i", "Z"),
+        ("Z", "Y"),
+        ("Y", "J"),
+        ("J", "H"),
+        ("H", "Ks"),
     ]
     main(
         path_training_data=f"{path}/../Data/kids_training_catalog_lup.pkl",
         path_model=f"{path}/../trained_models/best_model_epoch_100.pt",
         path_save_plots=f"{path}/output_run_flow",
-        number_samples=1500000,
-        plot_chain=False,
+        number_samples=15000,
+        plot_chain=True,
+        plot_residual=True,
         plot_luptize_conditions=True,
         conditions=lst_conditions,
-        plot_luptize_input=True,
-        plot_color_color=True,
         bands=lst_bands,
         colors=lst_colors
     )
