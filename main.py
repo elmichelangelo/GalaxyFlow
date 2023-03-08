@@ -218,8 +218,8 @@ def main_kids(path_train_data,
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[1])
 
-    main_kids(
-        path_train_data=f"{path}/Data/kids_training_catalog_lup_small.pkl",
+    main_des(
+        path_train_data=f"{path}/Data/Balrog_2_data_MAG_250000.pkl",
         path_output=f"{path}/Output",
         plot_test=True,
         show_plot=False,
@@ -228,11 +228,10 @@ if __name__ == '__main__':
         learning_rate=1E-6,
         number_hidden=64,
         number_blocks=3,
-        epochs=100,
+        epochs=10,
         device="cpu",
         activation_function="tanh",
         batch_size=64,
         valid_batch_size=64,
-        selected_scaler="MaxAbsScaler",
-        apply_cuts=True
+        selected_scaler="MaxAbsScaler"
     )

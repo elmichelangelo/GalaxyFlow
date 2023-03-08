@@ -1,4 +1,4 @@
-from Handler.data_loader import load_data_kidz
+from Handler.data_loader import load_data
 from chainconsumer import ChainConsumer
 from scipy.stats import binned_statistic, median_abs_deviation
 import matplotlib.pyplot as plt
@@ -18,76 +18,46 @@ def load_model(path_model):
 def main(path_training_data, path_model, path_save_plots, number_samples, plot_chain, plot_residual,
          plot_luptize_conditions, conditions, bands, colors):
     col_label_flow = [
-        "axis_ratio_input",
-        "Re_input",
-        "sersic_n_input",
-        "u_input",
-        "g_input",
-        "r_input",
-        "i_input",
-        "Z_input",
-        "Y_input",
-        "J_input",
-        "H_input",
-        "Ks_input",
-        "InputSeeing_u",
-        "InputSeeing_g",
-        "InputSeeing_r",
-        "InputSeeing_i",
-        "InputSeeing_Z",
-        "InputSeeing_Y",
-        "InputSeeing_J",
-        "InputSeeing_H",
-        "InputSeeing_Ks",
-        "InputBeta_u",
-        "InputBeta_g",
-        "InputBeta_r",
-        "InputBeta_i",
-        "InputBeta_Z",
-        "InputBeta_Y",
-        "InputBeta_J",
-        "InputBeta_H",
-        "InputBeta_Ks",
-        "rmsAW_u",
-        "rmsAW_g",
-        "rmsAW_r",
-        "rmsAW_i",
-        "rms_Z",
-        "rms_Y",
-        "rms_J",
-        "rms_H",
-        "rms_Ks"
+        "BDF_MAG_DERED_CALIB_R",
+        "BDF_MAG_DERED_CALIB_I",
+        "BDF_MAG_DERED_CALIB_Z",
+        "Color Mag U-G",
+        "Color Mag G-R",
+        "Color Mag R-I",
+        "Color Mag I-Z",
+        "Color Mag Z-J",
+        "Color Mag J-H",
+        "Color Mag H-KS",
+        "BDF_T",
+        "BDF_G",
+        "FWHM_WMEAN_R",
+        "FWHM_WMEAN_I",
+        "FWHM_WMEAN_Z",
+        "AIRMASS_WMEAN_R",
+        "AIRMASS_WMEAN_I",
+        "AIRMASS_WMEAN_Z",
+        "MAGLIM_R",
+        "MAGLIM_I",
+        "MAGLIM_Z",
+        "EBV_SFD98"
     ]
 
     col_output_flow = [
-        "luptize_u",
-        "luptize_g",
-        "luptize_r",
-        "luptize_i",
-        "luptize_Z",
-        "luptize_Y",
-        "luptize_J",
-        "luptize_H",
-        "luptize_Ks",
-        "luptize_err_u",
-        "luptize_err_g",
-        "luptize_err_r",
-        "luptize_err_i",
-        "luptize_err_Z",
-        "luptize_err_Y",
-        "luptize_err_J",
-        "luptize_err_H",
-        "luptize_err_Ks",
-        "FLUX_AUTO",
-        "FLUXERR_AUTO",
+        "unsheared/mag_r",
+        "unsheared/mag_i",
+        "unsheared/mag_z",
+        "unsheared/snr",
+        "unsheared/size_ratio",
+        "unsheared/flags",
+        "unsheared/T",
+        "detected"
     ]
     print("Load data...")
-    train_data, valid_data, test_data = load_data_kidz(
+    train_data, valid_data, test_data = load_data(
         path_training_data=path_training_data,
         input_flow=col_label_flow,
         output_flow=col_output_flow,
-        selected_scaler="MaxAbsScaler",
-        apply_cuts=True
+        selected_scaler="MaxAbsScaler"
     )
     scaler = test_data["scaler"]
 
@@ -148,21 +118,15 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         df_true_measured = pd.DataFrame({})
         for color in colors:
             df_generated_measured[f"{color[0]}-{color[1]}"] = \
-                np.array(df_generated[f"luptize_{color[0]}"]) - np.array(df_generated[f"luptize_{color[1]}"])
+                np.array(df_generated[f"unsheared/mag_{color[0]}"]) - np.array(df_generated[f"unsheared/mag_{color[1]}"])
             df_true_measured[f"{color[0]}-{color[1]}"] = \
-                np.array(df_true[f"luptize_{color[0]}"]) - np.array(df_true[f"luptize_{color[1]}"])
+                np.array(df_true[f"unsheared/mag_{color[0]}"]) - np.array(df_true[f"unsheared/mag_{color[1]}"])
 
         arr_true = df_true_measured.to_numpy()
         arr_generated = df_generated_measured.to_numpy()
         parameter = [
-            "luptize u-g",
-            "luptize g-r",
-            "luptize r-i",
-            "luptize i-Z",
-            "luptize Z-Y",
-            "luptize Y-J",
-            "luptize J-H",
-            "luptize H-Ks"
+            "unsheared/mag r-i",
+            "unsheared/mag i-z"
         ]
         chainchat = ChainConsumer()
         chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
@@ -171,16 +135,16 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         chainchat.plotter.plot(
             filename=f'{path_save_plots}/chainplot.png',
             figsize="page",
-            extents={
-                "luptize u-g": (-4, 7),
-                "luptize g-r": (-1, 3),
-                "luptize r-i": (-3, 3),
-                "luptize i-Z": (-3, 4),
-                "luptize Z-Y": (-3, 3),
-                "luptize Y-J": (-4, 4),
-                "luptize J-H": (-3, 3),
-                "luptize H-Ks": (-4, 4)
-            }
+            # extents={
+            #     # "unsheared/mag u-g": (-4, 7),
+            #     # "unsheared/mag g-r": (-1, 3),
+            #     "unsheared/mag r-i": (-3, 3),
+            #     "unsheared/mag i-z": (-3, 4),
+            #     # "unsheared/mag Z-Y": (-3, 3),
+            #     # "unsheared/mag Y-J": (-4, 4),
+            #     # "unsheared/mag J-H": (-3, 3),
+            #     # "unsheared/mag H-Ks": (-4, 4)
+            # }
         )
         plt.savefig(f"{path_save_plots}/chain_color_plot.png")
         plt.show()
@@ -188,21 +152,15 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         plt.close()
 
     if plot_residual:
-        hist_figure, ((stat_ax1, stat_ax2, stat_ax3), (stat_ax4, stat_ax5, stat_ax6), (stat_ax7, stat_ax8, stat_ax9)) = \
-            plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
+        hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = \
+            plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
         hist_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
         hist_figure.suptitle(r"residual", fontsize=16)
 
         lst_axis_res = [
             stat_ax1,
             stat_ax2,
-            stat_ax3,
-            stat_ax4,
-            stat_ax5,
-            stat_ax6,
-            stat_ax7,
-            stat_ax8,
-            stat_ax9
+            stat_ax3
         ]
 
         lst_xlim_res = [
@@ -218,19 +176,19 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         ]
 
         df_hist_skills = pd.DataFrame({
-            "dataset": ["skillz" for _ in range(len(df_true[f"luptize_u"]))]
+            "dataset": ["skillz" for _ in range(len(df_true[f"unsheared/mag_r"]))]
         })
         df_hist_generated = pd.DataFrame({
-            "dataset": ["generated" for _ in range(len(df_true[f"luptize_u"]))]
+            "dataset": ["generated" for _ in range(len(df_true[f"unsheared/mag_r"]))]
         })
         for band in bands:
-            df_hist_skills[f"input - luptize {band}"] = df_true[f"{band}_input"] - df_true[f"luptize_{band}"]
-            df_hist_generated[f"input - luptize {band}"] = df_true[f"{band}_input"] - df_generated[f"luptize_{band}"]
+            df_hist_skills[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[f"BDF_MAG_DERED_CALIB_{band.upper()}"] - df_true[f"unsheared/mag_{band}"]
+            df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[f"BDF_MAG_DERED_CALIB_{band.upper()}"] - df_generated[f"unsheared/mag_{band}"]
 
         for idx, band in enumerate(bands):
             sns.histplot(
                 data=df_hist_skills,
-                x=f"input - luptize {band}",
+                x=f"BDF_MAG_DERED_CALIB - unsheared/mag {band}",
                 ax=lst_axis_res[idx],
                 element="step",
                 stat="density",
@@ -240,7 +198,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
             )
             sns.histplot(
                 data=df_hist_generated,
-                x=f"input - luptize {band}",
+                x=f"BDF_MAG_DERED_CALIB - unsheared/mag {band}",
                 ax=lst_axis_res[idx],
                 element="step",
                 stat="density",
@@ -250,20 +208,20 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
                 label="generated"
             )
             lst_axis_res[idx].axvline(
-                x=df_hist_skills[f"input - luptize {band}"].median(),
+                x=df_hist_skills[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
                 color='dodgerblue',
                 ls='--',
                 lw=1.5,
                 label="Mean skills"
             )
             lst_axis_res[idx].axvline(
-                x=df_hist_generated[f"input - luptize {band}"].median(),
+                x=df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
                 color='darkorange',
                 ls='--',
                 lw=1.5,
                 label="Mean generated"
             )
-            lst_axis_res[idx].set_xlim(lst_xlim_res[idx][0], lst_xlim_res[idx][1])
+            # lst_axis_res[idx].set_xlim(lst_xlim_res[idx][0], lst_xlim_res[idx][1])
             if idx == 0:
                 lst_axis_res[idx].legend()
             else:
@@ -277,32 +235,29 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
     if plot_luptize_conditions is True:
         for condition in conditions:
             cond_figure, (
-            (stat_ax1, stat_ax2, stat_ax3), (stat_ax4, stat_ax5, stat_ax6), (stat_ax7, stat_ax8, stat_ax9)) = \
-                plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
+            (stat_ax1), (stat_ax2), (stat_ax3)) = \
+                plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
             cond_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
-            cond_figure.suptitle(f"input - luptize", fontsize=16)
+            cond_figure.suptitle(f"BDF_MAG_DERED_CALIB - unsheared/mag", fontsize=16)
 
-            outputs = ['luptize_' + b for b in bands]
+            outputs = ['unsheared/mag_' + b for b in bands]
             output_errs = ['luptize_err_' + b for b in bands]
 
             lst_axis_con = [
                 stat_ax1,
                 stat_ax2,
-                stat_ax3,
-                stat_ax4,
-                stat_ax5,
-                stat_ax6,
-                stat_ax7,
-                stat_ax8,
-                stat_ax9
+                stat_ax3
             ]
 
             cond_lims = np.percentile(df_true[condition], [2, 98])
 
             for idx, out in enumerate(zip(outputs, output_errs)):
                 output_ = out[0]
-                output_err_ = out[1]
-                diff_true = (df_true['r_input'] - df_true[output_]) / df_true[output_err_]
+                # Todo implement real survey error
+                output_err_true = 1/df_true[output_] # out[1]
+                output_err_generated = 1 / df_generated[output_]  # out[1]
+
+                diff_true = (df_true['BDF_MAG_DERED_CALIB_R'] - df_true[output_]) / output_err_true
                 df_conditional_true = pd.DataFrame({
                     condition: df_true[condition],
                     f"residual band {bands[idx]}": diff_true,
@@ -317,7 +272,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
                 lst_axis_con[idx].errorbar(
                     xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, color='dodgerblue', lw=2, label='skills')
 
-                diff_generated = (df_generated['r_input'] - df_generated[output_]) / df_generated[output_err_]
+                diff_generated = (df_generated['BDF_MAG_DERED_CALIB_R'] - df_generated[output_]) / output_err_generated
                 df_conditional_generated = pd.DataFrame({
                     condition: df_generated[condition],
                     f"residual band {bands[idx]}": diff_generated,
@@ -374,47 +329,42 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[0])
     lst_conditions = [
-        "sersic_n_input",
-        # "axis_ratio_input",
-        # "Re_input",
-        "u_input",
-        # "g_input",
-        "InputSeeing_u",
-        # "InputSeeing_g",
-        # "InputSeeing_r",
-        "InputBeta_u",
-        # "InputBeta_g",
-        # "InputBeta_r",
-        "rmsAW_u",
-        # "rmsAW_g",
-        # "rms_Z",
-        # "rms_Y"
+        "BDF_MAG_DERED_CALIB_R",
+        "BDF_MAG_DERED_CALIB_I",
+        "BDF_MAG_DERED_CALIB_Z",
+        "Color Mag U-G",
+        "Color Mag G-R",
+        "Color Mag R-I",
+        "Color Mag I-Z",
+        "Color Mag Z-J",
+        "Color Mag J-H",
+        "Color Mag H-KS",
+        "BDF_T",
+        "BDF_G",
+        "FWHM_WMEAN_R",
+        "FWHM_WMEAN_I",
+        "FWHM_WMEAN_Z",
+        "AIRMASS_WMEAN_R",
+        "AIRMASS_WMEAN_I",
+        "AIRMASS_WMEAN_Z",
+        "MAGLIM_R",
+        "MAGLIM_I",
+        "MAGLIM_Z",
+        "EBV_SFD98"
     ]
     lst_bands = [
-        "u",
-        "g",
         "r",
         "i",
-        "Z",
-        "Y",
-        "J",
-        "H",
-        "Ks"
+        "z"
     ]
     lst_colors = [
-        ("u", "g"),
-        ("g", "r"),
         ("r", "i"),
-        ("i", "Z"),
-        ("Z", "Y"),
-        ("Y", "J"),
-        ("J", "H"),
-        ("H", "Ks"),
+        ("i", "z")
     ]
     main(
-        path_training_data=f"{path}/../Data/kids_training_catalog_lup.pkl",
-        path_model=f"{path}/../trained_models/best_model_epoch_100.pt",
-        path_save_plots=f"{path}/output_run_flow",
+        path_training_data=f"{path}/../Data/Balrog_2_data_MAG_250000.pkl",
+        path_model=f"{path}/../trained_models/best_model_DES_epoch_96.pt",
+        path_save_plots=f"{path}/output_run_flow_DES",
         number_samples=15000,
         plot_chain=True,
         plot_residual=True,

@@ -216,9 +216,6 @@ class TrainFlow(object):
             self.lst_train_loss_per_epoch.append(train_loss_epoch)
             self.lst_valid_loss_per_epoch.append(validation_loss)
 
-            # if epoch - self.best_validation_epoch >= 30:
-            #     break
-
             if validation_loss < self.best_validation_loss:
                 self.best_validation_epoch = epoch
                 self.best_validation_loss = validation_loss
@@ -239,8 +236,8 @@ class TrainFlow(object):
             make_gif(self.path_flag_plot, f"{self.path_gifs}/flag_plot.gif")
             make_gif(self.path_detection_plot, f"{self.path_gifs}/detection_plot.gif")
         if self.save_nn is True:
-            torch.save(self.best_model, f"{self.path_save_nn}/best_model_epoch_{self.best_validation_epoch+1}.pt")
-            torch.save(self.model, f"{self.path_save_nn}/last_model_epoch_{epoch+1}.pt")
+            torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}.pt")
+            torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{epoch+1}.pt")
         self.validate(
             epoch=self.best_validation_epoch,
             loader=self.test_loader
