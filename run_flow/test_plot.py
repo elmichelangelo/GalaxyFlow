@@ -356,7 +356,6 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
 
             except ValueError:
                 print(f"Value Error for {condition}")
-            break
 
     if plot_hist is True:
         hist_figure_2, ((hist_ax1), (hist_ax2), (hist_ax3)) = \
@@ -489,6 +488,6 @@ if __name__ == '__main__':
         conditions=lst_conditions,
         bands=lst_bands,
         colors=lst_colors,
-        save_generated_data=False
+        save_generated_data=True
     )
 
