@@ -8,6 +8,7 @@ import torch
 import os
 import sys
 import pandas as pd
+import pickle
 
 
 def load_model(path_model):
@@ -15,12 +16,15 @@ def load_model(path_model):
     return model
 
 
-def main(path_training_data, path_model, path_save_plots, number_samples, plot_chain, plot_residual,
-         plot_luptize_conditions, conditions, bands, colors):
+def main(path_training_data, path_model, path_save_plots, path_save_generated_data, number_samples, plot_chain,
+         plot_residual, plot_luptize_conditions, conditions, bands, colors, save_generated_data, plot_hist):
     col_label_flow = [
         "BDF_MAG_DERED_CALIB_R",
         "BDF_MAG_DERED_CALIB_I",
         "BDF_MAG_DERED_CALIB_Z",
+        "BDF_MAG_ERR_DERED_CALIB_R",
+        "BDF_MAG_ERR_DERED_CALIB_I",
+        "BDF_MAG_ERR_DERED_CALIB_Z",
         "Color Mag U-G",
         "Color Mag G-R",
         "Color Mag R-I",
@@ -46,17 +50,40 @@ def main(path_training_data, path_model, path_save_plots, number_samples, plot_c
         "unsheared/mag_r",
         "unsheared/mag_i",
         "unsheared/mag_z",
+        "unsheared/mag_err_r",
+        "unsheared/mag_err_i",
+        "unsheared/mag_err_z",
         "unsheared/snr",
         "unsheared/size_ratio",
         "unsheared/flags",
         "unsheared/T",
         "detected"
     ]
+
+    col_pz = [
+        "BDF_FLUX_DERED_CALIB_U",
+        "BDF_FLUX_DERED_CALIB_G",
+        "BDF_FLUX_DERED_CALIB_R",
+        "BDF_FLUX_DERED_CALIB_I",
+        "BDF_FLUX_DERED_CALIB_Z",
+        "BDF_FLUX_DERED_CALIB_J",
+        "BDF_FLUX_DERED_CALIB_H",
+        "BDF_FLUX_DERED_CALIB_K",
+        "BDF_FLUX_ERR_DERED_CALIB_U",
+        "BDF_FLUX_ERR_DERED_CALIB_G",
+        "BDF_FLUX_ERR_DERED_CALIB_R",
+        "BDF_FLUX_ERR_DERED_CALIB_I",
+        "BDF_FLUX_ERR_DERED_CALIB_Z",
+        "BDF_FLUX_ERR_DERED_CALIB_J",
+        "BDF_FLUX_ERR_DERED_CALIB_H",
+        "BDF_FLUX_ERR_DERED_CALIB_K",
+    ]
     print("Load data...")
     train_data, valid_data, test_data = load_data(
         path_training_data=path_training_data,
         input_flow=col_label_flow,
         output_flow=col_output_flow,
+        sompz_cols=col_pz,
         selected_scaler="MaxAbsScaler"
     )
     scaler = test_data["scaler"]
@@ -64,10 +91,11 @@ def main(path_training_data, path_model, path_save_plots, number_samples, plot_c
     # Write data as torch loader
     test_tensor = torch.from_numpy(test_data[f"output flow in order {col_output_flow}"])
     test_labels = torch.from_numpy(test_data[f"label flow in order {col_label_flow}"])
-    test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels)
+    test_sompz = torch.from_numpy(test_data[f"sompz cols in order {col_pz}"])
+    test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels, test_sompz)
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=number_samples,
+        batch_size=len(test_dataset),
         shuffle=False,
         drop_last=False,
         # **kwargs
@@ -77,30 +105,43 @@ def main(path_training_data, path_model, path_save_plots, number_samples, plot_c
     model = load_model(path_model)
     for batch_idx, data in enumerate(test_loader):
         cond_data = data[1].float()
+        # d_random_real = np.random.choice(len(test_dataset), size=number_samples, replace=True)
+        # cond_data = cond_data[d_random_real]
         with torch.no_grad():
             print("Sample data")
             test_output = model.sample(num_samples=number_samples, cond_inputs=cond_data).detach()
         print("Plot data")
-        plot_data(
+        df_true, df_generated, df_sompz = plot_data(
             path_save_plots=path_save_plots,
             cond_data=cond_data,
             test_output=test_output,
             col_label_flow=col_label_flow,
             col_output_flow=col_output_flow,
+            col_sompz=col_pz,
             scaler=scaler,
             data=data[0],
+            sompz_data=data[2],
             plot_chain=plot_chain,
             plot_residual=plot_residual,
             plot_luptize_conditions=plot_luptize_conditions,
             conditions=conditions,
             bands=bands,
-            colors=colors
+            colors=colors,
+            plot_hist=plot_hist
         )
+
+        if save_generated_data is True:
+            save_emulated_cat(
+                path_save_catalog=path_save_generated_data,
+                df_generated=df_generated,
+                df_true=df_true,
+                df_sompz=df_sompz
+            )
         break
 
 
-def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_output_flow, scaler, data, plot_chain,
-              plot_residual, plot_luptize_conditions, conditions, bands, colors):
+def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_output_flow, col_sompz, scaler, data,
+              sompz_data, plot_chain, plot_residual, plot_luptize_conditions, conditions, bands, colors, plot_hist):
 
     df_generator_label = pd.DataFrame(cond_data.numpy(), columns=col_label_flow)
     df_generator_output = pd.DataFrame(test_output.numpy(), columns=col_output_flow)
@@ -109,6 +150,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
     df_generated = pd.DataFrame(generator_rescaled, columns=df_generator_scaled.columns)
 
     df_true_output = pd.DataFrame(data, columns=col_output_flow)
+    df_sompz = pd.DataFrame(sompz_data, columns=col_sompz)
     df_true_scaled = pd.concat([df_generator_label, df_true_output], axis=1)
     true_rescaled = scaler.inverse_transform(df_true_scaled)
     df_true = pd.DataFrame(true_rescaled, columns=df_true_scaled.columns)
@@ -119,41 +161,33 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         for color in colors:
             df_generated_measured[f"{color[0]}-{color[1]}"] = \
                 np.array(df_generated[f"unsheared/mag_{color[0]}"]) - np.array(df_generated[f"unsheared/mag_{color[1]}"])
+            df_generated_measured[f"dataset"] = "gaNdalF"
             df_true_measured[f"{color[0]}-{color[1]}"] = \
                 np.array(df_true[f"unsheared/mag_{color[0]}"]) - np.array(df_true[f"unsheared/mag_{color[1]}"])
+            df_true_measured[f"dataset"] = "Balrog"
 
-        arr_true = df_true_measured.to_numpy()
-        arr_generated = df_generated_measured.to_numpy()
-        parameter = [
-            "unsheared/mag r-i",
-            "unsheared/mag i-z"
-        ]
-        chainchat = ChainConsumer()
-        chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
-        chainchat.add_chain(arr_generated, parameters=parameter, name="generated observed properties: chat*")
-        chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
-        chainchat.plotter.plot(
-            filename=f'{path_save_plots}/chainplot.png',
-            figsize="page",
-            # extents={
-            #     # "unsheared/mag u-g": (-4, 7),
-            #     # "unsheared/mag g-r": (-1, 3),
-            #     "unsheared/mag r-i": (-3, 3),
-            #     "unsheared/mag i-z": (-3, 4),
-            #     # "unsheared/mag Z-Y": (-3, 3),
-            #     # "unsheared/mag Y-J": (-4, 4),
-            #     # "unsheared/mag J-H": (-3, 3),
-            #     # "unsheared/mag H-Ks": (-4, 4)
-            # }
+        df_color = pd.concat([df_generated_measured, df_true_measured])
+
+        sns.jointplot(
+            data=df_color,
+            x="r-i",
+            y="i-z",
+            hue="dataset",
+            kind="kde",
+            xlim=(-1.5, 2.5),
+            ylim=(-2.5, 2.5),
+            n_levels=10
         )
-        plt.savefig(f"{path_save_plots}/chain_color_plot.png")
+
+        plt.xlim(-5, 5)
+        plt.ylim(-5, 5)
+        plt.savefig(f"{path_save_plots}/color_color_plot.png")
         plt.show()
         plt.clf()
         plt.close()
 
-    if plot_residual:
-        hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = \
-            plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
+    if plot_residual is True:
+        hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
         hist_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
         hist_figure.suptitle(r"residual", fontsize=16)
 
@@ -164,37 +198,33 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         ]
 
         lst_xlim_res = [
-            (-2, 2),
-            (-2, 2),
-            (-2, 2),
-            (-2, 2),
-            (-2, 2),
-            (-2, 2),
-            (-2, 2),
-            (-2, 2),
-            (-2, 2)
+            (-2.5, 2.5),
+            (-2.5, 2.5),
+            (-2.5, 2.5)
         ]
 
-        df_hist_skills = pd.DataFrame({
-            "dataset": ["skillz" for _ in range(len(df_true[f"unsheared/mag_r"]))]
+        df_hist_Balrog = pd.DataFrame({
+            "dataset": ["Balrog" for _ in range(len(df_true[f"unsheared/mag_r"]))]
         })
         df_hist_generated = pd.DataFrame({
-            "dataset": ["generated" for _ in range(len(df_true[f"unsheared/mag_r"]))]
+            "dataset": ["gaNdalF" for _ in range(len(df_true[f"unsheared/mag_r"]))]
         })
         for band in bands:
-            df_hist_skills[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[f"BDF_MAG_DERED_CALIB_{band.upper()}"] - df_true[f"unsheared/mag_{band}"]
-            df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[f"BDF_MAG_DERED_CALIB_{band.upper()}"] - df_generated[f"unsheared/mag_{band}"]
+            df_hist_Balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = \
+                df_true[f"BDF_MAG_DERED_CALIB_{band.upper()}"] - df_true[f"unsheared/mag_{band}"]
+            df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = \
+                df_true[f"BDF_MAG_DERED_CALIB_{band.upper()}"] - df_generated[f"unsheared/mag_{band}"]
 
         for idx, band in enumerate(bands):
             sns.histplot(
-                data=df_hist_skills,
+                data=df_hist_Balrog,
                 x=f"BDF_MAG_DERED_CALIB - unsheared/mag {band}",
                 ax=lst_axis_res[idx],
                 element="step",
                 stat="density",
                 color="dodgerblue",
                 bins=50,
-                label="skills"
+                label="Balrog"
             )
             sns.histplot(
                 data=df_hist_generated,
@@ -205,23 +235,23 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
                 color="darkorange",
                 fill=False,
                 bins=50,
-                label="generated"
+                label="gaNdalF"
             )
             lst_axis_res[idx].axvline(
-                x=df_hist_skills[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
+                x=df_hist_Balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
                 color='dodgerblue',
                 ls='--',
                 lw=1.5,
-                label="Mean skills"
+                label="Mean Balrog"
             )
             lst_axis_res[idx].axvline(
                 x=df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
                 color='darkorange',
                 ls='--',
                 lw=1.5,
-                label="Mean generated"
+                label="Mean gaNdalF"
             )
-            # lst_axis_res[idx].set_xlim(lst_xlim_res[idx][0], lst_xlim_res[idx][1])
+            lst_axis_res[idx].set_xlim(lst_xlim_res[idx][0], lst_xlim_res[idx][1])
             if idx == 0:
                 lst_axis_res[idx].legend()
             else:
@@ -234,96 +264,178 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
 
     if plot_luptize_conditions is True:
         for condition in conditions:
-            cond_figure, (
-            (stat_ax1), (stat_ax2), (stat_ax3)) = \
-                plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
-            cond_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
-            cond_figure.suptitle(f"BDF_MAG_DERED_CALIB - unsheared/mag", fontsize=16)
+            try:
+                cond_figure, (
+                (stat_ax1), (stat_ax2), (stat_ax3)) = \
+                    plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
+                cond_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
+                cond_figure.suptitle(f"BDF_MAG_DERED_CALIB - unsheared/mag", fontsize=16)
 
-            outputs = ['unsheared/mag_' + b for b in bands]
-            output_errs = ['luptize_err_' + b for b in bands]
+                outputs = ['unsheared/mag_' + b for b in bands]
+                output_errs = ['unsheared/mag_err_' + b for b in bands]
 
-            lst_axis_con = [
-                stat_ax1,
-                stat_ax2,
-                stat_ax3
-            ]
+                lst_axis_con = [
+                    stat_ax1,
+                    stat_ax2,
+                    stat_ax3
+                ]
 
-            cond_lims = np.percentile(df_true[condition], [2, 98])
+                cond_lims = np.percentile(df_true[condition], [2, 98])
 
-            for idx, out in enumerate(zip(outputs, output_errs)):
-                output_ = out[0]
-                # Todo implement real survey error
-                output_err_true = 1/df_true[output_] # out[1]
-                output_err_generated = 1 / df_generated[output_]  # out[1]
+                for idx, out in enumerate(zip(outputs, output_errs)):
+                    output_ = out[0]
+                    output_err_ = out[1]
 
-                diff_true = (df_true['BDF_MAG_DERED_CALIB_R'] - df_true[output_]) / output_err_true
-                df_conditional_true = pd.DataFrame({
-                    condition: df_true[condition],
-                    f"residual band {bands[idx]}": diff_true,
-                    "dataset": ["skills" for _ in range(len(df_true[condition]))]
-                })
-                bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
-                    df_true[condition], diff_true, statistic='median', bins=10, range=cond_lims)
-                bin_stds_true, bin_edges_true, binnumber_true = binned_statistic(
-                    df_true[condition], diff_true, statistic=median_abs_deviation, bins=10, range=cond_lims)
-                xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
-                xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
-                lst_axis_con[idx].errorbar(
-                    xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, color='dodgerblue', lw=2, label='skills')
+                    diff_true = (df_true['BDF_MAG_DERED_CALIB_R'] - df_true[output_]) / df_true[output_err_]
+                    df_conditional_true = pd.DataFrame({
+                        condition: df_true[condition],
+                        f"residual band {bands[idx]}": diff_true,
+                        "dataset": ["Balrog" for _ in range(len(df_true[condition]))]
+                    })
+                    bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
+                        df_true[condition], diff_true, statistic='median', bins=10, range=cond_lims)
+                    bin_stds_true, bin_edges_true, binnumber_true = binned_statistic(
+                        df_true[condition], diff_true, statistic=median_abs_deviation, bins=10, range=cond_lims)
+                    xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
+                    xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
+                    lst_axis_con[idx].errorbar(
+                        xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, color='dodgerblue', lw=2, label='Balrog')
 
-                diff_generated = (df_generated['BDF_MAG_DERED_CALIB_R'] - df_generated[output_]) / output_err_generated
-                df_conditional_generated = pd.DataFrame({
-                    condition: df_generated[condition],
-                    f"residual band {bands[idx]}": diff_generated,
-                    "dataset": ["generated" for _ in range(len(df_true[condition]))]
-                })
-                bin_means_generated, bin_edges_mean_generated, binnumber_mean_generated = binned_statistic(
-                    df_generated[condition], diff_generated, statistic='median', bins=10, range=cond_lims)
-                bin_stds_generated, bin_edges_generated, binnumber_generated = binned_statistic(
-                    df_generated[condition], diff_generated, statistic=median_abs_deviation, bins=10, range=cond_lims)
-                xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
-                xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
-                lst_axis_con[idx].errorbar(
-                    xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, color='darkorange', lw=2, label='generated')
-                m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
-                range_ = [m - 4 * s, m + 4 * s]
+                    diff_generated = (df_generated['BDF_MAG_DERED_CALIB_R'] - df_generated[output_]) / df_generated[output_err_]
+                    df_conditional_generated = pd.DataFrame({
+                        condition: df_generated[condition],
+                        f"residual band {bands[idx]}": diff_generated,
+                        "dataset": ["gaNdalF" for _ in range(len(df_true[condition]))]
+                    })
+                    bin_means_generated, bin_edges_mean_generated, binnumber_mean_generated = binned_statistic(
+                        df_generated[condition], diff_generated, statistic='median', bins=10, range=cond_lims)
+                    bin_stds_generated, bin_edges_generated, binnumber_generated = binned_statistic(
+                        df_generated[condition], diff_generated, statistic=median_abs_deviation, bins=10, range=cond_lims)
+                    xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
+                    xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+                    lst_axis_con[idx].errorbar(
+                        xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, color='darkorange', lw=2, label='gaNdalF')
+                    m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
+                    range_ = [m - 4 * s, m + 4 * s]
 
-                sns.kdeplot(
-                    data=df_conditional_true,
-                    x=condition,
-                    y=f"residual band {bands[idx]}",
-                    fill=True,
-                    thresh=0,
-                    levels=10,
-                    color="dodgerblue",
-                    legend="skills",
-                    ax=lst_axis_con[idx]
-                )
-                sns.kdeplot(
-                    data=df_conditional_generated,
-                    x=condition,
-                    y=f"residual band {bands[idx]}",
-                    fill=False,
-                    thresh=0,
-                    levels=10,
-                    alpha=.5,
-                    color="darkorange",
-                    legend="generated",
-                    ax=lst_axis_con[idx]
-                )
-                lst_axis_con[idx].set_xlim(cond_lims)
-                lst_axis_con[idx].set_ylim(range_)
-                lst_axis_con[idx].axhline(np.median(diff_true), c='dodgerblue', ls='--', label='median skills')
-                lst_axis_con[idx].axhline(0, c='grey', ls='--', label='zero')
-                lst_axis_con[idx].axhline(np.median(diff_generated), c='darkorange', ls='--', label='median generated')
-                lst_axis_con[idx].axvline(np.median(df_true[condition]), c='grey', ls='--', label='median conditional')
-            lst_axis_con[0].legend()
-            cond_figure.tight_layout()
-            plt.savefig(f"{path_save_plots}/condition_{condition}_plot.png")
-            plt.show()
-            plt.clf()
-            plt.close()
+                    sns.kdeplot(
+                        data=df_conditional_true,
+                        x=condition,
+                        y=f"residual band {bands[idx]}",
+                        fill=True,
+                        thresh=0,
+                        levels=10,
+                        color="dodgerblue",
+                        legend="Balrog",
+                        ax=lst_axis_con[idx]
+                    )
+                    sns.kdeplot(
+                        data=df_conditional_generated,
+                        x=condition,
+                        y=f"residual band {bands[idx]}",
+                        fill=False,
+                        thresh=0,
+                        levels=10,
+                        alpha=.5,
+                        color="darkorange",
+                        legend="gaNdalF",
+                        ax=lst_axis_con[idx]
+                    )
+                    lst_axis_con[idx].set_xlim(cond_lims)
+                    lst_axis_con[idx].set_ylim(range_)
+                    lst_axis_con[idx].axhline(np.median(diff_true), c='dodgerblue', ls='--', label='median Balrog')
+                    lst_axis_con[idx].axhline(0, c='grey', ls='--', label='zero')
+                    lst_axis_con[idx].axhline(np.median(diff_generated), c='darkorange', ls='--', label='median gaNdalF')
+                    lst_axis_con[idx].axvline(np.median(df_true[condition]), c='grey', ls='--', label='median conditional')
+                lst_axis_con[0].legend()
+                cond_figure.tight_layout()
+                plt.savefig(f"{path_save_plots}/condition_{condition}_plot.png")
+                plt.show()
+                plt.clf()
+                plt.close()
+
+            except ValueError:
+                print(f"Value Error for {condition}")
+            break
+
+    if plot_hist is True:
+        hist_figure_2, ((hist_ax1), (hist_ax2), (hist_ax3)) = \
+            plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
+        hist_figure_2.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
+        hist_figure_2.suptitle(r"magnitude histogram", fontsize=16)
+
+        lst_axis_his = [
+            hist_ax1,
+            hist_ax2,
+            hist_ax3
+        ]
+
+        lst_unsheared_bands = [
+            "r",
+            "i",
+            "z"
+        ]
+
+        for ax_idx, his_ax in enumerate(lst_axis_his):
+            sns.histplot(
+                data=df_true,
+                x=f"unsheared/mag_{lst_unsheared_bands[ax_idx]}",
+                ax=his_ax,
+                element="step",
+                stat="count",
+                color="dodgerblue",
+                fill=True,
+                binwidth=0.2,
+                log_scale=(False, True),
+                label="balrog"
+            )
+            sns.histplot(
+                data=df_generated,
+                x=f"unsheared/mag_{lst_unsheared_bands[ax_idx]}",
+                ax=his_ax,
+                element="step",
+                stat="count",
+                color="darkorange",
+                fill=False,
+                log_scale=(False, True),
+                binwidth=0.2,
+                label="gaNdalF"
+            )
+            his_ax.axvline(
+                x=df_true[f"unsheared/mag_{lst_unsheared_bands[ax_idx]}"].median(),
+                color='dodgerblue',
+                ls='--',
+                lw=1.5,
+                label="Mean Balrog"
+            )
+            his_ax.axvline(
+                x=df_generated[f"unsheared/mag_{lst_unsheared_bands[ax_idx]}"].median(),
+                color='darkorange',
+                ls='--',
+                lw=1.5,
+                label="Mean gaNdalF"
+            )
+        plt.legend()
+        plt.savefig(f"{path_save_plots}/mag_histogram_plot.png")
+        plt.show()
+        plt.clf()
+        plt.close()
+
+    return df_true, df_generated, df_sompz
+
+
+def save_emulated_cat(path_save_catalog, df_generated, df_true, df_sompz):
+    if not os.path.exists(path_save_catalog):
+        os.mkdir(path_save_catalog)
+
+    df_generated_sompz = pd.concat([df_generated, df_sompz], axis=1)
+    df_true_sompz = pd.concat([df_true, df_sompz], axis=1)
+    with open(f"{path_save_catalog}/df_gaNdalF_sompz.pkl", "wb") as f:
+        pickle.dump(df_generated_sompz.to_dict(), f, protocol=2)
+
+    with open(f"{path_save_catalog}/df_balrog_nf_sompz.pkl", "wb") as f:
+        pickle.dump(df_true_sompz.to_dict(), f, protocol=2)
+    # df_data.to_pickle(path_save_catalog)
 
 
 if __name__ == '__main__':
@@ -332,6 +444,9 @@ if __name__ == '__main__':
         "BDF_MAG_DERED_CALIB_R",
         "BDF_MAG_DERED_CALIB_I",
         "BDF_MAG_DERED_CALIB_Z",
+        "BDF_MAG_ERR_DERED_CALIB_R",
+        "BDF_MAG_ERR_DERED_CALIB_I",
+        "BDF_MAG_ERR_DERED_CALIB_Z",
         "Color Mag U-G",
         "Color Mag G-R",
         "Color Mag R-I",
@@ -362,15 +477,18 @@ if __name__ == '__main__':
         ("i", "z")
     ]
     main(
-        path_training_data=f"{path}/../Data/Balrog_2_data_MAG_250000.pkl",
-        path_model=f"{path}/../trained_models/best_model_DES_epoch_96.pt",
+        path_training_data=f"{path}/../Data/balrog_training_data_250000.pkl",
+        path_model=f"{path}/../trained_models/last_model_nf_epoch_150.pt", # last_model_nf_epoch_150.pt, best_model_des_epoch_67.pt
         path_save_plots=f"{path}/output_run_flow_DES",
-        number_samples=15000,
+        path_save_generated_data=f"{path}/generated_data",
+        number_samples=50000,
         plot_chain=True,
         plot_residual=True,
         plot_luptize_conditions=True,
+        plot_hist=True,
         conditions=lst_conditions,
         bands=lst_bands,
-        colors=lst_colors
+        colors=lst_colors,
+        save_generated_data=False
     )
 

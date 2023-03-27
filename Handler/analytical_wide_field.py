@@ -1158,15 +1158,27 @@ def survey_conditions(dict_wide_field_data, data_frame, detected_length, columns
         f"BDF_MAG_DERED_CALIB_J": dict_wide_field_data[f"generated mag j deep field"],
         f"BDF_MAG_DERED_CALIB_H": dict_wide_field_data[f"generated mag h deep field"],
         f"BDF_MAG_DERED_CALIB_KS": dict_wide_field_data[f"generated mag ks deep field"],
+        f"BDF_MAG_ERR_DERED_CALIB_R": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"BDF_MAG_ERR_DERED_CALIB_I": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"BDF_MAG_ERR_DERED_CALIB_Z": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
         f"BDF_FLUX_DERED_CALIB_R": dict_wide_field_data[f"generated flux r deep field"],
         f"BDF_FLUX_DERED_CALIB_I": dict_wide_field_data[f"generated flux i deep field"],
         f"BDF_FLUX_DERED_CALIB_Z": dict_wide_field_data[f"generated flux z deep field"],
+        f"BDF_FLUX_ERR_DERED_CALIB_R": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"BDF_FLUX_ERR_DERED_CALIB_I": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"BDF_FLUX_ERR_DERED_CALIB_Z": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
         f"unsheared/flux_r": dict_wide_field_data[f"generated flux r wide field"],
         f"unsheared/flux_i": dict_wide_field_data[f"generated flux i wide field"],
         f"unsheared/flux_z": dict_wide_field_data[f"generated flux z wide field"],
+        f"unsheared/flux_err_r": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"unsheared/flux_err_i": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"unsheared/flux_err_z": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
         f"unsheared/mag_r": dict_wide_field_data[f"generated mag r wide field"],
         f"unsheared/mag_i": dict_wide_field_data[f"generated mag i wide field"],
-        f"unsheared/mag_z": dict_wide_field_data[f"generated mag z wide field"]
+        f"unsheared/mag_z": dict_wide_field_data[f"generated mag z wide field"],
+        f"unsheared/mag_err_r": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"unsheared/mag_err_i": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))],
+        f"unsheared/mag_err_z": [1 for _ in range(len(dict_wide_field_data[f"generated mag u deep field"]))]
     }
 
     for col in columns_survey_conditions:
@@ -1416,9 +1428,18 @@ def write_data_2_file(df_generated_data, df_data, save_path, number_of_sources, 
         df_data["BDF_MAG_DERED_CALIB_J"] = flux2mag(df_data["BDF_FLUX_DERED_CALIB_J"])
         df_data["BDF_MAG_DERED_CALIB_H"] = flux2mag(df_data["BDF_FLUX_DERED_CALIB_H"])
         df_data["BDF_MAG_DERED_CALIB_KS"] = flux2mag(df_data["BDF_FLUX_DERED_CALIB_KS"])
+        df_data["BDF_MAG_ERR_DERED_CALIB_R"] = flux2mag(df_data["BDF_FLUX_ERR_DERED_CALIB_R"])
+        df_data["BDF_MAG_ERR_DERED_CALIB_I"] = flux2mag(df_data["BDF_FLUX_ERR_DERED_CALIB_I"])
+        df_data["BDF_MAG_ERR_DERED_CALIB_Z"] = flux2mag(df_data["BDF_FLUX_ERR_DERED_CALIB_Z"])
+
         df_data["unsheared/mag_r"] = flux2mag(df_data["unsheared/flux_r"])
         df_data["unsheared/mag_i"] = flux2mag(df_data["unsheared/flux_i"])
         df_data["unsheared/mag_z"] = flux2mag(df_data["unsheared/flux_z"])
+        df_data["unsheared/mag_err_r"] = flux2mag(df_data["unsheared/flux_err_r"])
+        df_data["unsheared/mag_err_i"] = flux2mag(df_data["unsheared/flux_err_i"])
+        df_data["unsheared/mag_err_z"] = flux2mag(df_data["unsheared/flux_err_z"])
+
+        df_data['BDF_G'] = np.sqrt(df_data["BDF_G_0"]**2 + df_data["BDF_G_1"]**2)
 
         df_data = df_data[[
             'BDF_MAG_DERED_CALIB_U',
@@ -1429,15 +1450,27 @@ def write_data_2_file(df_generated_data, df_data, save_path, number_of_sources, 
             'BDF_MAG_DERED_CALIB_J',
             'BDF_MAG_DERED_CALIB_H',
             'BDF_MAG_DERED_CALIB_KS',
+            'BDF_MAG_ERR_DERED_CALIB_R',
+            'BDF_MAG_ERR_DERED_CALIB_I',
+            'BDF_MAG_ERR_DERED_CALIB_Z',
             'BDF_FLUX_DERED_CALIB_R',
             'BDF_FLUX_DERED_CALIB_I',
             'BDF_FLUX_DERED_CALIB_Z',
+            'BDF_FLUX_ERR_DERED_CALIB_R',
+            'BDF_FLUX_ERR_DERED_CALIB_I',
+            'BDF_FLUX_ERR_DERED_CALIB_Z',
             'unsheared/flux_r',
             'unsheared/flux_i',
             'unsheared/flux_z',
+            'unsheared/flux_err_r',
+            'unsheared/flux_err_i',
+            'unsheared/flux_err_z',
             'unsheared/mag_r',
             'unsheared/mag_i',
             'unsheared/mag_z',
+            'unsheared/mag_err_r',
+            'unsheared/mag_err_i',
+            'unsheared/mag_err_z',
             'unsheared/snr',
             'unsheared/size_ratio',
             'unsheared/flags',
@@ -1459,8 +1492,11 @@ def write_data_2_file(df_generated_data, df_data, save_path, number_of_sources, 
         random_choice_idx = np.random.choice(xspace, size=int(only_balrog[1]))
         arr_training_data = df_data.to_numpy()
         arr_training_data = arr_training_data[random_choice_idx]
-        columns = df_generated_data.keys()
-        df_generated_data = pd.DataFrame(data=arr_training_data, columns=columns)
+        if df_generated_data is not None:
+            columns = df_generated_data.keys()
+            df_generated_data = pd.DataFrame(data=arr_training_data, columns=columns)
+        else:
+            df_generated_data = pd.DataFrame(data=arr_training_data, columns=df_data.columns)
 
     if pickle_2 is True:
         only_detected = (df_generated_data["detected"] == 1)
@@ -1514,90 +1550,90 @@ def main(path_to_data, size, save_path, save_plot, plot_fit_parameter, plot_gene
     print(f"Length of data set for use detected objects only: {len(df_data)}")
     set_plot_settings()
 
+    df_data = make_some_cuts(data_frame=df_data, columns_riz=columns_flux_riz_band)
+
     if size == -1:
         size = len(df_data[column_flux_i_band])
 
     if save_plot is True:
         if not os.path.exists(save_path_plots):
             os.mkdir(save_path_plots)
-    # if only_balrog[0] is False:
-    dict_fit_dist = calc_fit_parameters(
-        distribution=flux2mag(df_data[column_flux_i_band]),
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
-        bin_size=bin_size,
-        function=exp_func,
-        column=column_flux_i_band,
-        plot_data=plot_fit_parameter,
-        save_plot=save_plot,
-        save_path_plots=save_path_plots
-    )
+    if only_balrog[0] is False:
+        dict_fit_dist = calc_fit_parameters(
+            distribution=flux2mag(df_data[column_flux_i_band]),
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+            bin_size=bin_size,
+            function=exp_func,
+            column=column_flux_i_band,
+            plot_data=plot_fit_parameter,
+            save_plot=save_plot,
+            save_path_plots=save_path_plots
+        )
 
-    bin_width = dict_fit_dist["bin width"]
+        bin_width = dict_fit_dist["bin width"]
 
-    # Generate distribution
-    dict_generated_dist = generate_distribution(
-        dict_fit_params=dict_fit_dist,
-        column=column_flux_i_band,
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
-        plot_data=plot_generated_i_band,
-        save_plot=save_plot,
-        save_path_plots=save_path_plots,
-        size=size)
+        # Generate distribution
+        dict_generated_dist = generate_distribution(
+            dict_fit_params=dict_fit_dist,
+            column=column_flux_i_band,
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+            plot_data=plot_generated_i_band,
+            save_plot=save_plot,
+            save_path_plots=save_path_plots,
+            size=size)
 
-    df_data = make_some_cuts(data_frame=df_data, columns_riz=columns_flux_riz_band)
+        # Call get_covariance_matrix to get the covariance matrix
+        dict_cov_matrix = get_covariance_matrix(
+            data_frame=df_data,
+            columns_riz=columns_flux_riz_band,
+            columns_ugjhks=columns_flux_ugjhks_band,
+            plot_data=plot_covariance,
+            save_plot=save_plot,
+            save_path_plots=save_path_plots
+        )
 
-    # Call get_covariance_matrix to get the covariance matrix
-    dict_cov_matrix = get_covariance_matrix(
-        data_frame=df_data,
-        columns_riz=columns_flux_riz_band,
-        columns_ugjhks=columns_flux_ugjhks_band,
-        plot_data=plot_covariance,
-        save_plot=save_plot,
-        save_path_plots=save_path_plots
-    )
+        # Call generate_mag_distribution to generate 267229 data points in r and z-band with the generated i-band and the
+        # calculated covariance matrix
+        dict_generated_data = generate_mag_distribution(
+            dictionary_cov_matrix=dict_cov_matrix,
+            arr_i_mag=dict_generated_dist[f"generated {column_flux_i_band}"],
+            size=size,
+            plot_data=plot_generated_df,
+            save_plot=save_plot,
+            save_path_plots=save_path_plots
+        )
 
-    # Call generate_mag_distribution to generate 267229 data points in r and z-band with the generated i-band and the
-    # calculated covariance matrix
-    dict_generated_data = generate_mag_distribution(
-        dictionary_cov_matrix=dict_cov_matrix,
-        arr_i_mag=dict_generated_dist[f"generated {column_flux_i_band}"],
-        size=size,
-        plot_data=plot_generated_df,
-        save_plot=save_plot,
-        save_path_plots=save_path_plots
-    )
+        dict_wf_data = generate_wide_field_data(
+            dictionary_generated_data=dict_generated_data,
+            data_frame=df_data,
+            columns=columns_df_wf,
+            bin_width=bin_width,
+            save_path_plots=save_path_plots,
+            plot_data=plot_generated_wf,
+            save_plot=save_plot
+        )
 
-    dict_wf_data = generate_wide_field_data(
-        dictionary_generated_data=dict_generated_data,
-        data_frame=df_data,
-        columns=columns_df_wf,
-        bin_width=bin_width,
-        save_path_plots=save_path_plots,
-        plot_data=plot_generated_wf,
-        save_plot=save_plot
-    )
+        dict_gen_data = survey_conditions(
+            dict_wide_field_data=dict_wf_data,
+            data_frame=df_data,
+            detected_length=tpl_detected_length,
+            columns_survey_conditions=columns_survey_conditions,
+            plot_data=plot_survey,
+            save_plot=save_plot,
+            save_path_plots=save_path_plots,
+            only_detected_objects=only_detected_objects
+        )
 
-    dict_gen_data = survey_conditions(
-        dict_wide_field_data=dict_wf_data,
-        data_frame=df_data,
-        detected_length=tpl_detected_length,
-        columns_survey_conditions=columns_survey_conditions,
-        plot_data=plot_survey,
-        save_plot=save_plot,
-        save_path_plots=save_path_plots,
-        only_detected_objects=only_detected_objects
-    )
+        df_generated_data = pd.DataFrame(dict_gen_data)
 
-    df_generated_data = pd.DataFrame(dict_gen_data)
+        if only_detected_objects is not True:
+            df_generated_data = not_detected_objects(df_generated_data)
 
-    if only_detected_objects is not True:
-        df_generated_data = not_detected_objects(df_generated_data)
-
-    df_generated_data = df_generated_data.sample(frac=1)
-    # else:
-    #     df_generated_data = None
+        df_generated_data = df_generated_data.sample(frac=1)
+    else:
+        df_generated_data = None
 
     if write_data is True:
         write_data_2_file(
@@ -1617,38 +1653,41 @@ if __name__ == "__main__":
     path = os.path.abspath(sys.path[0])
 
     # Path to the data
-    path_data = path + r"/../../Data/mcal_detect_df_survey_21558485.pkl"
+    path_data = path + r"/../Data/mcal_detect_df_survey_21558485.pkl"
 
     # Path to output folder
-    s_path = f"{path}/../../Data/analytical_data_MAG_"
+    s_path = f"{path}/../Data/balrog_training_data_"
 
     # Path to output folder
-    s_path_plot = f"{path}/../../Data/Plots"
+    s_path_plot = f"{path}/../Data/Plots"
 
     main(
         path_to_data=path_data,
-        size=int(10000),
+        size=int(2500000),
         save_path=s_path,
         save_plot=False,
         save_path_plots=s_path_plot,
-        plot_fit_parameter=False,
-        plot_generated_i_band=False,
-        plot_covariance=False,
-        plot_generated_df=False,
-        plot_generated_wf=False,
-        plot_survey=False,
+        plot_fit_parameter=True,
+        plot_generated_i_band=True,
+        plot_covariance=True,
+        plot_generated_df=True,
+        plot_generated_wf=True,
+        plot_survey=True,
         write_data=True,
         lower_bound=18.5,
         upper_bound=23,
         bin_size=40,
         pickle_2=False,
         only_detected_objects=True,
-        only_balrog=(False, 250000),
+        only_balrog=(True, 2500000),
         column_flux_i_band="BDF_FLUX_DERED_CALIB_I",
         columns_flux_riz_band=[
             "BDF_FLUX_DERED_CALIB_R",
             "BDF_FLUX_DERED_CALIB_I",
-            "BDF_FLUX_DERED_CALIB_Z"],
+            "BDF_FLUX_DERED_CALIB_Z",
+            "BDF_FLUX_ERR_DERED_CALIB_R",
+            "BDF_FLUX_ERR_DERED_CALIB_I",
+            "BDF_FLUX_ERR_DERED_CALIB_Z"],
         columns_flux_ugjhks_band=[
             "BDF_FLUX_DERED_CALIB_U",
             "BDF_FLUX_DERED_CALIB_G",
@@ -1659,9 +1698,12 @@ if __name__ == "__main__":
             "BDF_FLUX_DERED_CALIB_R",
             "BDF_FLUX_DERED_CALIB_I",
             "BDF_FLUX_DERED_CALIB_Z",
-            "unsheared/flux_r",
-            "unsheared/flux_i",
-            "unsheared/flux_z"],
+            "BDF_FLUX_ERR_DERED_CALIB_R",
+            "BDF_FLUX_ERR_DERED_CALIB_I",
+            "BDF_FLUX_ERR_DERED_CALIB_Z",
+            "unsheared/flux_err_r",
+            "unsheared/flux_err_i",
+            "unsheared/flux_err_z"],
         columns_survey_conditions=[
             f"unsheared/snr",
             f"unsheared/size_ratio",

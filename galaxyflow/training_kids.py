@@ -81,7 +81,8 @@ class TrainFlow(object):
         self.path_output_flow = f"{path_output}/Kids_flow_" \
                                 f"lr_{self.lr}_" \
                                 f"num_hidden_{self.num_hidden}_" \
-                                f"num_blocks_{self.num_blocks}"
+                                f"num_blocks_{self.num_blocks}_" \
+                                f"batch_size_{self.batch_size}_"
         self.path_plots = f"{self.path_output_flow}/plots"
         self.path_chain_plot = f"{self.path_plots}/chain_plot"
         self.path_loss_plot = f"{self.path_plots}/loss_plot"

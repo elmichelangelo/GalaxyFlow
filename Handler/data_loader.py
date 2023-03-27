@@ -1,5 +1,5 @@
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
-from Handler.helper_functions import flux2mag
+from Handler.helper_functions import flux2mag, mag2flux
 from chainconsumer import ChainConsumer
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 
-def load_data(path_training_data, input_flow, output_flow, selected_scaler):
+def load_data(path_training_data, input_flow, output_flow, selected_scaler, sompz_cols=None):
     """
     Load the Data from *.pkl-file
 
@@ -46,6 +46,29 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler):
                                df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy()
     df_data["Color Mag H-KS"] = df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy() - \
                                df_data[f"BDF_MAG_DERED_CALIB_KS"].to_numpy()
+    df_data["BDF_MAG_DERED_CALIB_K"] = df_data[f"BDF_MAG_DERED_CALIB_KS"]
+
+    df_sompz = None
+    if sompz_cols is not None:
+        df_data["BDF_FLUX_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_U"])
+        df_data["BDF_FLUX_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_G"])
+        df_data["BDF_FLUX_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_R"])
+        df_data["BDF_FLUX_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_I"])
+        df_data["BDF_FLUX_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_Z"])
+        df_data["BDF_FLUX_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_J"])
+        df_data["BDF_FLUX_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_H"])
+        df_data["BDF_FLUX_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_KS"])
+
+        df_data["BDF_FLUX_ERR_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_I"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_Z"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+        df_data["BDF_FLUX_ERR_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+
+        df_sompz = df_data[sompz_cols]
 
     df_training_data = df_data[input_flow+output_flow]
 
@@ -75,6 +98,7 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler):
 
     arr_label_flow = np.array(df_training_data_scaled[input_flow])
     arr_output_flow = np.array(df_training_data_scaled[output_flow])
+    arr_sompz = np.array(df_sompz[sompz_cols])
 
     dict_training_data = {
         f"label flow in order {input_flow}": arr_label_flow[:int(len(arr_label_flow) * .6)],
@@ -92,9 +116,12 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler):
         "scaler": scaler
     }
 
+
+
     dict_test_data = {
         f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .8):],
         f"output flow in order {output_flow}": arr_output_flow[int(len(arr_output_flow) * .8):],
+        f"sompz cols in order {sompz_cols}": arr_sompz[int(len(arr_sompz) * .8):],
         "columns label flow": input_flow,
         "columns output flow": output_flow,
         "scaler": scaler

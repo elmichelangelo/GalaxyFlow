@@ -218,7 +218,7 @@ def main(path_metacal, path_detection, path_deep_field, path_survey, path_save, 
 
 if __name__ == "__main__":
     path = os.path.abspath(sys.path[0])
-    path_data = f"{path}/../../Data"
+    path_data = f"{path}/../Data"
 
     NSIDE = 4096
 
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         path_deep_field=f"{path_data}/deep_field_cat.fits",  # ,
         path_survey=f"{path_data}/sct2",  # survey_conditions.fits
         path_save=f"{path_data}/mcal_detect_df_survey_",
-        metacal_cols=other_metacal_cols + ['unsheared/flux_{}'.format(i) for i in 'irz'],
+        metacal_cols=other_metacal_cols + ['unsheared/flux_{}'.format(i) for i in 'irz'] + ['unsheared/flux_err_{}'.format(i) for i in 'irz'],
         detection_cols=[
             'bal_id',
             'true_id',
@@ -261,6 +261,9 @@ if __name__ == "__main__":
             "BDF_FLUX_DERED_CALIB_J",
             "BDF_FLUX_DERED_CALIB_H",
             "BDF_FLUX_DERED_CALIB_KS",
+            "BDF_FLUX_ERR_DERED_CALIB_R",
+            "BDF_FLUX_ERR_DERED_CALIB_I",
+            "BDF_FLUX_ERR_DERED_CALIB_Z",
         ],
         survey_cols=[
             f"HPIX_{NSIDE}",

@@ -30,6 +30,9 @@ def main_des(path_train_data,
         "BDF_MAG_DERED_CALIB_R",
         "BDF_MAG_DERED_CALIB_I",
         "BDF_MAG_DERED_CALIB_Z",
+        "BDF_MAG_ERR_DERED_CALIB_R",
+        "BDF_MAG_ERR_DERED_CALIB_I",
+        "BDF_MAG_ERR_DERED_CALIB_Z",
         "Color Mag U-G",
         "Color Mag G-R",
         "Color Mag R-I",
@@ -55,6 +58,9 @@ def main_des(path_train_data,
         "unsheared/mag_r",
         "unsheared/mag_i",
         "unsheared/mag_z",
+        "unsheared/mag_err_r",
+        "unsheared/mag_err_i",
+        "unsheared/mag_err_z",
         "unsheared/snr",
         "unsheared/size_ratio",
         "unsheared/flags",
@@ -79,7 +85,15 @@ def main_des(path_train_data,
         activation_function=activation_function,
         batch_size=batch_size,
         valid_batch_size=valid_batch_size,
-        selected_scaler=selected_scaler
+        selected_scaler=selected_scaler,
+        plot_loss=True,
+        plot_color_color=True,
+        plot_residual=True,
+        plot_chain=True,
+        plot_mean=True,
+        plot_std=True,
+        plot_flags=True,
+        plot_detected=True
     )
 
     train_flow.run_training()
@@ -218,20 +232,24 @@ def main_kids(path_train_data,
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[1])
 
-    main_des(
-        path_train_data=f"{path}/Data/Balrog_2_data_MAG_250000.pkl",
-        path_output=f"{path}/Output",
-        plot_test=True,
-        show_plot=False,
-        save_plot=True,
-        save_nn=True,
-        learning_rate=1E-6,
-        number_hidden=64,
-        number_blocks=3,
-        epochs=10,
-        device="cpu",
-        activation_function="tanh",
-        batch_size=64,
-        valid_batch_size=64,
-        selected_scaler="MaxAbsScaler"
-    )
+    for lr in [1E-7, 1E-8]:
+        for nh in [16, 32, 64, 128]:
+            for nb in [1, 2, 3, 4, 5]:
+                for bs in [16, 32]:
+                    main_des(
+                        path_train_data=f"{path}/Data/balrog_training_data_250000.pkl",
+                        path_output=f"{path}/Output",
+                        plot_test=True,
+                        show_plot=False,
+                        save_plot=True,
+                        save_nn=True,
+                        learning_rate=lr,
+                        number_hidden=nh,
+                        number_blocks=nb,
+                        epochs=150,
+                        device="cpu",
+                        activation_function="tanh",
+                        batch_size=bs,
+                        valid_batch_size=64,
+                        selected_scaler="MaxAbsScaler"
+                    )
