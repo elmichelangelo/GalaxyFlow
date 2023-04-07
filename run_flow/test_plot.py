@@ -272,6 +272,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
                 cond_figure.suptitle(f"BDF_MAG_DERED_CALIB - unsheared/mag", fontsize=16)
 
                 outputs = ['unsheared/mag_' + b for b in bands]
+                true_outputs = ['BDF_MAG_DERED_CALIB_' + b.upper() for b in bands]
                 output_errs = ['unsheared/mag_err_' + b for b in bands]
 
                 lst_axis_con = [
@@ -282,11 +283,12 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
 
                 cond_lims = np.percentile(df_true[condition], [2, 98])
 
-                for idx, out in enumerate(zip(outputs, output_errs)):
+                for idx, out in enumerate(zip(outputs, output_errs, true_outputs)):
                     output_ = out[0]
                     output_err_ = out[1]
+                    true_output_ = out[2]
 
-                    diff_true = (df_true['BDF_MAG_DERED_CALIB_R'] - df_true[output_]) / df_true[output_err_]
+                    diff_true = (df_true[true_output_] - df_true[output_]) / df_true[output_err_]
                     df_conditional_true = pd.DataFrame({
                         condition: df_true[condition],
                         f"residual band {bands[idx]}": diff_true,
@@ -301,7 +303,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
                     lst_axis_con[idx].errorbar(
                         xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, color='dodgerblue', lw=2, label='Balrog')
 
-                    diff_generated = (df_generated['BDF_MAG_DERED_CALIB_R'] - df_generated[output_]) / df_generated[output_err_]
+                    diff_generated = (df_generated[true_output_] - df_generated[output_]) / df_generated[output_err_]
                     df_conditional_generated = pd.DataFrame({
                         condition: df_generated[condition],
                         f"residual band {bands[idx]}": diff_generated,
@@ -476,8 +478,8 @@ if __name__ == '__main__':
         ("i", "z")
     ]
     main(
-        path_training_data=f"{path}/../Data/balrog_training_data_250000.pkl",
-        path_model=f"{path}/../trained_models/last_model_nf_epoch_150.pt", # last_model_nf_epoch_150.pt, best_model_des_epoch_67.pt
+        path_training_data=f"{path}/../Data/balrog_subset_250000.pkl",
+        path_model=f"{path}/../trained_models/last_model_des_epoch_150.pt", # last_model_nf_epoch_150.pt, best_model_des_epoch_67.pt
         path_save_plots=f"{path}/output_run_flow_DES",
         path_save_generated_data=f"{path}/generated_data",
         number_samples=50000,

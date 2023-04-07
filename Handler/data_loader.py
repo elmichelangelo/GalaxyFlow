@@ -98,7 +98,11 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
 
     arr_label_flow = np.array(df_training_data_scaled[input_flow])
     arr_output_flow = np.array(df_training_data_scaled[output_flow])
-    arr_sompz = np.array(df_sompz[sompz_cols])
+
+    _arr_sompz = None
+    if sompz_cols is not None:
+        arr_sompz = np.array(df_sompz[sompz_cols])
+        _arr_sompz = arr_sompz[int(len(arr_sompz) * .8):]
 
     dict_training_data = {
         f"label flow in order {input_flow}": arr_label_flow[:int(len(arr_label_flow) * .6)],
@@ -121,7 +125,7 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
     dict_test_data = {
         f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .8):],
         f"output flow in order {output_flow}": arr_output_flow[int(len(arr_output_flow) * .8):],
-        f"sompz cols in order {sompz_cols}": arr_sompz[int(len(arr_sompz) * .8):],
+        f"sompz cols in order {sompz_cols}": _arr_sompz,
         "columns label flow": input_flow,
         "columns output flow": output_flow,
         "scaler": scaler

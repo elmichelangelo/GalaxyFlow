@@ -27,19 +27,29 @@ def main_des(path_train_data,
     from galaxyflow.training import TrainFlow
 
     col_label_flow = [
+        # "BDF_MAG_DERED_CALIB_U",
+        # "BDF_MAG_DERED_CALIB_G",
         "BDF_MAG_DERED_CALIB_R",
         "BDF_MAG_DERED_CALIB_I",
         "BDF_MAG_DERED_CALIB_Z",
+        # "BDF_MAG_DERED_CALIB_J",
+        # "BDF_MAG_DERED_CALIB_H",
+        # "BDF_MAG_DERED_CALIB_K",
+        # "BDF_MAG_ERR_DERED_CALIB_U",
+        # "BDF_MAG_ERR_DERED_CALIB_G",
         "BDF_MAG_ERR_DERED_CALIB_R",
         "BDF_MAG_ERR_DERED_CALIB_I",
         "BDF_MAG_ERR_DERED_CALIB_Z",
+        # "BDF_MAG_ERR_DERED_CALIB_J",
+        # "BDF_MAG_ERR_DERED_CALIB_H",
+        # "BDF_MAG_ERR_DERED_CALIB_K",
         "Color Mag U-G",
         "Color Mag G-R",
         "Color Mag R-I",
         "Color Mag I-Z",
         "Color Mag Z-J",
         "Color Mag J-H",
-        "Color Mag H-KS",
+        "Color Mag H-K",
         "BDF_T",
         "BDF_G",
         "FWHM_WMEAN_R",
@@ -232,12 +242,12 @@ def main_kids(path_train_data,
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[1])
 
-    for lr in [1E-7, 1E-8]:
-        for nh in [16, 32, 64, 128]:
-            for nb in [1, 2, 3, 4, 5]:
+    for lr in [1E-4, 1E-5, 1E-6, 1E-7]:
+        for nh in [8, 16, 32, 48, 64]:
+            for nb in [1, 2, 4, 6, 8]:
                 for bs in [16, 32]:
                     main_des(
-                        path_train_data=f"{path}/Data/balrog_training_data_250000.pkl",
+                        path_train_data=f"{path}/Data/balrog_subset_cutted_2000000.pkl",
                         path_output=f"{path}/Output",
                         plot_test=True,
                         show_plot=False,

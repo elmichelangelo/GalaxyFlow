@@ -508,14 +508,14 @@ class TrainFlow(object):
                     (-2.5, 2.5)
                 ]
 
-                df_hist_skills = pd.DataFrame({
+                df_hist_balrog = pd.DataFrame({
                     "dataset": ["skillz" for _ in range(len(df_true[f"unsheared/mag_r"]))]
                 })
                 df_hist_generated = pd.DataFrame({
                     "dataset": ["generated" for _ in range(len(df_true[f"unsheared/mag_r"]))]
                 })
                 for band in bands:
-                    df_hist_skills[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[
+                    df_hist_balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[
                                                                                         f"BDF_MAG_DERED_CALIB_{band.upper()}"] - \
                                                                                     df_true[f"unsheared/mag_{band}"]
                     df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[
@@ -524,14 +524,14 @@ class TrainFlow(object):
 
                 for idx, band in enumerate(bands):
                     sns.histplot(
-                        data=df_hist_skills,
+                        data=df_hist_balrog,
                         x=f"BDF_MAG_DERED_CALIB - unsheared/mag {band}",
                         ax=lst_axis_res[idx],
                         element="step",
                         stat="density",
                         color="dodgerblue",
                         bins=50,
-                        label="skills"
+                        label="balrog"
                     )
                     sns.histplot(
                         data=df_hist_generated,
@@ -545,11 +545,11 @@ class TrainFlow(object):
                         label="generated"
                     )
                     lst_axis_res[idx].axvline(
-                        x=df_hist_skills[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
+                        x=df_hist_balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
                         color='dodgerblue',
                         ls='--',
                         lw=1.5,
-                        label="Mean skills"
+                        label="Mean balrog"
                     )
                     lst_axis_res[idx].axvline(
                         x=df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
@@ -613,14 +613,14 @@ class TrainFlow(object):
                     chainchat.plotter.plot(
                         filename=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
                         figsize="page",
-                        extents={
-                            "mag r": (17.5, 26),
-                            "mag i": (17.5, 26),
-                            "mag z": (17.5, 26),
-                            "snr": (-11, 55),
-                            "size ratio": (-1.5, 4),
-                            "T": (-1, 2.5)
-                        }
+                        # extents={
+                        #     "mag r": (17.5, 26),
+                        #     "mag i": (17.5, 26),
+                        #     "mag z": (17.5, 26),
+                        #     "snr": (-11, 100),
+                        #     "size ratio": (-4, 4),
+                        #     "T": (-2, 2)
+                        # }
                     )
                 except:
                     print("chain error at epoch", epoch + 1)
