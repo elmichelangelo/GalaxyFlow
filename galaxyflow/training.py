@@ -3,6 +3,8 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
+import ray
 import torch
 import torch.optim as optim
 import torch.utils.data
@@ -22,6 +24,9 @@ class TrainFlow(object):
 
     def __init__(self,
                  path_train_data,
+                 size_training_dataset,
+                 size_validation_dataset,
+                 size_test_dataset,
                  path_output,
                  col_label_flow,
                  col_output_flow,
@@ -45,9 +50,16 @@ class TrainFlow(object):
                  plot_mean,
                  plot_std,
                  plot_flags,
-                 plot_detected):
+                 plot_detected,
+                 run_hyperparameter_tuning,
+                 run,
+                 reproducible):
         super().__init__()
+        self.size_training_dataset = size_training_dataset
+        self.size_validation_dataset = size_validation_dataset
+        self.size_test_dataset = size_test_dataset
         self.plot_loss = plot_loss
+        self.run = run
         self.plot_color_color = plot_color_color
         self.plot_residual = plot_residual
         self.plot_chain = plot_chain
@@ -55,9 +67,6 @@ class TrainFlow(object):
         self.plot_std = plot_std
         self.plot_flags = plot_flags
         self.plot_detected = plot_detected
-        self.lr = learning_rate
-        self.num_hidden = number_hidden
-        self.num_blocks = number_blocks
         self.epochs = epochs
         self.plot_test = plot_test
         self.show_plot = show_plot
@@ -85,6 +94,21 @@ class TrainFlow(object):
         self.lst_train_loss_per_epoch = []
         self.lst_valid_loss_per_batch = []
         self.lst_valid_loss_per_epoch = []
+
+        self.path_train_data = path_train_data
+        if run is not None:
+            path_output = f"{path_output}/run_{run}"
+            if not os.path.exists(path_output):
+                os.mkdir(path_output)
+        self.path_output = path_output
+        self.selected_scaler = selected_scaler
+        self.col_label_flow = col_label_flow
+        self.col_output_flow = col_output_flow
+
+        # if run_hyperparameter_tuning is not True:
+        self.lr = learning_rate
+        self.num_hidden = number_hidden
+        self.num_blocks = number_blocks
         self.path_output_flow = f"{path_output}/Flow_" \
                                 f"lr_{self.lr}_" \
                                 f"num_hidden_{self.num_hidden}_" \
@@ -103,17 +127,14 @@ class TrainFlow(object):
         self.path_gifs = f"{self.path_plots}/gifs"
         self.path_save_nn = f"{self.path_output_flow}/nn"
         self.make_dirs()
-
         self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
-        self.col_label_flow = col_label_flow
-        self.col_output_flow = col_output_flow
-
         self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
             path_train_data=path_train_data,
-            selected_scaler=selected_scaler
+            selected_scaler=selected_scaler,
+            reproducible=reproducible
         )
 
-        self.model, self.optimizer  = self.init_network(
+        self.model, self.optimizer = self.init_network(
             num_inputs=len(col_output_flow),
             num_cond_inputs=len(col_label_flow)
         )
@@ -155,13 +176,19 @@ class TrainFlow(object):
             if not os.path.exists(self.path_save_nn):
                 os.mkdir(self.path_save_nn)
 
-    def init_dataset(self, path_train_data, selected_scaler):
+    def init_dataset(self, path_train_data, selected_scaler, reproducible):
         """"""
-        training_data, validation_data, test_data = load_data(
+        training_data, validation_data, test_data, all_data = load_data(
             path_training_data=path_train_data,
+            path_output=self.path_output,
             input_flow=self.col_label_flow,
             output_flow=self.col_output_flow,
-            selected_scaler=selected_scaler
+            selected_scaler=selected_scaler,
+            size_training_dataset=self.size_training_dataset,
+            size_validation_dataset=self.size_validation_dataset,
+            size_test_dataset=self.size_test_dataset,
+            reproducible=reproducible,
+            run=self.run
         )
 
         train_tensor = torch.from_numpy(training_data[f"output flow in order {self.col_output_flow}"])
@@ -225,6 +252,48 @@ class TrainFlow(object):
 
         return model, optimizer
 
+    # def hyperparameter_tuning(self, learning_rate, number_hidden, number_blocks, batch_size, reproducible):
+    #     # , number_hidden, number_blocks
+    #     self.lr = learning_rate,
+    #     self.num_hidden = number_hidden
+    #     self.num_blocks = number_blocks
+    #     self.batch_size = batch_size
+    #     self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
+    #         path_train_data=self.path_train_data,
+    #         selected_scaler=self.selected_scaler,
+    #         reproducible=reproducible
+    #     )
+    #
+    #     self.model, self.optimizer = self.init_network(
+    #         num_inputs=len(self.col_output_flow),
+    #         num_cond_inputs=len(self.col_label_flow)
+    #     )
+    #
+    #     self.global_step = 0
+    #     self.best_validation_loss = float('inf')
+    #     self.best_validation_epoch = 0
+    #     self.best_model = self.model
+    #     self.path_output_flow = f"{self.path_output}/Flow_" \
+    #                             f"lr_{self.lr}_" \
+    #                             f"num_hidden_{self.num_hidden}_" \
+    #                             f"num_blocks_{self.num_blocks}_" \
+    #                             f"batch_size_{self.batch_size}"
+    #     self.path_plots = f"{self.path_output_flow}/plots"
+    #     self.path_chain_plot = f"{self.path_plots}/chain_plot"
+    #     self.path_loss_plot = f"{self.path_plots}/loss_plot"
+    #     self.path_mean_plot = f"{self.path_plots}/mean_plot"
+    #     self.path_std_plot = f"{self.path_plots}/std_plot"
+    #     self.path_residual_plot = f"{self.path_plots}/residual_plot"
+    #     self.path_flag_plot = f"{self.path_plots}/flag_plot"
+    #     self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
+    #     self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
+    #     self.path_detection_plot = f"{self.path_plots}/detection_plot"
+    #     self.path_gifs = f"{self.path_plots}/gifs"
+    #     self.path_save_nn = f"{self.path_output_flow}/nn"
+    #     self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
+    #     self.make_dirs()
+    #     self.run_training()
+
     def run_training(self):
         for epoch in range(self.epochs):
             print('\nEpoch: {}'.format(epoch + 1))
@@ -267,8 +336,8 @@ class TrainFlow(object):
             make_gif(self.path_color_color_plot, f"{self.path_gifs}/color_color_plot.gif")
             make_gif(self.path_residual_plot, f"{self.path_gifs}/residual_plot.gif")
         if self.save_nn is True:
-            torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}.pt")
-            torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{self.epochs}.pt")
+            torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}_run_{self.run}.pt")
+            torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{self.epochs}_run_{self.run}.pt")
         self.validate(
             epoch=self.best_validation_epoch,
             loader=self.test_loader
@@ -286,10 +355,16 @@ class TrainFlow(object):
             data = data.to(self.device)
             self.optimizer.zero_grad()
             loss = -self.model.log_probs(data, cond_data).mean()
+            if loss.isnan():
+                print(loss)
+                print()
             self.lst_train_loss_per_batch.append(loss.item())
             train_loss += loss.item()
             loss.backward()
             self.optimizer.step()
+            # print(int(data.size(0)/len(self.train_loader.dataset)))
+            # self.gui.progress.emit(int(data.size(0)/len(self.train_loader.dataset)))
+            # self.gui.status.emit(f'Train, Log likelihood: {train_loss / (batch_idx + 1)}')
             pbar.update(data.size(0))
             pbar.set_description(f'Train, Log likelihood: {train_loss / (batch_idx + 1)}')
             self.writer.add_scalar('training/loss', loss.item(), self.global_step)

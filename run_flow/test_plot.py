@@ -1,4 +1,4 @@
-from Handler.data_loader import load_data
+from Handler.data_loader import load_test_data
 from chainconsumer import ChainConsumer
 from scipy.stats import binned_statistic, median_abs_deviation
 import matplotlib.pyplot as plt
@@ -16,22 +16,32 @@ def load_model(path_model):
     return model
 
 
-def main(path_training_data, path_model, path_save_plots, path_save_generated_data, number_samples, plot_chain,
+def main(path_test_data, path_model, path_save_plots, path_save_generated_data, run, number_samples, plot_chain,
          plot_residual, plot_luptize_conditions, conditions, bands, colors, save_generated_data, plot_hist):
     col_label_flow = [
+        "BDF_MAG_DERED_CALIB_U",
+        "BDF_MAG_DERED_CALIB_G",
         "BDF_MAG_DERED_CALIB_R",
         "BDF_MAG_DERED_CALIB_I",
         "BDF_MAG_DERED_CALIB_Z",
+        "BDF_MAG_DERED_CALIB_J",
+        "BDF_MAG_DERED_CALIB_H",
+        "BDF_MAG_DERED_CALIB_K",
+        "BDF_MAG_ERR_DERED_CALIB_U",
+        "BDF_MAG_ERR_DERED_CALIB_G",
         "BDF_MAG_ERR_DERED_CALIB_R",
         "BDF_MAG_ERR_DERED_CALIB_I",
         "BDF_MAG_ERR_DERED_CALIB_Z",
+        "BDF_MAG_ERR_DERED_CALIB_J",
+        "BDF_MAG_ERR_DERED_CALIB_H",
+        "BDF_MAG_ERR_DERED_CALIB_K",
         "Color Mag U-G",
         "Color Mag G-R",
         "Color Mag R-I",
         "Color Mag I-Z",
         "Color Mag Z-J",
         "Color Mag J-H",
-        "Color Mag H-KS",
+        "Color Mag H-K",
         "BDF_T",
         "BDF_G",
         "FWHM_WMEAN_R",
@@ -59,40 +69,23 @@ def main(path_training_data, path_model, path_save_plots, path_save_generated_da
         "unsheared/T",
         "detected"
     ]
-
-    col_pz = [
-        "BDF_FLUX_DERED_CALIB_U",
-        "BDF_FLUX_DERED_CALIB_G",
-        "BDF_FLUX_DERED_CALIB_R",
-        "BDF_FLUX_DERED_CALIB_I",
-        "BDF_FLUX_DERED_CALIB_Z",
-        "BDF_FLUX_DERED_CALIB_J",
-        "BDF_FLUX_DERED_CALIB_H",
-        "BDF_FLUX_DERED_CALIB_K",
-        "BDF_FLUX_ERR_DERED_CALIB_U",
-        "BDF_FLUX_ERR_DERED_CALIB_G",
-        "BDF_FLUX_ERR_DERED_CALIB_R",
-        "BDF_FLUX_ERR_DERED_CALIB_I",
-        "BDF_FLUX_ERR_DERED_CALIB_Z",
-        "BDF_FLUX_ERR_DERED_CALIB_J",
-        "BDF_FLUX_ERR_DERED_CALIB_H",
-        "BDF_FLUX_ERR_DERED_CALIB_K",
-    ]
     print("Load data...")
-    train_data, valid_data, test_data = load_data(
-        path_training_data=path_training_data,
-        input_flow=col_label_flow,
-        output_flow=col_output_flow,
-        sompz_cols=col_pz,
-        selected_scaler="MaxAbsScaler"
+
+    path_save_plots, path_save_generated_data = create_folders(
+        path_save_plots=path_save_plots,
+        path_save_generated_data=path_save_generated_data,
+        run=run
+    )
+
+    test_data = load_test_data(
+        path_test_data=path_test_data
     )
     scaler = test_data["scaler"]
 
-    # Write data as torch loader
+    # # Write data as torch loader
     test_tensor = torch.from_numpy(test_data[f"output flow in order {col_output_flow}"])
     test_labels = torch.from_numpy(test_data[f"label flow in order {col_label_flow}"])
-    test_sompz = torch.from_numpy(test_data[f"sompz cols in order {col_pz}"])
-    test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels, test_sompz)
+    test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels)
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=len(test_dataset),
@@ -101,26 +94,43 @@ def main(path_training_data, path_model, path_save_plots, path_save_generated_da
         # **kwargs
     )
 
+    # scaler = all_data["scaler"]
+    #
+    # # Write data as torch loader
+    # all_tensor = torch.from_numpy(all_data[f"output flow in order {col_output_flow}"])
+    # all_labels = torch.from_numpy(all_data[f"label flow in order {col_label_flow}"])
+    # all_dataset = torch.utils.data.TensorDataset(all_tensor, all_labels)
+    # all_loader = torch.utils.data.DataLoader(
+    #     all_dataset,
+    #     batch_size=len(all_dataset),
+    #     shuffle=False,
+    #     drop_last=False,
+    #     # **kwargs
+    # )
+
     print("Load model...")
     model = load_model(path_model)
     for batch_idx, data in enumerate(test_loader):
-        cond_data = data[1].float()
-        # d_random_real = np.random.choice(len(test_dataset), size=number_samples, replace=True)
-        # cond_data = cond_data[d_random_real]
+        if number_samples is None:
+            number_samples = len(test_dataset)
+            true_data = data[0]
+            cond_data = data[1]
+        else:
+            d_random_real = np.random.choice(len(test_dataset), size=number_samples, replace=True)
+            true_data = data[0][d_random_real]
+            cond_data = data[1][d_random_real]
         with torch.no_grad():
-            print("Sample data")
+            print(f"Sample {number_samples} objects")
             test_output = model.sample(num_samples=number_samples, cond_inputs=cond_data).detach()
         print("Plot data")
-        df_true, df_generated, df_sompz = plot_data(
+        df_true, df_generated = plot_data(
             path_save_plots=path_save_plots,
             cond_data=cond_data,
             test_output=test_output,
             col_label_flow=col_label_flow,
             col_output_flow=col_output_flow,
-            col_sompz=col_pz,
             scaler=scaler,
-            data=data[0],
-            sompz_data=data[2],
+            true_data=true_data,
             plot_chain=plot_chain,
             plot_residual=plot_residual,
             plot_luptize_conditions=plot_luptize_conditions,
@@ -129,19 +139,57 @@ def main(path_training_data, path_model, path_save_plots, path_save_generated_da
             colors=colors,
             plot_hist=plot_hist
         )
+    #
+    #     if save_generated_data is True:
+    #         save_emulated_cat(
+    #             path_save_catalog=path_save_generated_data,
+    #             df_generated=df_generated,
+    #             df_true=df_true
+    #         )
+    #     break
+
+    # for batch_idx, data in enumerate(all_loader):
+    #     if number_samples is None:
+    #         number_samples = len(all_loader)
+    #         true_data = data[0]
+    #         cond_data = data[1]
+    #     else:
+    #         d_random_real = np.random.choice(len(all_loader), size=number_samples, replace=True)
+    #         true_data = data[0][d_random_real]
+    #         cond_data = data[1][d_random_real]
+    #     with torch.no_grad():
+    #         print("Sample data")
+    #         test_output = model.sample(num_samples=number_samples, cond_inputs=cond_data).detach()
+    #     print("Plot data")
+    #     df_true, df_generated = plot_data(
+    #         path_save_plots=path_save_plots,
+    #         cond_data=cond_data,
+    #         test_output=test_output,
+    #         col_label_flow=col_label_flow,
+    #         col_output_flow=col_output_flow,
+    #         scaler=scaler,
+    #         true_data=true_data,
+    #         plot_chain=plot_chain,
+    #         plot_residual=plot_residual,
+    #         plot_luptize_conditions=plot_luptize_conditions,
+    #         conditions=conditions,
+    #         bands=bands,
+    #         colors=colors,
+    #         plot_hist=plot_hist
+    #     )
 
         if save_generated_data is True:
             save_emulated_cat(
-                path_save_catalog=path_save_generated_data,
+                path_save_generated_data=path_save_generated_data,
                 df_generated=df_generated,
                 df_true=df_true,
-                df_sompz=df_sompz
+                run=run
             )
         break
 
 
-def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_output_flow, col_sompz, scaler, data,
-              sompz_data, plot_chain, plot_residual, plot_luptize_conditions, conditions, bands, colors, plot_hist):
+def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_output_flow, scaler, true_data,
+              plot_chain, plot_residual, plot_luptize_conditions, conditions, bands, colors, plot_hist):
 
     df_generator_label = pd.DataFrame(cond_data.numpy(), columns=col_label_flow)
     df_generator_output = pd.DataFrame(test_output.numpy(), columns=col_output_flow)
@@ -149,8 +197,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
     generator_rescaled = scaler.inverse_transform(df_generator_scaled)
     df_generated = pd.DataFrame(generator_rescaled, columns=df_generator_scaled.columns)
 
-    df_true_output = pd.DataFrame(data, columns=col_output_flow)
-    df_sompz = pd.DataFrame(sompz_data, columns=col_sompz)
+    df_true_output = pd.DataFrame(true_data, columns=col_output_flow)
     df_true_scaled = pd.concat([df_generator_label, df_true_output], axis=1)
     true_rescaled = scaler.inverse_transform(df_true_scaled)
     df_true = pd.DataFrame(true_rescaled, columns=df_true_scaled.columns)
@@ -207,7 +254,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
             "dataset": ["Balrog" for _ in range(len(df_true[f"unsheared/mag_r"]))]
         })
         df_hist_generated = pd.DataFrame({
-            "dataset": ["gaNdalF" for _ in range(len(df_true[f"unsheared/mag_r"]))]
+            "dataset": ["gaNdalF" for _ in range(len(df_generated[f"unsheared/mag_r"]))]
         })
         for band in bands:
             df_hist_Balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = \
@@ -356,6 +403,7 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
                 plt.clf()
                 plt.close()
 
+
             except ValueError:
                 print(f"Value Error for {condition}")
 
@@ -422,39 +470,60 @@ def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_outpu
         plt.clf()
         plt.close()
 
-    return df_true, df_generated, df_sompz
+    return df_true, df_generated
 
 
-def save_emulated_cat(path_save_catalog, df_generated, df_true, df_sompz):
-    if not os.path.exists(path_save_catalog):
-        os.mkdir(path_save_catalog)
+def create_folders(path_save_plots, path_save_generated_data, run):
+    """"""
+    if not os.path.exists(path_save_generated_data):
+        os.mkdir(path_save_generated_data)
+    if not os.path.exists(path_save_plots):
+        os.mkdir(path_save_plots)
+    if run is not None:
+        path_save_generated_data = f"{path_save_generated_data}/run_{run}"
+        path_save_plots = f"{path_save_plots}/run_{run}"
+        if not os.path.exists(path_save_generated_data):
+            os.mkdir(path_save_generated_data)
+        if not os.path.exists(path_save_plots):
+            os.mkdir(path_save_plots)
+    return path_save_plots, path_save_generated_data
 
-    df_generated_sompz = pd.concat([df_generated, df_sompz], axis=1)
-    df_true_sompz = pd.concat([df_true, df_sompz], axis=1)
-    with open(f"{path_save_catalog}/df_gaNdalF_sompz.pkl", "wb") as f:
-        pickle.dump(df_generated_sompz.to_dict(), f, protocol=2)
 
-    with open(f"{path_save_catalog}/df_balrog_nf_sompz.pkl", "wb") as f:
-        pickle.dump(df_true_sompz.to_dict(), f, protocol=2)
+def save_emulated_cat(path_save_generated_data, df_generated, df_true, run):
+    # df_generated_sompz = pd.concat([df_generated], axis=1)
+    # df_true_sompz = pd.concat([df_true], axis=1)
+    with open(f"{path_save_generated_data}/df_gaNdalF_sompz_run_{run}.pkl", "wb") as f:
+        pickle.dump(df_generated.to_dict(), f, protocol=2)
+    with open(f"{path_save_generated_data}/df_balrog_nf_sompz_run_{run}.pkl", "wb") as f:
+        pickle.dump(df_true.to_dict(), f, protocol=2)
     # df_data.to_pickle(path_save_catalog)
-
 
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[0])
     lst_conditions = [
+        "BDF_MAG_DERED_CALIB_U",
+        "BDF_MAG_DERED_CALIB_G",
         "BDF_MAG_DERED_CALIB_R",
         "BDF_MAG_DERED_CALIB_I",
         "BDF_MAG_DERED_CALIB_Z",
+        "BDF_MAG_DERED_CALIB_J",
+        "BDF_MAG_DERED_CALIB_H",
+        "BDF_MAG_DERED_CALIB_K",
+        "BDF_MAG_ERR_DERED_CALIB_U",
+        "BDF_MAG_ERR_DERED_CALIB_G",
         "BDF_MAG_ERR_DERED_CALIB_R",
         "BDF_MAG_ERR_DERED_CALIB_I",
         "BDF_MAG_ERR_DERED_CALIB_Z",
+        "BDF_MAG_ERR_DERED_CALIB_J",
+        "BDF_MAG_ERR_DERED_CALIB_H",
+        "BDF_MAG_ERR_DERED_CALIB_K",
         "Color Mag U-G",
         "Color Mag G-R",
         "Color Mag R-I",
         "Color Mag I-Z",
         "Color Mag Z-J",
         "Color Mag J-H",
-        "Color Mag H-KS",
+        "Color Mag H-K",
         "BDF_T",
         "BDF_G",
         "FWHM_WMEAN_R",
@@ -477,12 +546,15 @@ if __name__ == '__main__':
         ("r", "i"),
         ("i", "z")
     ]
+    # for run in range(10):
+    run = 0
     main(
-        path_training_data=f"{path}/../Data/balrog_subset_250000.pkl",
-        path_model=f"{path}/../trained_models/last_model_des_epoch_150.pt", # last_model_nf_epoch_150.pt, best_model_des_epoch_67.pt
+        path_test_data=f"{path}/Data/df_test_data_651028_run_0.pkl",
+        path_model=f"{path}/../trained_models/best_model_des_epoch_2_run_{run}.pt",
         path_save_plots=f"{path}/output_run_flow_DES",
         path_save_generated_data=f"{path}/generated_data",
-        number_samples=50000,
+        run=run,
+        number_samples=None,
         plot_chain=True,
         plot_residual=True,
         plot_luptize_conditions=True,

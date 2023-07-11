@@ -12,7 +12,33 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 
-def load_data(path_training_data, input_flow, output_flow, selected_scaler, sompz_cols=None):
+def load_test_data(path_test_data):
+    """"""
+    # open file
+    infile = open(path_test_data, 'rb')  # filename
+
+    # load pickle as pandas dataframe
+    data = pickle.load(infile, encoding='latin1')
+
+    # close file
+    infile.close()
+    return data
+
+
+def load_data(
+        path_training_data,
+        path_output,
+        size_training_dataset,
+        size_validation_dataset,
+        size_test_dataset,
+        input_flow,
+        output_flow,
+        selected_scaler,
+        sompz_cols=None,
+        all_data=False,
+        reproducible=True,
+        run=None
+):
     """
     Load the Data from *.pkl-file
 
@@ -23,6 +49,9 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
     Returns: dictionary with list of training data, list of test data, used deep field data and used flux data
     """
 
+    if size_training_dataset + size_validation_dataset + size_test_dataset > 1.0:
+        raise f"{size_training_dataset}+{size_validation_dataset}+{size_test_dataset} > 1"
+
     # open file
     infile = open(path_training_data, 'rb')  # filename
 
@@ -31,6 +60,9 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
 
     # close file
     infile.close()
+    # for k in df_data.dtypes:
+    #     print(k)
+    # exit()
 
     df_data["Color Mag U-G"] = df_data[f"BDF_MAG_DERED_CALIB_U"].to_numpy() - \
                                df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy()
@@ -72,6 +104,13 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
 
     df_training_data = df_data[input_flow+output_flow]
 
+    print(df_training_data.isnull().sum())
+    print(len(df_training_data))
+    df_training_data = df_training_data.fillna(100)
+    print(df_training_data.isnull().sum())
+    print(len(df_training_data))
+    print()
+
     scaler = None
     if selected_scaler == "MinMaxScaler":
         scaler = MinMaxScaler()
@@ -84,9 +123,6 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
     else:
         raise f"{selected_scaler} is no valid scaler"
 
-    # convert to float 32
-    df_training_data = pd.DataFrame(np.float32(df_training_data), columns=df_training_data.columns)
-
     if scaler is not None:
         scaler.fit(df_training_data)
         scaled = scaler.transform(df_training_data)
@@ -94,7 +130,10 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
     else:
         df_training_data_scaled = df_training_data
 
-    df_training_data_scaled = df_training_data_scaled.sample(frac=1, random_state=1)
+    if reproducible is True:
+        df_training_data_scaled = df_training_data_scaled.sample(frac=1, random_state=42)
+    else:
+        df_training_data_scaled = df_training_data_scaled.sample(frac=1)
 
     arr_label_flow = np.array(df_training_data_scaled[input_flow])
     arr_output_flow = np.array(df_training_data_scaled[output_flow])
@@ -104,123 +143,149 @@ def load_data(path_training_data, input_flow, output_flow, selected_scaler, somp
         arr_sompz = np.array(df_sompz[sompz_cols])
         _arr_sompz = arr_sompz[int(len(arr_sompz) * .8):]
 
-    dict_training_data = {
-        f"label flow in order {input_flow}": arr_label_flow[:int(len(arr_label_flow) * .6)],
-        f"output flow in order {output_flow}": arr_output_flow[:int(len(arr_output_flow) * .6)],
-        "columns label flow": input_flow,
-        "columns output flow": output_flow,
+    dict_all_data = {
+        f"label flow in order {input_flow}": arr_label_flow,
+        f"output flow in order {output_flow}": arr_output_flow,
+        f"columns label flow": input_flow,
+        f"columns output flow": output_flow,
         "scaler": scaler
     }
+
+    train_end = int(len(arr_label_flow) * size_training_dataset)
+
+    dict_training_data = {
+        f"label flow in order {input_flow}": arr_label_flow[:train_end],
+        f"output flow in order {output_flow}": arr_output_flow[:train_end],
+        f"columns label flow": input_flow,
+        f"columns output flow": output_flow,
+        "scaler": scaler
+    }
+
+    val_start = train_end
+    val_end = train_end + int(len(arr_label_flow) * size_validation_dataset)
 
     dict_validation_data = {
-        f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .6):int(len(arr_label_flow) * .8)],
-        f"output flow in order {output_flow}": arr_output_flow[int(len(arr_label_flow) * .6):int(len(arr_output_flow) * .8)],
-        "columns label flow": input_flow,
-        "columns output flow": output_flow,
+        f"label flow in order {input_flow}": arr_label_flow[val_start:val_end],
+        f"output flow in order {output_flow}": arr_output_flow[val_start:val_end],
+        f"columns label flow": input_flow,
+        f"columns output flow": output_flow,
         "scaler": scaler
     }
 
-
+    test_start = val_end
+    test_end = val_end + int(len(arr_label_flow) * size_test_dataset)
 
     dict_test_data = {
-        f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .8):],
-        f"output flow in order {output_flow}": arr_output_flow[int(len(arr_output_flow) * .8):],
-        f"sompz cols in order {sompz_cols}": _arr_sompz,
-        "columns label flow": input_flow,
-        "columns output flow": output_flow,
+        f"label flow in order {input_flow}": arr_label_flow[test_start:test_end],
+        f"output flow in order {output_flow}": arr_output_flow[test_start:test_end],
+        # f"sompz cols in order {sompz_cols}": _arr_sompz,
+        f"columns label flow": input_flow,
+        f"columns output flow": output_flow,
         "scaler": scaler
     }
 
-    return dict_training_data, dict_validation_data, dict_test_data
+    with open(
+            f"{path_output}/df_train_data_{len(dict_training_data[f'output flow in order {output_flow}'])}_run_{run}.pkl",
+            "wb") as f:
+        pickle.dump(dict_training_data, f, protocol=2)
+    with open(
+            f"{path_output}/df_validation_data_{len(dict_validation_data[f'output flow in order {output_flow}'])}_run_{run}.pkl",
+            "wb") as f:
+        pickle.dump(dict_validation_data, f, protocol=2)
+    with open(f"{path_output}/df_test_data_{len(dict_test_data[f'output flow in order {output_flow}'])}_run_{run}.pkl",
+              "wb") as f:
+        pickle.dump(dict_test_data, f, protocol=2)
+
+    return dict_training_data, dict_validation_data, dict_test_data, dict_all_data
 
 
-def load_data_kidz(path_training_data, input_flow, output_flow, selected_scaler, apply_cuts):
-    """
-    Load the Data from *.pkl-file
-
-    Args:
-        selected_scaler: MaxAbsScaler, MinMaxScaler or StandardScaler
-        path_training_data: path of the *.pkl-file as string
-
-    Returns: dictionary with list of training data, list of test data, used deep field data and used flux data
-    """
-
-    # open file
-    infile = open(path_training_data, 'rb')  # filename
-
-    # load pickle as pandas dataframe
-    df_data = pd.DataFrame(pickle.load(infile, encoding='latin1'))
-
-    # close file
-    infile.close()
-
-    print(f'Length of catalog: {len(df_data)}')
-
-    if apply_cuts is True:
-        print(f"Apply some star cuts")
-        df_data = data_cuts_kids(df_data)
-        print(f'Length of catalog now: {len(df_data)}')
-
-    # plot_true_dataset(df_data)
-
-    # Use only necessary columns
-    df_training_data = df_data[input_flow+output_flow]
-
-    # Define the scaler
-    scaler = None
-    if selected_scaler == "MinMaxScaler":
-        scaler = MinMaxScaler()
-    elif selected_scaler == "MaxAbsScaler":
-        scaler = MaxAbsScaler()
-    elif selected_scaler == "StandardScaler":
-        scaler = StandardScaler()
-    elif selected_scaler is None:
-        pass
-    else:
-        raise f"{selected_scaler} is no valid scaler"
-
-    # convert to float 32 because of the normalizing flow network
-    df_training_data = pd.DataFrame(np.float32(df_training_data), columns=df_training_data.columns)
-
-    # Use scaler to scale the date for the network
-    if scaler is not None:
-        scaler.fit(df_training_data)
-        scaled = scaler.transform(df_training_data)
-        df_training_data_scaled = pd.DataFrame(scaled, columns=df_training_data.columns)
-    else:
-        df_training_data_scaled = df_training_data
-    df_training_data_scaled = df_training_data_scaled.sample(frac=1, random_state=1)
-
-    # Define array that can easy be used as the input Tensor
-    arr_label_flow = np.array(df_training_data_scaled[input_flow])
-    arr_output_flow = np.array(df_training_data_scaled[output_flow])
-
-    # Define dictionaries for the training
-    dict_training_data = {
-        f"label flow in order {input_flow}": arr_label_flow[:int(len(arr_label_flow) * .6)],
-        f"output flow in order {output_flow}": arr_output_flow[:int(len(arr_output_flow) * .6)],
-        "columns label flow": input_flow,
-        "columns output flow": output_flow,
-        "scaler": scaler
-    }
-
-    dict_validation_data = {
-        f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .6):int(len(arr_label_flow) * .8)],
-        f"output flow in order {output_flow}": arr_output_flow[int(len(arr_label_flow) * .6):int(len(arr_output_flow) * .8)],
-        "columns label flow": input_flow,
-        "columns output flow": output_flow,
-        "scaler": scaler
-    }
-
-    dict_test_data = {
-        f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .8):],
-        f"output flow in order {output_flow}": arr_output_flow[int(len(arr_output_flow) * .8):],
-        "columns label flow": input_flow,
-        "columns output flow": output_flow,
-        "scaler": scaler
-    }
-
-    return dict_training_data, dict_validation_data, dict_test_data
+# def load_data_kidz(path_training_data, input_flow, output_flow, selected_scaler, apply_cuts):
+#     """
+#     Load the Data from *.pkl-file
+#
+#     Args:
+#         selected_scaler: MaxAbsScaler, MinMaxScaler or StandardScaler
+#         path_training_data: path of the *.pkl-file as string
+#
+#     Returns: dictionary with list of training data, list of test data, used deep field data and used flux data
+#     """
+#
+#     # open file
+#     infile = open(path_training_data, 'rb')  # filename
+#
+#     # load pickle as pandas dataframe
+#     df_data = pd.DataFrame(pickle.load(infile, encoding='latin1'))
+#
+#     # close file
+#     infile.close()
+#
+#     print(f'Length of catalog: {len(df_data)}')
+#
+#     if apply_cuts is True:
+#         print(f"Apply some star cuts")
+#         df_data = data_cuts_kids(df_data)
+#         print(f'Length of catalog now: {len(df_data)}')
+#
+#     # plot_true_dataset(df_data)
+#
+#     # Use only necessary columns
+#     df_training_data = df_data[input_flow+output_flow]
+#
+#     # Define the scaler
+#     scaler = None
+#     if selected_scaler == "MinMaxScaler":
+#         scaler = MinMaxScaler()
+#     elif selected_scaler == "MaxAbsScaler":
+#         scaler = MaxAbsScaler()
+#     elif selected_scaler == "StandardScaler":
+#         scaler = StandardScaler()
+#     elif selected_scaler is None:
+#         pass
+#     else:
+#         raise f"{selected_scaler} is no valid scaler"
+#
+#     # convert to float 32 because of the normalizing flow network
+#     df_training_data = pd.DataFrame(np.float32(df_training_data), columns=df_training_data.columns)
+#
+#     # Use scaler to scale the date for the network
+#     if scaler is not None:
+#         scaler.fit(df_training_data)
+#         scaled = scaler.transform(df_training_data)
+#         df_training_data_scaled = pd.DataFrame(scaled, columns=df_training_data.columns)
+#     else:
+#         df_training_data_scaled = df_training_data
+#     df_training_data_scaled = df_training_data_scaled.sample(frac=1, random_state=1)
+#
+#     # Define array that can easy be used as the input Tensor
+#     arr_label_flow = np.array(df_training_data_scaled[input_flow])
+#     arr_output_flow = np.array(df_training_data_scaled[output_flow])
+#
+#     # Define dictionaries for the training
+#     dict_training_data = {
+#         f"label flow in order {input_flow}": arr_label_flow[:int(len(arr_label_flow) * .6)],
+#         f"output flow in order {output_flow}": arr_output_flow[:int(len(arr_output_flow) * .6)],
+#         "columns label flow": input_flow,
+#         "columns output flow": output_flow,
+#         "scaler": scaler
+#     }
+#
+#     dict_validation_data = {
+#         f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .6):int(len(arr_label_flow) * .8)],
+#         f"output flow in order {output_flow}": arr_output_flow[int(len(arr_label_flow) * .6):int(len(arr_output_flow) * .8)],
+#         "columns label flow": input_flow,
+#         "columns output flow": output_flow,
+#         "scaler": scaler
+#     }
+#
+#     dict_test_data = {
+#         f"label flow in order {input_flow}": arr_label_flow[int(len(arr_label_flow) * .8):],
+#         f"output flow in order {output_flow}": arr_output_flow[int(len(arr_output_flow) * .8):],
+#         "columns label flow": input_flow,
+#         "columns output flow": output_flow,
+#         "scaler": scaler
+#     }
+#
+#     return dict_training_data, dict_validation_data, dict_test_data
 
 
 def data_cuts(data_frame, analytical_data, only_detected):
@@ -247,22 +312,22 @@ def data_cuts(data_frame, analytical_data, only_detected):
     return data_frame
 
 
-def data_cuts_kids(data_frame):
-    """"""
-    input_cut = (
-        (data_frame["axis_ratio_input"] != -999) #&
-        # (data_frame["luptize_u"] < 25) &
-        # (data_frame["luptize_g"] < 25) &
-        # (data_frame["luptize_r"] < 25) &
-        # (data_frame["luptize_i"] < 25) &
-        # (data_frame["luptize_Z"] < 25) &
-        # (data_frame["luptize_Y"] < 25) &
-        # (data_frame["luptize_J"] < 25) &
-        # (data_frame["luptize_H"] < 25) &
-        # (data_frame["luptize_Ks"] < 25)
-    )
-    data_frame = data_frame[input_cut]
-    return data_frame
+# def data_cuts_kids(data_frame):
+#     """"""
+#     input_cut = (
+#         (data_frame["axis_ratio_input"] != -999) #&
+#         # (data_frame["luptize_u"] < 25) &
+#         # (data_frame["luptize_g"] < 25) &
+#         # (data_frame["luptize_r"] < 25) &
+#         # (data_frame["luptize_i"] < 25) &
+#         # (data_frame["luptize_Z"] < 25) &
+#         # (data_frame["luptize_Y"] < 25) &
+#         # (data_frame["luptize_J"] < 25) &
+#         # (data_frame["luptize_H"] < 25) &
+#         # (data_frame["luptize_Ks"] < 25)
+#     )
+#     data_frame = data_frame[input_cut]
+#     return data_frame
 
 
 def plot_true_dataset(data_frame):
@@ -379,13 +444,13 @@ def main(filename):
         "FLUXERR_AUTO",
     ]
 
-    train_data, valid_data, test_data = load_data_kidz(
-        path_training_data=filename,
-        input_flow=lst_input,
-        output_flow=lst_output,
-        selected_scaler="MaxAbsScaler",
-        apply_cuts=True
-    )
+    # train_data, valid_data, test_data = load_data_kidz(
+    #     path_training_data=filename,
+    #     input_flow=lst_input,
+    #     output_flow=lst_output,
+    #     selected_scaler="MaxAbsScaler",
+    #     apply_cuts=True
+    # )
 
 
 if __name__ == "__main__":

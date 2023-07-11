@@ -12,6 +12,15 @@ import pandas as pd
 warnings.filterwarnings("error")"""
 
 
+def str_to_bool(s):
+    if s == 'True':
+         return True
+    elif s == 'False':
+         return False
+    else:
+         raise ValueError
+
+
 def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title="", color=None):
     """"""
 

@@ -1,85 +1,49 @@
-# Use from galaxyflow.training import TrainFlow for DES
-from galaxyflow.training_kids import TrainFlow
+import ray
+from ray import tune
+from ray import air
+from ray.tune import CLIReporter
+from ray.tune.schedulers import ASHAScheduler
+from galaxyflow.training import TrainFlow
+import argparse
 import matplotlib.pyplot as plt
 import sys
+import yaml
 import os
 sys.path.append(os.path.dirname(__file__))
-
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
-def main_des(path_train_data,
-         path_output,
-         plot_test,
-         show_plot,
-         save_plot,
-         save_nn,
-         learning_rate,
-         number_hidden,
-         number_blocks,
-         epochs,
-         device,
-         activation_function,
-         batch_size,
-         valid_batch_size,
-         selected_scaler):
+def main(
+        path_train_data,
+        size_training_dataset,
+        size_validation_dataset,
+        size_test_dataset,
+        path_output,
+        plot_test,
+        show_plot,
+        save_plot,
+        save_nn,
+        learning_rate,
+        number_hidden,
+        number_blocks,
+        epochs,
+        device,
+        activation_function,
+        batch_size,
+        valid_batch_size,
+        selected_scaler,
+        reproducible,
+        col_output_flow,
+        col_label_flow,
+        run_hyperparameter_tuning=True,
+        run=None):
     """"""
-    from galaxyflow.training import TrainFlow
-
-    col_label_flow = [
-        # "BDF_MAG_DERED_CALIB_U",
-        # "BDF_MAG_DERED_CALIB_G",
-        "BDF_MAG_DERED_CALIB_R",
-        "BDF_MAG_DERED_CALIB_I",
-        "BDF_MAG_DERED_CALIB_Z",
-        # "BDF_MAG_DERED_CALIB_J",
-        # "BDF_MAG_DERED_CALIB_H",
-        # "BDF_MAG_DERED_CALIB_K",
-        # "BDF_MAG_ERR_DERED_CALIB_U",
-        # "BDF_MAG_ERR_DERED_CALIB_G",
-        "BDF_MAG_ERR_DERED_CALIB_R",
-        "BDF_MAG_ERR_DERED_CALIB_I",
-        "BDF_MAG_ERR_DERED_CALIB_Z",
-        # "BDF_MAG_ERR_DERED_CALIB_J",
-        # "BDF_MAG_ERR_DERED_CALIB_H",
-        # "BDF_MAG_ERR_DERED_CALIB_K",
-        "Color Mag U-G",
-        "Color Mag G-R",
-        "Color Mag R-I",
-        "Color Mag I-Z",
-        "Color Mag Z-J",
-        "Color Mag J-H",
-        "Color Mag H-K",
-        "BDF_T",
-        "BDF_G",
-        "FWHM_WMEAN_R",
-        "FWHM_WMEAN_I",
-        "FWHM_WMEAN_Z",
-        "AIRMASS_WMEAN_R",
-        "AIRMASS_WMEAN_I",
-        "AIRMASS_WMEAN_Z",
-        "MAGLIM_R",
-        "MAGLIM_I",
-        "MAGLIM_Z",
-        "EBV_SFD98"
-    ]
-
-    col_output_flow = [
-        "unsheared/mag_r",
-        "unsheared/mag_i",
-        "unsheared/mag_z",
-        "unsheared/mag_err_r",
-        "unsheared/mag_err_i",
-        "unsheared/mag_err_z",
-        "unsheared/snr",
-        "unsheared/size_ratio",
-        "unsheared/flags",
-        "unsheared/T",
-        "detected"
-    ]
 
     train_flow = TrainFlow(
         path_train_data=path_train_data,
+        size_training_dataset=size_training_dataset,
+        size_validation_dataset=size_validation_dataset,
+        size_test_dataset=size_test_dataset,
         path_output=path_output,
         col_output_flow=col_output_flow,
         col_label_flow=col_label_flow,
@@ -103,163 +67,156 @@ def main_des(path_train_data,
         plot_mean=True,
         plot_std=True,
         plot_flags=True,
-        plot_detected=True
+        plot_detected=True,
+        run_hyperparameter_tuning=run_hyperparameter_tuning,
+        run=run,
+        reproducible=reproducible
     )
 
-    train_flow.run_training()
-
-
-def main_kids(path_train_data,
-              path_output,
-              plot_test,
-              show_plot,
-              save_plot,
-              save_nn,
-              learning_rate,
-              number_hidden,
-              number_blocks,
-              epochs,
-              device,
-              activation_function,
-              batch_size,
-              valid_batch_size,
-              selected_scaler,
-              apply_cuts):
-    from galaxyflow.training_kids import TrainFlow
-
-    col_label_flow = [
-        "axis_ratio_input",
-        "Re_input",
-        "sersic_n_input",
-        "u_input",
-        "g_input",
-        "r_input",
-        "i_input",
-        "Z_input",
-        "Y_input",
-        "J_input",
-        "H_input",
-        "Ks_input",
-        "InputSeeing_u",
-        "InputSeeing_g",
-        "InputSeeing_r",
-        "InputSeeing_i",
-        "InputSeeing_Z",
-        "InputSeeing_Y",
-        "InputSeeing_J",
-        "InputSeeing_H",
-        "InputSeeing_Ks",
-        "InputBeta_u",
-        "InputBeta_g",
-        "InputBeta_r",
-        "InputBeta_i",
-        "InputBeta_Z",
-        "InputBeta_Y",
-        "InputBeta_J",
-        "InputBeta_H",
-        "InputBeta_Ks",
-        "rmsAW_u",
-        "rmsAW_g",
-        "rmsAW_r",
-        "rmsAW_i",
-        "rms_Z",
-        "rms_Y",
-        "rms_J",
-        "rms_H",
-        "rms_Ks"
-    ]
-
-    # col_output_flow = [
-    #     "FLUX_GAAP_u",
-    #     "FLUX_GAAP_g",
-    #     "FLUX_GAAP_r",
-    #     "FLUX_GAAP_i",
-    #     "FLUX_GAAP_Z",
-    #     "FLUX_GAAP_Y",
-    #     "FLUX_GAAP_J",
-    #     "FLUX_GAAP_H",
-    #     "FLUX_GAAP_Ks",
-    #     "FLUXERR_GAAP_u",
-    #     "FLUXERR_GAAP_g",
-    #     "FLUXERR_GAAP_r",
-    #     "FLUXERR_GAAP_i",
-    #     "FLUXERR_GAAP_Z",
-    #     "FLUXERR_GAAP_Y",
-    #     "FLUXERR_GAAP_J",
-    #     "FLUXERR_GAAP_H",
-    #     "FLUXERR_GAAP_Ks",
-    #     "FLUX_AUTO",
-    #     "FLUXERR_AUTO",
-    # ]
-
-    col_output_flow = [
-        "luptize_u",
-        "luptize_g",
-        "luptize_r",
-        "luptize_i",
-        "luptize_Z",
-        "luptize_Y",
-        "luptize_J",
-        "luptize_H",
-        "luptize_Ks",
-        "luptize_err_u",
-        "luptize_err_g",
-        "luptize_err_r",
-        "luptize_err_i",
-        "luptize_err_Z",
-        "luptize_err_Y",
-        "luptize_err_J",
-        "luptize_err_H",
-        "luptize_err_Ks",
-        "FLUX_AUTO",
-        "FLUXERR_AUTO",
-    ]
-
-    train_flow = TrainFlow(
-        path_train_data=path_train_data,
-        path_output=path_output,
-        col_output_flow=col_output_flow,
-        col_label_flow=col_label_flow,
-        plot_test=plot_test,
-        show_plot=show_plot,
-        save_plot=save_plot,
-        save_nn=save_nn,
-        learning_rate=learning_rate,
-        number_hidden=number_hidden,
-        number_blocks=number_blocks,
-        epochs=epochs,
-        device=device,
-        activation_function=activation_function,
-        batch_size=batch_size,
-        valid_batch_size=valid_batch_size,
-        selected_scaler=selected_scaler,
-        apply_cuts=apply_cuts
-    )
-
+    # if run_hyperparameter_tuning is True:
+    #     ray.init()
+    #     search_space = {
+    #         "learning_rate": tune.grid_search(learning_rate),
+    #         "number_hidden": tune.grid_search(number_hidden),
+    #         "number_blocks": tune.grid_search(number_blocks),
+    #         "batch_size": tune.grid_search(batch_size)
+    #     }
+    #     trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
+    #     tuner = tune.Tuner(
+    #         trainable_with_resources,
+    #         run_config=air.RunConfig(local_dir=path_output, name="ray_tune"),
+    #         tune_config=tune.TuneConfig(
+    #             scheduler=ASHAScheduler(metric="loss", mode="min")
+    #         ),
+    #         param_space=search_space,
+    #         reproducible=reproducible
+    #     )
+    #     results = tuner.fit()
+    #     dfs = {result.log_dir: result.metrics_dataframe for result in results}
+    #     ax = None
+    #     for d in dfs.values():
+    #         ax = d.loss.plot(ax=ax, legend=False)
+    #         ax.set_xlabel("Epochs")
+    #         ax.set_ylabel("Loss")
+    #         plt.show()
+    #     best_result = results.get_best_result()
+    #     print("Best result config: {}".format(best_result.config))
+    #     print("Best result metrics: {}".format(best_result.metrics))
+    #     ray.shutdown()
+    # else:
     train_flow.run_training()
 
 
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[1])
+    parser = argparse.ArgumentParser(description='Start gaNdalF')
+    parser.add_argument(
+        '--config_filename',
+        "-cf",
+        type=str,
+        nargs=1,
+        required=False,
+        default="default.cfg",
+        help='Name of config file. If not given default.cfg will be used'
+    )
+    parser.add_argument(
+        '--mode',
+        "-m",
+        type=str,
+        nargs=1,
+        required=False,
+        help='Mode of gaNdalF'
+    )
+    args = parser.parse_args()
 
-    for lr in [1E-4, 1E-5, 1E-6, 1E-7]:
-        for nh in [8, 16, 32, 48, 64]:
-            for nb in [1, 2, 4, 6, 8]:
-                for bs in [16, 32]:
-                    main_des(
-                        path_train_data=f"{path}/Data/balrog_subset_cutted_2000000.pkl",
-                        path_output=f"{path}/Output",
-                        plot_test=True,
-                        show_plot=False,
-                        save_plot=True,
-                        save_nn=True,
-                        learning_rate=lr,
-                        number_hidden=nh,
-                        number_blocks=nb,
-                        epochs=150,
-                        device="cpu",
-                        activation_function="tanh",
-                        batch_size=bs,
-                        valid_batch_size=64,
-                        selected_scaler="MaxAbsScaler"
-                    )
+    if isinstance(args.mode, list):
+        args.mode = args.mode[0]
+
+    if isinstance(args.config_filename, list):
+        args.config_filename = args.config_filename[0]
+
+    with open(f"{path}/files/conf/{args.config_filename}", 'r') as fp:
+        cfg = yaml.load(fp, Loader=yaml.Loader)
+
+    if args.mode is None:
+        args.mode = cfg["MODE"]
+        mode = args.mode
+    else:
+        mode = args.mode
+        cfg["MODE"] = mode
+
+    runs = cfg["RUNS"]
+    batch_size = cfg["BATCH_SIZE"]
+    scaler = cfg["SCALER"]
+    number_hidden = cfg["NUMBER_HIDDEN"]
+    number_blocks = cfg["NUMBER_BLOCKS"]
+    learning_rate = cfg["LEARNING_RATE"]
+
+    if not isinstance(runs, list):
+        runs = [runs]
+    if not isinstance(batch_size, list):
+        batch_size = [batch_size]
+    if not isinstance(scaler, list):
+        scaler = [scaler]
+    if not isinstance(number_hidden, list):
+        number_hidden = [number_hidden]
+    if not isinstance(number_blocks, list):
+        number_blocks = [number_blocks]
+    if not isinstance(learning_rate, list):
+        learning_rate = [learning_rate]
+
+    if mode == "hyperparameter_tuning":
+        main(
+            path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
+            path_output=f"{path}/Output",
+            plot_test=cfg["PLOT_TEST"],
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_nn=cfg["SAVE_NN"],
+            learning_rate=learning_rate,
+            number_hidden=number_hidden,
+            number_blocks=number_blocks,
+            epochs=cfg["EPOCHS"],
+            device=cfg["DEVICE"],
+            activation_function=cfg["ACTIVATION_FUNCTION"],
+            batch_size=batch_size,
+            valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
+            selected_scaler=scaler,
+            run_hyperparameter_tuning=True,
+            reproducible=False,
+            col_output_flow=cfg["OUTPUT_COLS"],
+            col_label_flow=cfg["INPUT_COLS"],
+            run=1
+        )
+    else:
+        for run in runs:
+            for lr in learning_rate:
+                for nh in number_hidden:
+                    for nb in number_blocks:
+                        for bs in batch_size:
+                            for sc in scaler:
+                                main(
+                                    path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
+                                    size_training_dataset=cfg["SIZE_TRAINING_DATA"],
+                                    size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
+                                    size_test_dataset=cfg["SIZE_TEST_DATA"],
+                                    path_output=f"{path}/Output",
+                                    plot_test=cfg["PLOT_TEST"],
+                                    show_plot=cfg["SHOW_PLOT"],
+                                    save_plot=cfg["SAVE_PLOT"],
+                                    save_nn=cfg["SAVE_NN"],
+                                    learning_rate=lr,
+                                    number_hidden=nh,
+                                    number_blocks=nb,
+                                    epochs=cfg["EPOCHS"],
+                                    device=cfg["DEVICE"],
+                                    activation_function=cfg["ACTIVATION_FUNCTION"],
+                                    batch_size=bs,
+                                    valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
+                                    selected_scaler=sc,
+                                    run_hyperparameter_tuning=False,
+                                    run=run,
+                                    col_output_flow=cfg["OUTPUT_COLS"],
+                                    col_label_flow=cfg["INPUT_COLS"],
+                                    reproducible=cfg["REPRODUCIBLE"]
+                                )

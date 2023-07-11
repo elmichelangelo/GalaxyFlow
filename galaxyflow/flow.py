@@ -39,8 +39,11 @@ class MaskedLinear(nn.Module):
                 cond_in_features, out_features, bias=False)
 
         self.register_buffer('mask', mask)
+        torch.set_default_dtype(torch.float32)
 
     def forward(self, inputs, cond_inputs=None):
+        if inputs.dtype is torch.float64:
+            inputs = inputs.float()
         output = F.linear(inputs, self.linear.weight * self.mask, self.linear.bias)
         if cond_inputs is not None:
             output += self.cond_linear(cond_inputs)
