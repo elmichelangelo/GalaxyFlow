@@ -324,7 +324,7 @@ class TrainFlow(object):
                 try:
                     self.plot_data(epoch=epoch)
                 except:
-                    print(f"Error epoch {epoch}")
+                    print(f"Error epoch {epoch+1}")
 
         if self.plot_test is True:
             make_gif(self.path_chain_plot, f"{self.path_gifs}/chain_plot.gif")
@@ -537,16 +537,16 @@ class TrainFlow(object):
                 df_true_measured = pd.DataFrame({})
                 for color in colors:
                     df_generated_measured[f"{color[0]}-{color[1]}"] = \
-                        np.array(df_generated[f"unsheared/mag_{color[0]}"]) - np.array(
-                            df_generated[f"unsheared/mag_{color[1]}"])
+                        np.array(df_generated[f"unsheared/lupt_{color[0]}"]) - np.array(
+                            df_generated[f"unsheared/lupt_{color[1]}"])
                     df_true_measured[f"{color[0]}-{color[1]}"] = \
-                        np.array(df_true[f"unsheared/mag_{color[0]}"]) - np.array(df_true[f"unsheared/mag_{color[1]}"])
+                        np.array(df_true[f"unsheared/lupt_{color[0]}"]) - np.array(df_true[f"unsheared/lupt_{color[1]}"])
 
                 arr_true = df_true_measured.to_numpy()
                 arr_generated = df_generated_measured.to_numpy()
                 parameter = [
-                    "unsheared/mag r-i",
-                    "unsheared/mag i-z"
+                    "unsheared/lupt r-i",
+                    "unsheared/lupt i-z"
                 ]
                 chainchat = ChainConsumer()
                 chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
@@ -555,10 +555,10 @@ class TrainFlow(object):
                 chainchat.plotter.plot(
                     filename=f'{self.path_color_color_plot}/color_color_{epoch+1}.png',
                     figsize="page",
-                    extents={
-                        "unsheared/mag r-i": (-6, 6),
-                        "unsheared/mag i-z": (-25, 25)
-                    }
+                    # extents={
+                    #     "unsheared/lupt r-i": (-6, 6),
+                    #     "unsheared/lupt i-z": (-25, 25)
+                    # }
                 )
                 if self.show_plot is True:
                     plt.show()
@@ -584,23 +584,23 @@ class TrainFlow(object):
                 ]
 
                 df_hist_balrog = pd.DataFrame({
-                    "dataset": ["skillz" for _ in range(len(df_true[f"unsheared/mag_r"]))]
+                    "dataset": ["balrog" for _ in range(len(df_true[f"unsheared/lupt_r"]))]
                 })
                 df_hist_generated = pd.DataFrame({
-                    "dataset": ["generated" for _ in range(len(df_true[f"unsheared/mag_r"]))]
+                    "dataset": ["generated" for _ in range(len(df_true[f"unsheared/lupt_r"]))]
                 })
                 for band in bands:
-                    df_hist_balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[
-                                                                                        f"BDF_MAG_DERED_CALIB_{band.upper()}"] - \
-                                                                                    df_true[f"unsheared/mag_{band}"]
-                    df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"] = df_true[
-                                                                                           f"BDF_MAG_DERED_CALIB_{band.upper()}"] - \
-                                                                                       df_generated[f"unsheared/mag_{band}"]
+                    df_hist_balrog[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"] = df_true[
+                                                                                        f"BDF_LUPT_DERED_CALIB_{band.upper()}"] - \
+                                                                                    df_true[f"unsheared/lupt_{band}"]
+                    df_hist_generated[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"] = df_true[
+                                                                                           f"BDF_LUPT_DERED_CALIB_{band.upper()}"] - \
+                                                                                       df_generated[f"unsheared/lupt_{band}"]
 
                 for idx, band in enumerate(bands):
                     sns.histplot(
                         data=df_hist_balrog,
-                        x=f"BDF_MAG_DERED_CALIB - unsheared/mag {band}",
+                        x=f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}",
                         ax=lst_axis_res[idx],
                         element="step",
                         stat="density",
@@ -610,7 +610,7 @@ class TrainFlow(object):
                     )
                     sns.histplot(
                         data=df_hist_generated,
-                        x=f"BDF_MAG_DERED_CALIB - unsheared/mag {band}",
+                        x=f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}",
                         ax=lst_axis_res[idx],
                         element="step",
                         stat="density",
@@ -620,14 +620,14 @@ class TrainFlow(object):
                         label="generated"
                     )
                     lst_axis_res[idx].axvline(
-                        x=df_hist_balrog[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
+                        x=df_hist_balrog[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"].median(),
                         color='dodgerblue',
                         ls='--',
                         lw=1.5,
                         label="Mean balrog"
                     )
                     lst_axis_res[idx].axvline(
-                        x=df_hist_generated[f"BDF_MAG_DERED_CALIB - unsheared/mag {band}"].median(),
+                        x=df_hist_generated[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"].median(),
                         color='darkorange',
                         ls='--',
                         lw=1.5,
@@ -649,9 +649,9 @@ class TrainFlow(object):
 
             if self.plot_chain is True:
                 df_generated_measured = pd.DataFrame({
-                    "unsheared/mag_r": np.array(df_generated["unsheared/mag_r"]),
-                    "unsheared/mag_i": np.array(df_generated["unsheared/mag_i"]),
-                    "unsheared/mag_z": np.array(df_generated["unsheared/mag_z"]),
+                    "unsheared/lupt_r": np.array(df_generated["unsheared/lupt_r"]),
+                    "unsheared/lupt_i": np.array(df_generated["unsheared/lupt_i"]),
+                    "unsheared/lupt_z": np.array(df_generated["unsheared/lupt_z"]),
                     "unsheared/snr": np.array(df_generated["unsheared/snr"]),
                     "unsheared/size_ratio": np.array(df_generated["unsheared/size_ratio"]),
                     "unsheared/T": np.array(df_generated["unsheared/T"])
@@ -662,9 +662,9 @@ class TrainFlow(object):
                 analytical_rescaled = self.scaler.inverse_transform(df_analytical_scaled)
                 df_balrog = pd.DataFrame(analytical_rescaled, columns=df_analytical_scaled.columns)
                 df_balrog_measured = pd.DataFrame({
-                    "unsheared/mag_r": np.array(df_balrog["unsheared/mag_r"]),
-                    "unsheared/mag_i": np.array(df_balrog["unsheared/mag_i"]),
-                    "unsheared/mag_z": np.array(df_balrog["unsheared/mag_z"]),
+                    "unsheared/lupt_r": np.array(df_balrog["unsheared/lupt_r"]),
+                    "unsheared/lupt_i": np.array(df_balrog["unsheared/lupt_i"]),
+                    "unsheared/lupt_z": np.array(df_balrog["unsheared/lupt_z"]),
                     "unsheared/snr": np.array(df_balrog["unsheared/snr"]),
                     "unsheared/size_ratio": np.array(df_balrog["unsheared/size_ratio"]),
                     "unsheared/T": np.array(df_balrog["unsheared/T"])
@@ -673,9 +673,9 @@ class TrainFlow(object):
                 arr_balrog = df_balrog_measured.to_numpy()
                 arr_generated = df_generated_measured.to_numpy()
                 parameter = [
-                    "mag r",
-                    "mag i",
-                    "mag z",
+                    "lupt r",
+                    "lupt i",
+                    "lupt z",
                     "snr",
                     "size ratio",
                     "T"
@@ -703,20 +703,20 @@ class TrainFlow(object):
 
                 chaincolor = ChainConsumer()
                 df_compare_balrog = pd.DataFrame({
-                    'true r': df_balrog['BDF_MAG_DERED_CALIB_R'],
-                    'true i': df_balrog['BDF_MAG_DERED_CALIB_I'],
-                    'true z': df_balrog['BDF_MAG_DERED_CALIB_Z'],
-                    'meas r - true r': df_balrog['unsheared/mag_r'] - df_balrog['BDF_MAG_DERED_CALIB_R'],
-                    'meas i - true i': df_balrog['unsheared/mag_i'] - df_balrog['BDF_MAG_DERED_CALIB_I'],
-                    'meas z - true z': df_balrog['unsheared/mag_z'] - df_balrog['BDF_MAG_DERED_CALIB_Z']
+                    'true r': df_balrog['BDF_LUPT_DERED_CALIB_R'],
+                    'true i': df_balrog['BDF_LUPT_DERED_CALIB_I'],
+                    'true z': df_balrog['BDF_LUPT_DERED_CALIB_Z'],
+                    'meas r - true r': df_balrog['unsheared/lupt_r'] - df_balrog['BDF_LUPT_DERED_CALIB_R'],
+                    'meas i - true i': df_balrog['unsheared/lupt_i'] - df_balrog['BDF_LUPT_DERED_CALIB_I'],
+                    'meas z - true z': df_balrog['unsheared/lupt_z'] - df_balrog['BDF_LUPT_DERED_CALIB_Z']
                 })
                 df_compare_generated = pd.DataFrame({
-                    'true r': df_generated['BDF_MAG_DERED_CALIB_R'],
-                    'true i': df_generated['BDF_MAG_DERED_CALIB_I'],
-                    'true z': df_generated['BDF_MAG_DERED_CALIB_Z'],
-                    'meas r - true r': df_generated['unsheared/mag_r'] - df_generated['BDF_MAG_DERED_CALIB_R'],
-                    'meas i - true i': df_generated['unsheared/mag_i'] - df_generated['BDF_MAG_DERED_CALIB_I'],
-                    'meas z - true z': df_generated['unsheared/mag_z'] - df_generated['BDF_MAG_DERED_CALIB_Z']
+                    'true r': df_generated['BDF_LUPT_DERED_CALIB_R'],
+                    'true i': df_generated['BDF_LUPT_DERED_CALIB_I'],
+                    'true z': df_generated['BDF_LUPT_DERED_CALIB_Z'],
+                    'meas r - true r': df_generated['unsheared/lupt_r'] - df_generated['BDF_LUPT_DERED_CALIB_R'],
+                    'meas i - true i': df_generated['unsheared/lupt_i'] - df_generated['BDF_LUPT_DERED_CALIB_I'],
+                    'meas z - true z': df_generated['unsheared/lupt_z'] - df_generated['BDF_LUPT_DERED_CALIB_Z']
                 })
                 plot_parameter = [
                     "true r",
@@ -747,17 +747,17 @@ class TrainFlow(object):
                 plt.close()
 
             if self.plot_mean is True:
-                self.lst_mean_mag_r.append(df_generated["unsheared/mag_r"].mean() / df_true["unsheared/mag_r"].mean())
-                self.lst_mean_mag_i.append(df_generated["unsheared/mag_i"].mean() / df_true["unsheared/mag_i"].mean())
-                self.lst_mean_mag_z.append(df_generated["unsheared/mag_z"].mean() / df_true["unsheared/mag_z"].mean())
+                self.lst_mean_mag_r.append(df_generated["unsheared/lupt_r"].mean() / df_true["unsheared/lupt_r"].mean())
+                self.lst_mean_mag_i.append(df_generated["unsheared/lupt_i"].mean() / df_true["unsheared/lupt_i"].mean())
+                self.lst_mean_mag_z.append(df_generated["unsheared/lupt_z"].mean() / df_true["unsheared/lupt_z"].mean())
                 self.lst_mean_snr.append(df_generated["unsheared/snr"].mean() / df_true["unsheared/snr"].mean())
                 self.lst_mean_size_ratio.append(
                     df_generated["unsheared/size_ratio"].mean() / df_true["unsheared/size_ratio"].mean())
                 self.lst_mean_t.append(df_generated["unsheared/T"].mean() / df_true["unsheared/T"].mean())
 
-                plt.plot(self.lst_epochs, self.lst_mean_mag_r, marker="o", linestyle='-', color="blue", label="mag r")
-                plt.plot(self.lst_epochs, self.lst_mean_mag_i, marker="^", linestyle='-', color="red", label="mag i")
-                plt.plot(self.lst_epochs, self.lst_mean_mag_z, marker="X", linestyle='-', color="green", label="mag z")
+                plt.plot(self.lst_epochs, self.lst_mean_mag_r, marker="o", linestyle='-', color="blue", label="lupt r")
+                plt.plot(self.lst_epochs, self.lst_mean_mag_i, marker="^", linestyle='-', color="red", label="lupt i")
+                plt.plot(self.lst_epochs, self.lst_mean_mag_z, marker="X", linestyle='-', color="green", label="lupt z")
                 plt.plot(self.lst_epochs, self.lst_mean_snr, marker="d", linestyle='-', color="orange", label="snr")
                 plt.plot(self.lst_epochs, self.lst_mean_size_ratio, marker="s", linestyle='-', color="purple",
                          label="size ratio")
@@ -775,17 +775,17 @@ class TrainFlow(object):
                 plt.close()
 
             if self.plot_std is True:
-                self.lst_std_mag_r.append(df_generated["unsheared/mag_r"].std() / df_true["unsheared/mag_r"].std())
-                self.lst_std_mag_i.append(df_generated["unsheared/mag_i"].std() / df_true["unsheared/mag_i"].std())
-                self.lst_std_mag_z.append(df_generated["unsheared/mag_z"].std() / df_true["unsheared/mag_z"].std())
+                self.lst_std_mag_r.append(df_generated["unsheared/lupt_r"].std() / df_true["unsheared/lupt_r"].std())
+                self.lst_std_mag_i.append(df_generated["unsheared/lupt_i"].std() / df_true["unsheared/lupt_i"].std())
+                self.lst_std_mag_z.append(df_generated["unsheared/lupt_z"].std() / df_true["unsheared/lupt_z"].std())
                 self.lst_std_snr.append(df_generated["unsheared/snr"].std() / df_true["unsheared/snr"].std())
                 self.lst_std_size_ratio.append(
                     df_generated["unsheared/size_ratio"].std() / df_true["unsheared/size_ratio"].std())
                 self.lst_std_t.append(df_generated["unsheared/T"].std() / df_true["unsheared/T"].std())
 
-                plt.plot(self.lst_epochs, self.lst_std_mag_r, marker="o", linestyle='-', color="blue", label="mag r")
-                plt.plot(self.lst_epochs, self.lst_std_mag_i, marker="^", linestyle='-', color="red", label="mag i")
-                plt.plot(self.lst_epochs, self.lst_std_mag_z, marker="X", linestyle='-', color="green", label="mag z")
+                plt.plot(self.lst_epochs, self.lst_std_mag_r, marker="o", linestyle='-', color="blue", label="lupt r")
+                plt.plot(self.lst_epochs, self.lst_std_mag_i, marker="^", linestyle='-', color="red", label="lupt i")
+                plt.plot(self.lst_epochs, self.lst_std_mag_z, marker="X", linestyle='-', color="green", label="lupt z")
                 plt.plot(self.lst_epochs, self.lst_std_snr, marker="d", linestyle='-', color="orange", label="snr")
                 plt.plot(self.lst_epochs, self.lst_std_size_ratio, marker="s", linestyle='-', color="purple",
                          label="size ratio")
@@ -815,16 +815,16 @@ class TrainFlow(object):
                     plt.savefig(f"{self.path_flag_plot}/flags_{epoch}.png", dpi=200)
                 plt.clf()
 
-            if self.plot_detected is True:
-                plt.plot(df_generated["detected"], ".b", label="generated detected")
-                plt.plot(df_true["detected"], ".g", label="true detected")
-                plt.title(f"Compare detected, epoch {epoch}")
-                plt.xlabel("detected")
-                plt.legend()
-                plt.ylim(0.5, 1.5)
-                if self.show_plot is True:
-                    plt.show()
-                if self.save_plot is True:
-                    plt.savefig(f"{self.path_detection_plot}/detection_{epoch}.png", dpi=200)
-                plt.clf()
+            # if self.plot_detected is True:
+            #     plt.plot(df_generated["detected"], ".b", label="generated detected")
+            #     plt.plot(df_true["detected"], ".g", label="true detected")
+            #     plt.title(f"Compare detected, epoch {epoch}")
+            #     plt.xlabel("detected")
+            #     plt.legend()
+            #     plt.ylim(0.5, 1.5)
+            #     if self.show_plot is True:
+            #         plt.show()
+            #     if self.save_plot is True:
+            #         plt.savefig(f"{self.path_detection_plot}/detection_{epoch}.png", dpi=200)
+            #     plt.clf()
 

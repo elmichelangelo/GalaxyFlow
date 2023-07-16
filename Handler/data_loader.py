@@ -60,56 +60,46 @@ def load_data(
 
     # close file
     infile.close()
-    # for k in df_data.dtypes:
-    #     print(k)
-    # exit()
 
-    df_data["Color Mag U-G"] = df_data[f"BDF_MAG_DERED_CALIB_U"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy()
-    df_data["Color Mag G-R"] = df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_R"].to_numpy()
-    df_data["Color Mag R-I"] = df_data[f"BDF_MAG_DERED_CALIB_R"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_I"].to_numpy()
-    df_data["Color Mag I-Z"] = df_data[f"BDF_MAG_DERED_CALIB_I"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_Z"].to_numpy()
-    df_data["Color Mag Z-J"] = df_data[f"BDF_MAG_DERED_CALIB_Z"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_J"].to_numpy()
-    df_data["Color Mag J-H"] = df_data[f"BDF_MAG_DERED_CALIB_J"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy()
-    df_data["Color Mag H-KS"] = df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy() - \
-                               df_data[f"BDF_MAG_DERED_CALIB_KS"].to_numpy()
-    df_data["BDF_MAG_DERED_CALIB_K"] = df_data[f"BDF_MAG_DERED_CALIB_KS"]
+    # df_data["Color Mag U-G"] = df_data[f"BDF_MAG_DERED_CALIB_U"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy()
+    # df_data["Color Mag G-R"] = df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_R"].to_numpy()
+    # df_data["Color Mag R-I"] = df_data[f"BDF_MAG_DERED_CALIB_R"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_I"].to_numpy()
+    # df_data["Color Mag I-Z"] = df_data[f"BDF_MAG_DERED_CALIB_I"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_Z"].to_numpy()
+    # df_data["Color Mag Z-J"] = df_data[f"BDF_MAG_DERED_CALIB_Z"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_J"].to_numpy()
+    # df_data["Color Mag J-H"] = df_data[f"BDF_MAG_DERED_CALIB_J"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy()
+    # df_data["Color Mag H-KS"] = df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy() - \
+    #                            df_data[f"BDF_MAG_DERED_CALIB_KS"].to_numpy()
+    # df_data["BDF_MAG_DERED_CALIB_K"] = df_data[f"BDF_MAG_DERED_CALIB_KS"]
 
     df_sompz = None
-    if sompz_cols is not None:
-        df_data["BDF_FLUX_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_U"])
-        df_data["BDF_FLUX_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_G"])
-        df_data["BDF_FLUX_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_R"])
-        df_data["BDF_FLUX_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_I"])
-        df_data["BDF_FLUX_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_Z"])
-        df_data["BDF_FLUX_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_J"])
-        df_data["BDF_FLUX_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_H"])
-        df_data["BDF_FLUX_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_KS"])
-
-        df_data["BDF_FLUX_ERR_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_I"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_Z"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-        df_data["BDF_FLUX_ERR_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-
-        df_sompz = df_data[sompz_cols]
+    # if sompz_cols is not None:
+    #     df_data["BDF_FLUX_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_U"])
+    #     df_data["BDF_FLUX_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_G"])
+    #     df_data["BDF_FLUX_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_R"])
+    #     df_data["BDF_FLUX_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_I"])
+    #     df_data["BDF_FLUX_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_Z"])
+    #     df_data["BDF_FLUX_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_J"])
+    #     df_data["BDF_FLUX_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_H"])
+    #     df_data["BDF_FLUX_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_KS"])
+    #
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_I"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_Z"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+    #     df_data["BDF_FLUX_ERR_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
+    #
+    #     df_sompz = df_data[sompz_cols]
 
     df_training_data = df_data[input_flow+output_flow]
-
-    print(df_training_data.isnull().sum())
-    print(len(df_training_data))
-    df_training_data = df_training_data.fillna(100)
-    print(df_training_data.isnull().sum())
-    print(len(df_training_data))
-    print()
 
     scaler = None
     if selected_scaler == "MinMaxScaler":
