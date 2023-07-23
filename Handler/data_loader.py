@@ -1,5 +1,5 @@
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
-from Handler.helper_functions import flux2mag, mag2flux
+from Handler.helper_functions import flux2mag, mag2flux, replace_and_transform_data, plot_chain, unreplace_and_untransform_data
 from chainconsumer import ChainConsumer
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -31,11 +31,14 @@ def load_data(
         size_training_dataset,
         size_validation_dataset,
         size_test_dataset,
+        apply_transformation,
         input_flow,
         output_flow,
         selected_scaler,
         sompz_cols=None,
         all_data=False,
+        lst_replace_transform_cols=None,
+        lst_replace_values=None,
         reproducible=True,
         run=None
 ):
@@ -61,45 +64,19 @@ def load_data(
     # close file
     infile.close()
 
-    # df_data["Color Mag U-G"] = df_data[f"BDF_MAG_DERED_CALIB_U"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy()
-    # df_data["Color Mag G-R"] = df_data[f"BDF_MAG_DERED_CALIB_G"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_R"].to_numpy()
-    # df_data["Color Mag R-I"] = df_data[f"BDF_MAG_DERED_CALIB_R"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_I"].to_numpy()
-    # df_data["Color Mag I-Z"] = df_data[f"BDF_MAG_DERED_CALIB_I"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_Z"].to_numpy()
-    # df_data["Color Mag Z-J"] = df_data[f"BDF_MAG_DERED_CALIB_Z"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_J"].to_numpy()
-    # df_data["Color Mag J-H"] = df_data[f"BDF_MAG_DERED_CALIB_J"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy()
-    # df_data["Color Mag H-KS"] = df_data[f"BDF_MAG_DERED_CALIB_H"].to_numpy() - \
-    #                            df_data[f"BDF_MAG_DERED_CALIB_KS"].to_numpy()
-    # df_data["BDF_MAG_DERED_CALIB_K"] = df_data[f"BDF_MAG_DERED_CALIB_KS"]
+    df_training_data = df_data
 
-    df_sompz = None
-    # if sompz_cols is not None:
-    #     df_data["BDF_FLUX_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_U"])
-    #     df_data["BDF_FLUX_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_G"])
-    #     df_data["BDF_FLUX_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_R"])
-    #     df_data["BDF_FLUX_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_I"])
-    #     df_data["BDF_FLUX_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_Z"])
-    #     df_data["BDF_FLUX_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_J"])
-    #     df_data["BDF_FLUX_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_H"])
-    #     df_data["BDF_FLUX_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_DERED_CALIB_KS"])
-    #
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_U"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_G"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_R"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_I"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_I"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_Z"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_Z"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_J"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_H"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-    #     df_data["BDF_FLUX_ERR_DERED_CALIB_K"] = mag2flux(df_data["BDF_MAG_ERR_DERED_CALIB_R"])
-    #
-    #     df_sompz = df_data[sompz_cols]
+    df_training_data, dict_pt = replace_and_transform_data(
+        data_frame=df_training_data,
+        columns=lst_replace_transform_cols,
+        replace_value=lst_replace_values
+    )
 
-    df_training_data = df_data[input_flow+output_flow]
+    if reproducible is True:
+        df_training_data = df_training_data.sample(frac=1, random_state=42)
+
+    else:
+        df_training_data = df_training_data.sample(frac=1)
 
     scaler = None
     if selected_scaler == "MinMaxScaler":
@@ -116,77 +93,58 @@ def load_data(
     if scaler is not None:
         scaler.fit(df_training_data)
         scaled = scaler.transform(df_training_data)
-        df_training_data_scaled = pd.DataFrame(scaled, columns=df_training_data.columns)
+        df_training_data_scaled = pd.DataFrame(scaled, columns=df_data.columns)
+        # df_all_data_scaled = pd.DataFrame(scaled, columns=df_data.columns)
     else:
-        df_training_data_scaled = df_training_data
+        df_training_data_scaled = df_training_data  # [input_flow+output_flow]
+        # df_all_data_scaled = df_training_data
 
-    if reproducible is True:
-        df_training_data_scaled = df_training_data_scaled.sample(frac=1, random_state=42)
-    else:
-        df_training_data_scaled = df_training_data_scaled.sample(frac=1)
+    arr_data = np.array(df_training_data)
+    arr_data_scaled = np.array(df_training_data_scaled)
+    # arr_output_flow = np.array(df_training_data_scaled[output_flow])
+    # arr_all_data = np.array(df_all_data_scaled)
 
-    arr_label_flow = np.array(df_training_data_scaled[input_flow])
-    arr_output_flow = np.array(df_training_data_scaled[output_flow])
-
-    _arr_sompz = None
-    if sompz_cols is not None:
-        arr_sompz = np.array(df_sompz[sompz_cols])
-        _arr_sompz = arr_sompz[int(len(arr_sompz) * .8):]
-
-    dict_all_data = {
-        f"label flow in order {input_flow}": arr_label_flow,
-        f"output flow in order {output_flow}": arr_output_flow,
-        f"columns label flow": input_flow,
-        f"columns output flow": output_flow,
-        "scaler": scaler
-    }
-
-    train_end = int(len(arr_label_flow) * size_training_dataset)
+    train_end = int(len(arr_data_scaled) * size_training_dataset)
 
     dict_training_data = {
-        f"label flow in order {input_flow}": arr_label_flow[:train_end],
-        f"output flow in order {output_flow}": arr_output_flow[:train_end],
-        f"columns label flow": input_flow,
-        f"columns output flow": output_flow,
+        f"data frame training data": pd.DataFrame(data=arr_data_scaled[:train_end], columns=df_data.columns),
+        f"columns": df_data.columns,
         "scaler": scaler
     }
 
     val_start = train_end
-    val_end = train_end + int(len(arr_label_flow) * size_validation_dataset)
+    val_end = train_end + int(len(arr_data_scaled) * size_validation_dataset)
 
     dict_validation_data = {
-        f"label flow in order {input_flow}": arr_label_flow[val_start:val_end],
-        f"output flow in order {output_flow}": arr_output_flow[val_start:val_end],
-        f"columns label flow": input_flow,
-        f"columns output flow": output_flow,
+        f"data frame validation data": pd.DataFrame(data=arr_data_scaled[val_start:val_end], columns=df_data.columns),
+        f"columns": df_data.columns,
         "scaler": scaler
     }
 
     test_start = val_end
-    test_end = val_end + int(len(arr_label_flow) * size_test_dataset)
+    test_end = val_end + int(len(arr_data_scaled) * size_test_dataset)
 
     dict_test_data = {
-        f"label flow in order {input_flow}": arr_label_flow[test_start:test_end],
-        f"output flow in order {output_flow}": arr_output_flow[test_start:test_end],
-        # f"sompz cols in order {sompz_cols}": _arr_sompz,
-        f"columns label flow": input_flow,
-        f"columns output flow": output_flow,
-        "scaler": scaler
+        f"data frame test data": pd.DataFrame(data=arr_data_scaled[test_start:test_end], columns=df_data.columns),
+        f"data frame test data unscaled": pd.DataFrame(data=arr_data[test_start:test_end], columns=df_data.columns),
+        f"columns": df_data.columns,
+        "scaler": scaler,
+        "power transformer": dict_pt
     }
 
     with open(
-            f"{path_output}/df_train_data_{len(dict_training_data[f'output flow in order {output_flow}'])}_run_{run}.pkl",
+            f"{path_output}/df_train_data_{len(dict_training_data[f'data frame training data'])}_run_{run}.pkl",
             "wb") as f:
         pickle.dump(dict_training_data, f, protocol=2)
     with open(
-            f"{path_output}/df_validation_data_{len(dict_validation_data[f'output flow in order {output_flow}'])}_run_{run}.pkl",
+            f"{path_output}/df_validation_data_{len(dict_validation_data[f'data frame validation data'])}_run_{run}.pkl",
             "wb") as f:
         pickle.dump(dict_validation_data, f, protocol=2)
-    with open(f"{path_output}/df_test_data_{len(dict_test_data[f'output flow in order {output_flow}'])}_run_{run}.pkl",
+    with open(f"{path_output}/df_test_data_{len(dict_test_data[f'data frame test data'])}_run_{run}.pkl",
               "wb") as f:
         pickle.dump(dict_test_data, f, protocol=2)
 
-    return dict_training_data, dict_validation_data, dict_test_data, dict_all_data
+    return dict_training_data, dict_validation_data, dict_test_data
 
 
 # def load_data_kidz(path_training_data, input_flow, output_flow, selected_scaler, apply_cuts):

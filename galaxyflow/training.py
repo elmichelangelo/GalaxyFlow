@@ -15,7 +15,8 @@ import galaxyflow.flow as fnn
 import pandas as pd
 from Handler.data_loader import load_data
 from chainconsumer import ChainConsumer
-from Handler.helper_functions import make_gif
+from Handler.helper_functions import make_gif, unreplace_and_untransform_data, unsheared_mag_cut, metacal_cuts, \
+    detection_cuts, airmass_cut, loss_plot, color_color_plot, residual_plot, plot_chain_compare, plot_mean_or_std
 from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
 
@@ -43,30 +44,32 @@ class TrainFlow(object):
                  batch_size,
                  valid_batch_size,
                  selected_scaler,
-                 plot_loss,
-                 plot_color_color,
-                 plot_residual,
-                 plot_chain,
-                 plot_mean,
-                 plot_std,
-                 plot_flags,
-                 plot_detected,
+                 do_loss_plot,
+                 do_color_color_plot,
+                 do_residual_plot,
+                 do_chain_plot,
+                 do_mean_plot,
+                 do_std_plot,
+                 do_flags_plot,
+                 do_detected_plot,
                  run_hyperparameter_tuning,
+                 lst_replace_transform_cols,
+                 lst_replace_values,
                  run,
                  reproducible):
         super().__init__()
         self.size_training_dataset = size_training_dataset
         self.size_validation_dataset = size_validation_dataset
         self.size_test_dataset = size_test_dataset
-        self.plot_loss = plot_loss
+        self.do_loss_plot = do_loss_plot
         self.run = run
-        self.plot_color_color = plot_color_color
-        self.plot_residual = plot_residual
-        self.plot_chain = plot_chain
-        self.plot_mean = plot_mean
-        self.plot_std = plot_std
-        self.plot_flags = plot_flags
-        self.plot_detected = plot_detected
+        self.do_color_color_plot = do_color_color_plot
+        self.do_residual_plot = do_residual_plot
+        self.do_chain_plot = do_chain_plot
+        self.do_mean_plot = do_mean_plot
+        self.do_std_plot = do_std_plot
+        self.do_flags_plot = do_flags_plot
+        self.do_detected_plot = do_detected_plot
         self.epochs = epochs
         self.plot_test = plot_test
         self.show_plot = show_plot
@@ -74,10 +77,14 @@ class TrainFlow(object):
         self.save_nn = save_nn
         self.device = torch.device(device)
         self.act = activation_function
+        self.actal_selected_values = None
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
         self.test_batch_size = batch_size
+        self.lst_replace_transform_cols = lst_replace_transform_cols
+        self.lst_replace_values = lst_replace_values
         self.lst_epochs = []
+        self.lst_epochs_cut = []
         self.lst_mean_mag_r = []
         self.lst_mean_mag_i = []
         self.lst_mean_mag_z = []
@@ -90,6 +97,20 @@ class TrainFlow(object):
         self.lst_std_snr = []
         self.lst_std_size_ratio = []
         self.lst_std_t = []
+
+        self.lst_mean_mag_r_cut = []
+        self.lst_mean_mag_i_cut = []
+        self.lst_mean_mag_z_cut = []
+        self.lst_mean_snr_cut = []
+        self.lst_mean_size_ratio_cut = []
+        self.lst_mean_t_cut = []
+        self.lst_std_mag_r_cut = []
+        self.lst_std_mag_i_cut = []
+        self.lst_std_mag_z_cut = []
+        self.lst_std_snr_cut = []
+        self.lst_std_size_ratio_cut = []
+        self.lst_std_t_cut = []
+
         self.lst_train_loss_per_batch = []
         self.lst_train_loss_per_epoch = []
         self.lst_valid_loss_per_batch = []
@@ -128,7 +149,7 @@ class TrainFlow(object):
         self.path_save_nn = f"{self.path_output_flow}/nn"
         self.make_dirs()
         self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
-        self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
+        self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
             path_train_data=path_train_data,
             selected_scaler=selected_scaler,
             reproducible=reproducible
@@ -178,7 +199,7 @@ class TrainFlow(object):
 
     def init_dataset(self, path_train_data, selected_scaler, reproducible):
         """"""
-        training_data, validation_data, test_data, all_data = load_data(
+        training_data, validation_data, test_data = load_data(
             path_training_data=path_train_data,
             path_output=self.path_output,
             input_flow=self.col_label_flow,
@@ -188,23 +209,26 @@ class TrainFlow(object):
             size_validation_dataset=self.size_validation_dataset,
             size_test_dataset=self.size_test_dataset,
             reproducible=reproducible,
-            run=self.run
+            run=self.run,
+            lst_replace_transform_cols=self.lst_replace_transform_cols,
+            lst_replace_values=self.lst_replace_values,
+            apply_transformation=True
         )
 
-        train_tensor = torch.from_numpy(training_data[f"output flow in order {self.col_output_flow}"])
-        train_labels = torch.from_numpy(training_data[f"label flow in order {self.col_label_flow}"])
+        train_tensor = torch.from_numpy(training_data[f"data frame training data"][self.col_output_flow].to_numpy())
+        train_labels = torch.from_numpy(training_data[f"data frame training data"][self.col_label_flow].to_numpy())
         train_dataset = torch.utils.data.TensorDataset(train_tensor, train_labels)
 
-        valid_tensors = torch.from_numpy(validation_data[f"output flow in order {self.col_output_flow}"])
-        valid_labels = torch.from_numpy(validation_data[f"label flow in order {self.col_label_flow}"])
+        valid_tensors = torch.from_numpy(validation_data[f"data frame validation data"][self.col_output_flow].to_numpy())
+        valid_labels = torch.from_numpy(validation_data[f"data frame validation data"][self.col_label_flow].to_numpy())
         valid_dataset = torch.utils.data.TensorDataset(valid_tensors, valid_labels)
         if self.valid_batch_size == -1:
-            self.valid_batch_size = len(validation_data[f"output flow in order {self.col_output_flow}"])
+            self.valid_batch_size = len(validation_data[f"data frame validation data"])
 
-        test_tensor = torch.from_numpy(test_data[f"output flow in order {self.col_output_flow}"])
-        test_labels = torch.from_numpy(test_data[f"label flow in order {self.col_label_flow}"])
-        test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels)
-        self.test_batch_size = len(test_data[f"output flow in order {self.col_output_flow}"])
+        # test_tensor = torch.from_numpy(test_data[f"output flow in order {self.col_output_flow}"])
+        # test_labels = torch.from_numpy(test_data[f"label flow in order {self.col_label_flow}"])
+        # test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels)
+        # self.test_batch_size = len(test_data[f"output flow in order {self.col_output_flow}"])
 
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -221,15 +245,15 @@ class TrainFlow(object):
             # **kwargs
         )
 
-        test_loader = torch.utils.data.DataLoader(
-            test_dataset,
-            batch_size=self.test_batch_size,
-            shuffle=False,
-            drop_last=False,
-            # **kwargs
-        )
+        # test_loader = torch.utils.data.DataLoader(
+        #     test_dataset,
+        #     batch_size=self.test_batch_size,
+        #     shuffle=False,
+        #     drop_last=False,
+        #     # **kwargs
+        # )
 
-        return train_loader, valid_loader, test_loader, test_data[f"scaler"]
+        return train_loader, valid_loader, test_data, test_data[f"scaler"]
 
     def init_network(self, num_inputs, num_cond_inputs):
         modules = []
@@ -252,47 +276,47 @@ class TrainFlow(object):
 
         return model, optimizer
 
-    # def hyperparameter_tuning(self, learning_rate, number_hidden, number_blocks, batch_size, reproducible):
-    #     # , number_hidden, number_blocks
-    #     self.lr = learning_rate,
-    #     self.num_hidden = number_hidden
-    #     self.num_blocks = number_blocks
-    #     self.batch_size = batch_size
-    #     self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
-    #         path_train_data=self.path_train_data,
-    #         selected_scaler=self.selected_scaler,
-    #         reproducible=reproducible
-    #     )
-    #
-    #     self.model, self.optimizer = self.init_network(
-    #         num_inputs=len(self.col_output_flow),
-    #         num_cond_inputs=len(self.col_label_flow)
-    #     )
-    #
-    #     self.global_step = 0
-    #     self.best_validation_loss = float('inf')
-    #     self.best_validation_epoch = 0
-    #     self.best_model = self.model
-    #     self.path_output_flow = f"{self.path_output}/Flow_" \
-    #                             f"lr_{self.lr}_" \
-    #                             f"num_hidden_{self.num_hidden}_" \
-    #                             f"num_blocks_{self.num_blocks}_" \
-    #                             f"batch_size_{self.batch_size}"
-    #     self.path_plots = f"{self.path_output_flow}/plots"
-    #     self.path_chain_plot = f"{self.path_plots}/chain_plot"
-    #     self.path_loss_plot = f"{self.path_plots}/loss_plot"
-    #     self.path_mean_plot = f"{self.path_plots}/mean_plot"
-    #     self.path_std_plot = f"{self.path_plots}/std_plot"
-    #     self.path_residual_plot = f"{self.path_plots}/residual_plot"
-    #     self.path_flag_plot = f"{self.path_plots}/flag_plot"
-    #     self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
-    #     self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
-    #     self.path_detection_plot = f"{self.path_plots}/detection_plot"
-    #     self.path_gifs = f"{self.path_plots}/gifs"
-    #     self.path_save_nn = f"{self.path_output_flow}/nn"
-    #     self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
-    #     self.make_dirs()
-    #     self.run_training()
+    def hyperparameter_tuning(self, learning_rate, number_hidden, number_blocks, batch_size, reproducible):
+        # , number_hidden, number_blocks
+        self.lr = learning_rate,
+        self.num_hidden = number_hidden
+        self.num_blocks = number_blocks
+        self.batch_size = batch_size
+        self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
+            path_train_data=self.path_train_data,
+            selected_scaler=self.selected_scaler,
+            reproducible=reproducible
+        )
+
+        self.model, self.optimizer = self.init_network(
+            num_inputs=len(self.col_output_flow),
+            num_cond_inputs=len(self.col_label_flow)
+        )
+
+        self.global_step = 0
+        self.best_validation_loss = float('inf')
+        self.best_validation_epoch = 0
+        self.best_model = self.model
+        self.path_output_flow = f"{self.path_output}/Flow_hyper_" \
+                                f"lr_{self.lr}_" \
+                                f"num_hidden_{self.num_hidden}_" \
+                                f"num_blocks_{self.num_blocks}_" \
+                                f"batch_size_{self.batch_size}"
+        self.path_plots = f"{self.path_output_flow}/plots"
+        self.path_chain_plot = f"{self.path_plots}/chain_plot"
+        self.path_loss_plot = f"{self.path_plots}/loss_plot"
+        self.path_mean_plot = f"{self.path_plots}/mean_plot"
+        self.path_std_plot = f"{self.path_plots}/std_plot"
+        self.path_residual_plot = f"{self.path_plots}/residual_plot"
+        self.path_flag_plot = f"{self.path_plots}/flag_plot"
+        self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
+        self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
+        self.path_detection_plot = f"{self.path_plots}/detection_plot"
+        self.path_gifs = f"{self.path_plots}/gifs"
+        self.path_save_nn = f"{self.path_output_flow}/nn"
+        self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
+        self.make_dirs()
+        self.run_training()
 
     def run_training(self):
         for epoch in range(self.epochs):
@@ -300,8 +324,7 @@ class TrainFlow(object):
 
             train_loss, train_loss_epoch = self.train()
             validation_loss = self.validate(
-                epoch=epoch,
-                loader=self.valid_loader
+                epoch=epoch
             )
 
             self.lst_epochs.append(epoch)
@@ -321,10 +344,10 @@ class TrainFlow(object):
                   f"\t Average Log Likelihood {-self.best_validation_loss}")
 
             if self.plot_test is True:
-                try:
-                    self.plot_data(epoch=epoch)
-                except:
-                    print(f"Error epoch {epoch+1}")
+                # try:
+                self.plot_data(epoch=epoch)
+                # except:
+                #     print(f"Error epoch {epoch+1}")
 
         if self.plot_test is True:
             make_gif(self.path_chain_plot, f"{self.path_gifs}/chain_plot.gif")
@@ -338,10 +361,6 @@ class TrainFlow(object):
         if self.save_nn is True:
             torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}_run_{self.run}.pt")
             torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{self.epochs}_run_{self.run}.pt")
-        self.validate(
-            epoch=self.best_validation_epoch,
-            loader=self.test_loader
-        )
         self.writer.close()
 
     def train(self):
@@ -357,14 +376,10 @@ class TrainFlow(object):
             loss = -self.model.log_probs(data, cond_data).mean()
             if loss.isnan():
                 print(loss)
-                print()
             self.lst_train_loss_per_batch.append(loss.item())
             train_loss += loss.item()
             loss.backward()
             self.optimizer.step()
-            # print(int(data.size(0)/len(self.train_loader.dataset)))
-            # self.gui.progress.emit(int(data.size(0)/len(self.train_loader.dataset)))
-            # self.gui.status.emit(f'Train, Log likelihood: {train_loss / (batch_idx + 1)}')
             pbar.update(data.size(0))
             pbar.set_description(f'Train, Log likelihood: {train_loss / (batch_idx + 1)}')
             self.writer.add_scalar('training/loss', loss.item(), self.global_step)
@@ -384,13 +399,13 @@ class TrainFlow(object):
                 module.momentum = 1
         return train_loss, train_loss / (batch_idx + 1)
 
-    def validate(self, epoch, loader):
+    def validate(self, epoch):
         self.model.eval()
         val_loss = 0
 
-        pbar = tqdm(total=len(loader.dataset))
+        pbar = tqdm(total=len(self.valid_loader.dataset))
         pbar.set_description('Eval')
-        for batch_idx, data in enumerate(loader):
+        for batch_idx, data in enumerate(self.valid_loader):
             cond_data = data[1].float()
             cond_data = cond_data.to(self.device)
             data = data[0]
@@ -401,95 +416,15 @@ class TrainFlow(object):
             pbar.set_description(f'Val, Log likelihood in nats: {val_loss / pbar.n}')
             self.lst_valid_loss_per_batch.append(val_loss / pbar.n)
 
-        self.writer.add_scalar('validation/LL', val_loss / len(loader.dataset), epoch)
+        self.writer.add_scalar('validation/LL', val_loss / len(self.valid_loader.dataset), epoch)
 
         pbar.close()
-        return val_loss / len(loader.dataset)
+        return val_loss / len(self.valid_loader.dataset)
 
     def plot_data(self, epoch):
         """"""
         sns.set_theme()
         self.model.eval()
-
-        if self.plot_loss is True:
-            statistical_figure, ((stat_ax1, stat_ax2), (stat_ax3, stat_ax4)) = plt.subplots(nrows=2, ncols=2)
-            statistical_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.25, hspace=0.25)
-            statistical_figure.suptitle(f"Epoch: {epoch}", fontsize=16)
-
-            # Create dataframe of progress list
-            df_test_loss_per_batch = pd.DataFrame({
-                "training loss": self.lst_train_loss_per_batch
-            })
-            df_test_loss_per_epoch = pd.DataFrame({
-                "training loss": self.lst_train_loss_per_epoch
-            })
-            df_valid_loss_per_batch = pd.DataFrame({
-                "validation loss": self.lst_valid_loss_per_batch
-            })
-            df_valid_loss_per_epoch = pd.DataFrame({
-                "validation loss": self.lst_valid_loss_per_epoch
-            })
-
-
-            # Create plot
-            df_test_loss_per_batch.plot(
-                figsize=(16, 9),
-                alpha=0.5,
-                marker=".",
-                grid=True,
-                # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
-                ax=stat_ax1)
-
-            stat_ax1.set_xlabel("batch", fontsize=10, loc='right')
-            stat_ax1.set_ylabel("loss", fontsize=12, loc='top')
-            stat_ax1.set_title(f"Loss per batch")
-
-            df_test_loss_per_epoch.plot(
-                figsize=(16, 9),
-                alpha=0.5,
-                marker=".",
-                grid=True,
-                # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
-                ax=stat_ax2)
-
-            stat_ax2.set_xlabel("epoch", fontsize=10, loc='right')
-            stat_ax2.set_ylabel("loss", fontsize=12, loc='top')
-            stat_ax2.set_title(f"Loss per epoch")
-
-            # Create plot
-            df_valid_loss_per_batch.plot(
-                figsize=(16, 9),
-                alpha=0.5,
-                marker=".",
-                grid=True,
-                # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
-                ax=stat_ax3)
-
-            stat_ax3.set_xlabel("batch", fontsize=10, loc='right')
-            stat_ax3.set_ylabel("loss", fontsize=12, loc='top')
-            stat_ax3.set_title(f"Loss per batch")
-
-            df_valid_loss_per_epoch.plot(
-                figsize=(16, 9),
-                alpha=0.5,
-                marker=".",
-                grid=True,
-                # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
-                ax=stat_ax4)
-
-            stat_ax4.set_xlabel("epoch", fontsize=10, loc='right')
-            stat_ax4.set_ylabel("loss", fontsize=12, loc='top')
-            stat_ax4.set_title(f"Loss per epoch")
-
-            if self.show_plot is True:
-                statistical_figure.show()
-            if self.save_plot is True:
-                statistical_figure.savefig(f"{self.path_loss_plot}/loss_{epoch+1}.png", dpi=200)
-
-            # Clear and close open figure to avoid memory overload
-            statistical_figure.clf()
-            plt.close(statistical_figure)
-
 
         colors = [
             ("r", "i"),
@@ -502,329 +437,476 @@ class TrainFlow(object):
             "z"
         ]
 
-        for batch_idx, data in enumerate(self.test_loader):
-            cond_data = data[1].float()
-            cond_data = cond_data.to(self.device)
-            data = data[0].float()
-            with torch.no_grad():
-                test_output = self.model.sample(self.test_batch_size, cond_inputs=cond_data).detach().cpu()
+        # lst_replace_transform_cols = [
+        #     "unsheared/T",
+        #     "unsheared/snr",
+        #     "unsheared/size_ratio",
+        #     "AIRMASS_WMEAN_R",
+        #     "AIRMASS_WMEAN_I",
+        #     "AIRMASS_WMEAN_Z",
+        #     "FWHM_WMEAN_R",
+        #     "FWHM_WMEAN_I",
+        #     "FWHM_WMEAN_Z",
+        #     "MAGLIM_R",
+        #     "MAGLIM_I",
+        #     "MAGLIM_Z",
+        #     "EBV_SFD98"
+        # ]
+        # lst_replace_values = [
+        #     (-9999, -1),
+        #     (-7070.360705084288, 0),
+        #     None,
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     (-9999, 0),
+        #     None
+        # ]
 
-            df_generator_label = pd.DataFrame(cond_data.numpy(), columns=self.col_label_flow)
-            df_generator_output = pd.DataFrame(test_output.numpy(), columns=self.col_output_flow)
-            df_generator_scaled = pd.concat([df_generator_label, df_generator_output], axis=1)
+        lst_fill_na = [
+            ("unsheared/snr", -7070.360705084288),
+            ("unsheared/T", -9999),
+            ("unsheared/size_ratio", -1),
+            ("unsheared/flags", -1),
+            ("unsheared/flux_r", -99999),
+            ("unsheared/flux_i", -99999),
+            ("unsheared/flux_z", -99999),
+            ("unsheared/flux_err_r", -99999),
+            ("unsheared/flux_err_i", -99999),
+            ("unsheared/flux_err_z", -99999),
+            ("AIRMASS_WMEAN_R", -9999),
+            ("AIRMASS_WMEAN_I", -9999),
+            ("AIRMASS_WMEAN_Z", -9999),
+            ("FWHM_WMEAN_R", -9999),
+            ("FWHM_WMEAN_I", -9999),
+            ("FWHM_WMEAN_Z", -9999),
+            ("MAGLIM_R", -9999),
+            ("MAGLIM_I", -9999),
+            ("MAGLIM_Z", -9999),
+            ("EBV_SFD98", -9999),
+        ]
 
-            # r, _ = np.where(df_generator_output.isin([np.nan, np.inf, -np.inf]))
-            # r = np.unique(r)
-            # df_generator_output = df_generator_output.drop(index=r)
-            # df_generator_label = df_generator_label.drop(index=r)
-            # df_generator_scaled = pd.concat([df_generator_label, df_generator_output], axis=1)
-            # try:
-            #     generator_rescaled = self.scaler.inverse_transform(df_generator_scaled)
-            # except ValueError:
-            #     print("Value Error")
-            #     continue
+        # for batch_idx, data in enumerate(self.df_test):
+        cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.col_label_flow].to_numpy())
+        cond_data = cond_data.to(self.device)
+        with torch.no_grad():
+            tensor_output = self.model.sample(len(self.df_test[f"data frame test data"]),
+                                              cond_inputs=cond_data).detach().cpu()
 
-            generator_rescaled = self.scaler.inverse_transform(df_generator_scaled)
-            df_generated = pd.DataFrame(generator_rescaled, columns=df_generator_scaled.columns)
+        df_generated_scaled = self.df_test[f"data frame test data"].copy()
+        df_true_scaled = self.df_test[f"data frame test data"].copy()
 
-            df_true_output = pd.DataFrame(data, columns=self.col_output_flow)
-            df_true_scaled = pd.concat([df_generator_label, df_true_output], axis=1)
-            true_rescaled = self.scaler.inverse_transform(df_true_scaled)
-            df_true = pd.DataFrame(true_rescaled, columns=df_true_scaled.columns)
+        df_generated_label = pd.DataFrame(cond_data.numpy(), columns=self.col_label_flow)
+        df_generated_output = pd.DataFrame(tensor_output.numpy(), columns=self.col_output_flow)
+        df_generated_concat = pd.concat([df_generated_label, df_generated_output], axis=1)
+        df_generated_scaled.update(df_generated_concat)
 
-            if self.plot_color_color is True:
-                df_generated_measured = pd.DataFrame({})
-                df_true_measured = pd.DataFrame({})
-                for color in colors:
-                    df_generated_measured[f"{color[0]}-{color[1]}"] = \
-                        np.array(df_generated[f"unsheared/lupt_{color[0]}"]) - np.array(
-                            df_generated[f"unsheared/lupt_{color[1]}"])
-                    df_true_measured[f"{color[0]}-{color[1]}"] = \
-                        np.array(df_true[f"unsheared/lupt_{color[0]}"]) - np.array(df_true[f"unsheared/lupt_{color[1]}"])
+        test_generated_rescaled = self.scaler.inverse_transform(df_generated_scaled)
+        df_generated = pd.DataFrame(test_generated_rescaled, columns=df_generated_scaled.keys())
 
-                arr_true = df_true_measured.to_numpy()
-                arr_generated = df_generated_measured.to_numpy()
-                parameter = [
-                    "unsheared/lupt r-i",
-                    "unsheared/lupt i-z"
-                ]
-                chainchat = ChainConsumer()
-                chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
-                chainchat.add_chain(arr_generated, parameters=parameter, name="generated observed properties: chat*")
-                chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
-                chainchat.plotter.plot(
-                    filename=f'{self.path_color_color_plot}/color_color_{epoch+1}.png',
-                    figsize="page",
-                    # extents={
-                    #     "unsheared/lupt r-i": (-6, 6),
-                    #     "unsheared/lupt i-z": (-25, 25)
-                    # }
-                )
-                if self.show_plot is True:
-                    plt.show()
-                plt.clf()
-                plt.close()
+        true = self.scaler.inverse_transform(df_true_scaled)
+        df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
 
-            if self.plot_residual:
-                hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = \
-                    plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
-                hist_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
-                hist_figure.suptitle(r"residual", fontsize=16)
+        for b in bands:
+            df_generated[f"meas {b} - true {b}"] = df_generated[f'unsheared/lupt_{b}'] - df_generated[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
+            df_true[f"meas {b} - true {b}"] = df_true[f'unsheared/lupt_{b}'] - df_true[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
 
-                lst_axis_res = [
-                    stat_ax1,
-                    stat_ax2,
-                    stat_ax3
-                ]
+        df_true = unreplace_and_untransform_data(
+            data_frame=df_true,
+            dict_pt=self.df_test["power transformer"],
+            columns=self.lst_replace_transform_cols,
+            replace_value=self.lst_replace_values
+        )
 
-                lst_xlim_res = [
-                    (-2.5, 2.5),
-                    (-2.5, 2.5),
-                    (-2.5, 2.5)
-                ]
+        df_true_cut = metacal_cuts(data_frame=df_true)
+        df_true_cut = detection_cuts(data_frame=df_true_cut)
+        df_true_cut = airmass_cut(data_frame=df_true_cut)
+        df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
 
-                df_hist_balrog = pd.DataFrame({
-                    "dataset": ["balrog" for _ in range(len(df_true[f"unsheared/lupt_r"]))]
-                })
-                df_hist_generated = pd.DataFrame({
-                    "dataset": ["generated" for _ in range(len(df_true[f"unsheared/lupt_r"]))]
-                })
-                for band in bands:
-                    df_hist_balrog[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"] = df_true[
-                                                                                        f"BDF_LUPT_DERED_CALIB_{band.upper()}"] - \
-                                                                                    df_true[f"unsheared/lupt_{band}"]
-                    df_hist_generated[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"] = df_true[
-                                                                                           f"BDF_LUPT_DERED_CALIB_{band.upper()}"] - \
-                                                                                       df_generated[f"unsheared/lupt_{band}"]
+        df_generated = unreplace_and_untransform_data(
+            data_frame=df_generated,
+            dict_pt=self.df_test["power transformer"],
+            columns=self.lst_replace_transform_cols,
+            replace_value=self.lst_replace_values
+        )
 
-                for idx, band in enumerate(bands):
-                    sns.histplot(
-                        data=df_hist_balrog,
-                        x=f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}",
-                        ax=lst_axis_res[idx],
-                        element="step",
-                        stat="density",
-                        color="dodgerblue",
-                        bins=50,
-                        label="balrog"
-                    )
-                    sns.histplot(
-                        data=df_hist_generated,
-                        x=f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}",
-                        ax=lst_axis_res[idx],
-                        element="step",
-                        stat="density",
-                        color="darkorange",
-                        fill=False,
-                        bins=50,
-                        label="generated"
-                    )
-                    lst_axis_res[idx].axvline(
-                        x=df_hist_balrog[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"].median(),
-                        color='dodgerblue',
-                        ls='--',
-                        lw=1.5,
-                        label="Mean balrog"
-                    )
-                    lst_axis_res[idx].axvline(
-                        x=df_hist_generated[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"].median(),
-                        color='darkorange',
-                        ls='--',
-                        lw=1.5,
-                        label="Mean generated"
-                    )
-                    lst_axis_res[idx].set_xlim(lst_xlim_res[idx][0], lst_xlim_res[idx][1])
-                    if idx == 0:
-                        lst_axis_res[idx].legend()
-                    else:
-                        lst_axis_res[idx].legend([], [], frameon=False)
-                hist_figure.tight_layout()
-                if self.show_plot is True:
-                    plt.show()
+        df_generated_cut = metacal_cuts(data_frame=df_generated)
+        df_generated_cut = detection_cuts(data_frame=df_generated_cut)
+        df_generated_cut = airmass_cut(data_frame=df_generated_cut)
+        df_generated_cut = unsheared_mag_cut(data_frame=df_generated_cut)
 
-                if self.save_plot is True:
-                    plt.savefig(f"{self.path_residual_plot}/residual_plot_{epoch+1}.png")
-                plt.clf()
-                plt.close()
+        for na in lst_fill_na:
+            df_generated[na[0]] = df_generated[na[0]].fillna(na[1])
 
-            if self.plot_chain is True:
-                df_generated_measured = pd.DataFrame({
-                    "unsheared/lupt_r": np.array(df_generated["unsheared/lupt_r"]),
-                    "unsheared/lupt_i": np.array(df_generated["unsheared/lupt_i"]),
-                    "unsheared/lupt_z": np.array(df_generated["unsheared/lupt_z"]),
-                    "unsheared/snr": np.array(df_generated["unsheared/snr"]),
-                    "unsheared/size_ratio": np.array(df_generated["unsheared/size_ratio"]),
-                    "unsheared/T": np.array(df_generated["unsheared/T"])
-                })
+        if self.do_loss_plot is True:
+            loss_plot(
+                epoch=epoch,
+                lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+                lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+                lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+                lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_loss_plot}/loss_{epoch + 1}.png"
+            )
 
-                df_analytical_output = pd.DataFrame(data, columns=self.col_output_flow)
-                df_analytical_scaled = pd.concat([df_generator_label, df_analytical_output], axis=1)
-                analytical_rescaled = self.scaler.inverse_transform(df_analytical_scaled)
-                df_balrog = pd.DataFrame(analytical_rescaled, columns=df_analytical_scaled.columns)
-                df_balrog_measured = pd.DataFrame({
-                    "unsheared/lupt_r": np.array(df_balrog["unsheared/lupt_r"]),
-                    "unsheared/lupt_i": np.array(df_balrog["unsheared/lupt_i"]),
-                    "unsheared/lupt_z": np.array(df_balrog["unsheared/lupt_z"]),
-                    "unsheared/snr": np.array(df_balrog["unsheared/snr"]),
-                    "unsheared/size_ratio": np.array(df_balrog["unsheared/size_ratio"]),
-                    "unsheared/T": np.array(df_balrog["unsheared/T"])
-                })
+        if self.do_color_color_plot is True:
+            color_color_plot(
+                data_frame_generated=df_generated,
+                data_frame_true=df_true,
+                colors=colors,
+                show_plot=self.show_plot,
+                save_name=f'{self.path_color_color_plot}/color_color_{epoch + 1}.png',
+                extents={
+                    "unsheared/lupt r-i": (-6, 6),
+                    "unsheared/lupt i-z": (-25, 25)
+                }
+            )
+            color_color_plot(
+                data_frame_generated=df_generated_cut,
+                data_frame_true=df_true_cut,
+                colors=colors,
+                show_plot=self.show_plot,
+                save_name=f'{self.path_color_color_plot}/mcal_color_color_{epoch + 1}.png',
+                extents={
+                    "unsheared/lupt r-i": (-6, 6),
+                    "unsheared/lupt i-z": (-25, 25)
+                }
+            )
 
-                arr_balrog = df_balrog_measured.to_numpy()
-                arr_generated = df_generated_measured.to_numpy()
-                parameter = [
-                    "lupt r",
-                    "lupt i",
-                    "lupt z",
+        if self.do_residual_plot:
+            residual_plot(
+                data_frame_generated=df_generated,
+                data_frame_true=df_true,
+                plot_title=f"residual, epoch {epoch+1}",
+                bands=bands,
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_residual_plot}/residual_plot_{epoch + 1}.png"
+            )
+
+            residual_plot(
+                data_frame_generated=df_generated_cut,
+                data_frame_true=df_true_cut,
+                plot_title=f"mcal residual, epoch {epoch+1}",
+                bands=bands,
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_residual_plot}/mcal_residual_plot_{epoch + 1}.png"
+            )
+
+        if self.do_chain_plot is True:
+            plot_chain_compare(
+                data_frame_generated=df_generated,
+                data_frame_true=df_true,
+                epoch=epoch,
+                show_plot=self.show_plot,
+                save_name=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
+                columns=[
+                    "unsheared/lupt_r",
+                    "unsheared/lupt_i",
+                    "unsheared/lupt_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/T"
+                ],
+                parameter=[
+                    "lupt_r",
+                    "lupt_i",
+                    "lupt_z",
                     "snr",
-                    "size ratio",
-                    "T"
-                ]
-                chainchat = ChainConsumer()
-                chainchat.add_chain(arr_balrog, parameters=parameter, name="balrog observed properties: chat")
-                chainchat.add_chain(arr_generated, parameters=parameter, name="generated observed properties: chat*")
-                chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
-                try:
-                    chainchat.plotter.plot(
-                        filename=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
-                        figsize="page",
-                        # extents={
-                        #     "mag r": (17.5, 26),
-                        #     "mag i": (17.5, 26),
-                        #     "mag z": (17.5, 26),
-                        #     "snr": (-11, 100),
-                        #     "size ratio": (-4, 4),
-                        #     "T": (-2, 2)
-                        # }
-                    )
-                except:
-                    print("chain error at epoch", epoch + 1)
-                plt.clf()
+                    "size_ratio",
+                    "T",
+                ],
+                extends=None,
+                max_ticks=5,
+                shade_alpha=0.8,
+                tick_font_size=12,
+                label_font_size=12
+            )
 
-                chaincolor = ChainConsumer()
-                df_compare_balrog = pd.DataFrame({
-                    'true r': df_balrog['BDF_LUPT_DERED_CALIB_R'],
-                    'true i': df_balrog['BDF_LUPT_DERED_CALIB_I'],
-                    'true z': df_balrog['BDF_LUPT_DERED_CALIB_Z'],
-                    'meas r - true r': df_balrog['unsheared/lupt_r'] - df_balrog['BDF_LUPT_DERED_CALIB_R'],
-                    'meas i - true i': df_balrog['unsheared/lupt_i'] - df_balrog['BDF_LUPT_DERED_CALIB_I'],
-                    'meas z - true z': df_balrog['unsheared/lupt_z'] - df_balrog['BDF_LUPT_DERED_CALIB_Z']
-                })
-                df_compare_generated = pd.DataFrame({
-                    'true r': df_generated['BDF_LUPT_DERED_CALIB_R'],
-                    'true i': df_generated['BDF_LUPT_DERED_CALIB_I'],
-                    'true z': df_generated['BDF_LUPT_DERED_CALIB_Z'],
-                    'meas r - true r': df_generated['unsheared/lupt_r'] - df_generated['BDF_LUPT_DERED_CALIB_R'],
-                    'meas i - true i': df_generated['unsheared/lupt_i'] - df_generated['BDF_LUPT_DERED_CALIB_I'],
-                    'meas z - true z': df_generated['unsheared/lupt_z'] - df_generated['BDF_LUPT_DERED_CALIB_Z']
-                })
-                plot_parameter = [
+            plot_chain_compare(
+                data_frame_generated=df_generated_cut,
+                data_frame_true=df_true_cut,
+                epoch=epoch,
+                show_plot=self.show_plot,
+                save_name=f'{self.path_chain_plot}/mcal_chainplot_{epoch + 1}.png',
+                columns=[
+                    "unsheared/lupt_r",
+                    "unsheared/lupt_i",
+                    "unsheared/lupt_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/T",
+                ],
+                parameter=[
+                    "lupt_r",
+                    "lupt_i",
+                    "lupt_z",
+                    "snr",
+                    "size_ratio",
+                    "T",
+                ],
+                max_ticks=5,
+                shade_alpha=0.8,
+                tick_font_size=12,
+                label_font_size=12
+            )
+
+            plot_chain_compare(
+                data_frame_generated=df_generated,
+                data_frame_true=df_true,
+                epoch=epoch,
+                show_plot=self.show_plot,
+                save_name=f"{self.path_color_diff_plot}/color_diff_{epoch + 1}.png",
+                columns=[
+                    "BDF_LUPT_DERED_CALIB_R",
+                    "BDF_LUPT_DERED_CALIB_I",
+                    "BDF_LUPT_DERED_CALIB_Z",
+                    "meas r - true r",
+                    "meas i - true i",
+                    "meas z - true z"
+                ],
+                parameter=[
                     "true r",
                     "true i",
                     "true z",
-                    'meas r - true r',
-                    'meas i - true i',
-                    'meas z - true z'
-                ]
-                chaincolor.add_chain(df_compare_balrog.to_numpy(), parameters=plot_parameter, name="Balrog color")
-                chaincolor.add_chain(df_compare_generated.to_numpy(), parameters=plot_parameter, name="generated color")
-                chaincolor.plotter.plot(
-                    figsize="page",
-                    # extents={
-                    #     "true r": (18, 24),
-                    #     "true i": (18, 24),
-                    #     "true z": (18, 24),
-                    #     "meas r - true r": (-1, 1),
-                    #     "meas i - true i": (-1, 1),
-                    #     "meas z - true z": (-1, 1)
-                    # }
-                )
-                if self.show_plot is True:
-                    plt.show()
-                if self.save_plot is True:
-                    plt.savefig(f"{self.path_color_diff_plot}/color_diff_{epoch + 1}.png", dpi=200)
-                plt.clf()
-                plt.close()
+                    "meas r - true r",
+                    "meas i - true i",
+                    "meas z - true z"
+                ],
+                max_ticks=5,
+                shade_alpha=0.8,
+                tick_font_size=12,
+                label_font_size=12
+            )
 
-            if self.plot_mean is True:
-                self.lst_mean_mag_r.append(df_generated["unsheared/lupt_r"].mean() / df_true["unsheared/lupt_r"].mean())
-                self.lst_mean_mag_i.append(df_generated["unsheared/lupt_i"].mean() / df_true["unsheared/lupt_i"].mean())
-                self.lst_mean_mag_z.append(df_generated["unsheared/lupt_z"].mean() / df_true["unsheared/lupt_z"].mean())
-                self.lst_mean_snr.append(df_generated["unsheared/snr"].mean() / df_true["unsheared/snr"].mean())
-                self.lst_mean_size_ratio.append(
-                    df_generated["unsheared/size_ratio"].mean() / df_true["unsheared/size_ratio"].mean())
-                self.lst_mean_t.append(df_generated["unsheared/T"].mean() / df_true["unsheared/T"].mean())
+            plot_chain_compare(
+                data_frame_generated=df_generated_cut,
+                data_frame_true=df_true_cut,
+                epoch=epoch,
+                show_plot=self.show_plot,
+                save_name=f"{self.path_color_diff_plot}/mcal_color_diff_{epoch + 1}.png",
+                columns=[
+                    "BDF_LUPT_DERED_CALIB_R",
+                    "BDF_LUPT_DERED_CALIB_I",
+                    "BDF_LUPT_DERED_CALIB_Z",
+                    "meas r - true r",
+                    "meas i - true i",
+                    "meas z - true z"
+                ],
+                parameter=[
+                    "true r",
+                    "true i",
+                    "true z",
+                    "meas r - true r",
+                    "meas i - true i",
+                    "meas z - true z"
+                ],
+                max_ticks=5,
+                shade_alpha=0.8,
+                tick_font_size=12,
+                label_font_size=12
+            )
 
-                plt.plot(self.lst_epochs, self.lst_mean_mag_r, marker="o", linestyle='-', color="blue", label="lupt r")
-                plt.plot(self.lst_epochs, self.lst_mean_mag_i, marker="^", linestyle='-', color="red", label="lupt i")
-                plt.plot(self.lst_epochs, self.lst_mean_mag_z, marker="X", linestyle='-', color="green", label="lupt z")
-                plt.plot(self.lst_epochs, self.lst_mean_snr, marker="d", linestyle='-', color="orange", label="snr")
-                plt.plot(self.lst_epochs, self.lst_mean_size_ratio, marker="s", linestyle='-', color="purple",
-                         label="size ratio")
-                plt.plot(self.lst_epochs, self.lst_mean_t, marker="*", linestyle='-', color="black", label="T")
-                plt.legend()
-                plt.title("plot ratio mean")
-                plt.xlabel("epoch")
-                plt.ylabel("mean(chat*) / mean(chat)")
+        if self.do_mean_plot is True:
+            lists_mean_to_plot = [
+                self.lst_mean_mag_r,
+                self.lst_mean_mag_i,
+                self.lst_mean_mag_z,
+                self.lst_mean_snr,
+                self.lst_mean_size_ratio,
+                self.lst_mean_t,
+            ]
 
-                if self.show_plot is True:
-                    plt.show()
-                if self.save_plot is True:
-                    plt.savefig(f"{self.path_mean_plot}/mean_{epoch+1}.png", dpi=200)
-                plt.clf()
-                plt.close()
+            lists_mean_to_plot_updated = plot_mean_or_std(
+                data_frame_generated=df_generated,
+                data_frame_true=df_true,
+                lists_to_plot=lists_mean_to_plot,
+                list_epochs=self.lst_epochs,
+                columns=[
+                    "unsheared/lupt_r",
+                    "unsheared/lupt_i",
+                    "unsheared/lupt_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/T"
+                ],
+                lst_labels=[
+                    "lupt_r",
+                    "lupt_i",
+                    "lupt_z",
+                    "snr",
+                    "size_ratio",
+                    "T",
+                ],
+                lst_marker=["o", "^", "X", "d", "s", "*"],
+                lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                plot_title="mean ratio",
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_mean_plot}/mean_{epoch+1}.png",
+                statistic_type="mean"
+            )
 
-            if self.plot_std is True:
-                self.lst_std_mag_r.append(df_generated["unsheared/lupt_r"].std() / df_true["unsheared/lupt_r"].std())
-                self.lst_std_mag_i.append(df_generated["unsheared/lupt_i"].std() / df_true["unsheared/lupt_i"].std())
-                self.lst_std_mag_z.append(df_generated["unsheared/lupt_z"].std() / df_true["unsheared/lupt_z"].std())
-                self.lst_std_snr.append(df_generated["unsheared/snr"].std() / df_true["unsheared/snr"].std())
-                self.lst_std_size_ratio.append(
-                    df_generated["unsheared/size_ratio"].std() / df_true["unsheared/size_ratio"].std())
-                self.lst_std_t.append(df_generated["unsheared/T"].std() / df_true["unsheared/T"].std())
+            for idx_plot, lst_plot in enumerate(lists_mean_to_plot):
+                lst_plot = lists_mean_to_plot_updated[idx_plot]
 
-                plt.plot(self.lst_epochs, self.lst_std_mag_r, marker="o", linestyle='-', color="blue", label="lupt r")
-                plt.plot(self.lst_epochs, self.lst_std_mag_i, marker="^", linestyle='-', color="red", label="lupt i")
-                plt.plot(self.lst_epochs, self.lst_std_mag_z, marker="X", linestyle='-', color="green", label="lupt z")
-                plt.plot(self.lst_epochs, self.lst_std_snr, marker="d", linestyle='-', color="orange", label="snr")
-                plt.plot(self.lst_epochs, self.lst_std_size_ratio, marker="s", linestyle='-', color="purple",
-                         label="size ratio")
-                plt.plot(self.lst_epochs, self.lst_std_t, marker="*", linestyle='-', color="black", label="T")
-                plt.legend()
-                plt.title("plot ratio standard deviation")
-                plt.xlabel("epoch")
-                plt.ylabel("std(chat*) / std(chat)")
+            lists_mean_to_plot_cut = [
+                self.lst_mean_mag_r_cut,
+                self.lst_mean_mag_i_cut,
+                self.lst_mean_mag_z_cut,
+                self.lst_mean_snr_cut,
+                self.lst_mean_size_ratio_cut,
+                self.lst_mean_t_cut,
+            ]
 
-                if self.show_plot is True:
-                    plt.show()
-                if self.save_plot is True:
-                    plt.savefig(f"{self.path_std_plot}/std_{epoch+1}.png", dpi=200)
-                plt.clf()
-                plt.close()
+            lists_mean_to_plot_cut_updated = plot_mean_or_std(
+                data_frame_generated=df_generated_cut,
+                data_frame_true=df_true_cut,
+                lists_to_plot=lists_mean_to_plot_cut,
+                list_epochs=self.lst_epochs,
+                columns=[
+                    "unsheared/lupt_r",
+                    "unsheared/lupt_i",
+                    "unsheared/lupt_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/T"
+                ],
+                lst_labels=[
+                    "lupt_r",
+                    "lupt_i",
+                    "lupt_z",
+                    "snr",
+                    "size_ratio",
+                    "T",
+                ],
+                lst_marker=["o", "^", "X", "d", "s", "*"],
+                lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                plot_title="mcal mean ratio",
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_mean_plot}/mcal_mean_{epoch + 1}.png",
+                statistic_type="mean"
+            )
 
-            if self.plot_flags is True:
-                plt.plot(df_generated["unsheared/flags"], ".b", label="generated flag")
-                plt.plot(df_true["unsheared/flags"], ".g", label="true flag")
-                plt.title(f"Compare flags, epoch {epoch}")
-                plt.xlabel("flags")
-                plt.legend()
-                plt.ylim(-0.5, 0.5)
-                if self.show_plot is True:
-                    plt.show()
-                if self.save_plot is True:
-                    plt.savefig(f"{self.path_flag_plot}/flags_{epoch}.png", dpi=200)
-                plt.clf()
+            for idx_plot_cut, lst_plot_cut in enumerate(lists_mean_to_plot_cut):
+                lst_plot_cut = lists_mean_to_plot_cut_updated[idx_plot_cut]
 
-            # if self.plot_detected is True:
-            #     plt.plot(df_generated["detected"], ".b", label="generated detected")
-            #     plt.plot(df_true["detected"], ".g", label="true detected")
-            #     plt.title(f"Compare detected, epoch {epoch}")
-            #     plt.xlabel("detected")
-            #     plt.legend()
-            #     plt.ylim(0.5, 1.5)
-            #     if self.show_plot is True:
-            #         plt.show()
-            #     if self.save_plot is True:
-            #         plt.savefig(f"{self.path_detection_plot}/detection_{epoch}.png", dpi=200)
-            #     plt.clf()
+        if self.do_std_plot is True:
+            lists_std_to_plot = [
+                self.lst_std_mag_r,
+                self.lst_std_mag_i,
+                self.lst_std_mag_z,
+                self.lst_std_snr,
+                self.lst_std_size_ratio,
+                self.lst_std_t,
+            ]
+
+            lists_std_to_plot_updated = plot_mean_or_std(
+                data_frame_generated=df_generated,
+                data_frame_true=df_true,
+                lists_to_plot=lists_std_to_plot,
+                list_epochs=self.lst_epochs,
+                columns=[
+                    "unsheared/lupt_r",
+                    "unsheared/lupt_i",
+                    "unsheared/lupt_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/T"
+                ],
+                lst_labels=[
+                    "lupt_r",
+                    "lupt_i",
+                    "lupt_z",
+                    "snr",
+                    "size_ratio",
+                    "T",
+                ],
+                lst_marker=["o", "^", "X", "d", "s", "*"],
+                lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                plot_title="std ratio",
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_std_plot}/std_{epoch + 1}.png",
+                statistic_type="std"
+            )
+
+            for idx_plot, lst_plot in enumerate(lists_std_to_plot):
+                lst_plot = lists_std_to_plot_updated[idx_plot]
+
+            lists_std_to_plot_cut = [
+                self.lst_std_mag_r_cut,
+                self.lst_std_mag_i_cut,
+                self.lst_std_mag_z_cut,
+                self.lst_std_snr_cut,
+                self.lst_std_size_ratio_cut,
+                self.lst_std_t_cut,
+            ]
+
+            lists_std_to_plot_cut_updated = plot_mean_or_std(
+                data_frame_generated=df_generated_cut,
+                data_frame_true=df_true_cut,
+                lists_to_plot=lists_std_to_plot_cut,
+                list_epochs=self.lst_epochs,
+                columns=[
+                    "unsheared/lupt_r",
+                    "unsheared/lupt_i",
+                    "unsheared/lupt_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/T"
+                ],
+                lst_labels=[
+                    "lupt_r",
+                    "lupt_i",
+                    "lupt_z",
+                    "snr",
+                    "size_ratio",
+                    "T",
+                ],
+                lst_marker=["o", "^", "X", "d", "s", "*"],
+                lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                plot_title="mcal std ratio",
+                show_plot=self.show_plot,
+                save_plot=self.save_plot,
+                save_name=f"{self.path_std_plot}/mcal_std_{epoch + 1}.png",
+                statistic_type="std"
+            )
+
+            for idx_plot_cut, lst_plot_cut in enumerate(lists_std_to_plot_cut):
+                lst_plot_cut = lists_std_to_plot_cut_updated[idx_plot_cut]
+
+        if self.do_flags_plot is True:
+            pass
+            # plt.plot(df_generated["unsheared/flags"], ".b", label="generated flag")
+            # plt.plot(df_true["unsheared/flags"], ".g", label="true flag")
+            # plt.title(f"Compare flags, epoch {epoch}")
+            # plt.xlabel("flags")
+            # plt.legend()
+            # plt.ylim(-0.5, 0.5)
+            # if self.show_plot is True:
+            #     plt.show()
+            # if self.save_plot is True:
+            #     plt.savefig(f"{self.path_flag_plot}/flags_{epoch}.png", dpi=200)
+            # plt.clf()
+            #
+            # plt.plot(df_generated_cut["unsheared/flags"], ".b", label="generated flag")
+            # plt.plot(df_true_cut["unsheared/flags"], ".g", label="true flag")
+            # plt.title(f"Compare flags, epoch {epoch}")
+            # plt.xlabel("flags")
+            # plt.legend()
+            # plt.ylim(-0.5, 0.5)
+            # if self.show_plot is True:
+            #     plt.show()
+            # if self.save_plot is True:
+            #     plt.savefig(f"{self.path_flag_plot}/mcal_flags_{epoch}.png", dpi=200)
+            # plt.clf()
 

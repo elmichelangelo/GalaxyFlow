@@ -35,6 +35,8 @@ def main(
         reproducible,
         col_output_flow,
         col_label_flow,
+        lst_replace_values,
+        lst_replace_transform_cols,
         run_hyperparameter_tuning=True,
         run=None):
     """"""
@@ -60,51 +62,53 @@ def main(
         batch_size=batch_size,
         valid_batch_size=valid_batch_size,
         selected_scaler=selected_scaler,
-        plot_loss=True,
-        plot_color_color=True,
-        plot_residual=True,
-        plot_chain=True,
-        plot_mean=True,
-        plot_std=True,
-        plot_flags=True,
-        plot_detected=True,
+        do_loss_plot=True,
+        do_color_color_plot=True,
+        do_residual_plot=True,
+        do_chain_plot=True,
+        do_mean_plot=True,
+        do_std_plot=True,
+        do_flags_plot=True,
+        do_detected_plot=True,
         run_hyperparameter_tuning=run_hyperparameter_tuning,
+        lst_replace_values=lst_replace_values,
+        lst_replace_transform_cols=lst_replace_transform_cols,
         run=run,
         reproducible=reproducible
     )
 
-    # if run_hyperparameter_tuning is True:
-    #     ray.init()
-    #     search_space = {
-    #         "learning_rate": tune.grid_search(learning_rate),
-    #         "number_hidden": tune.grid_search(number_hidden),
-    #         "number_blocks": tune.grid_search(number_blocks),
-    #         "batch_size": tune.grid_search(batch_size)
-    #     }
-    #     trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
-    #     tuner = tune.Tuner(
-    #         trainable_with_resources,
-    #         run_config=air.RunConfig(local_dir=path_output, name="ray_tune"),
-    #         tune_config=tune.TuneConfig(
-    #             scheduler=ASHAScheduler(metric="loss", mode="min")
-    #         ),
-    #         param_space=search_space,
-    #         reproducible=reproducible
-    #     )
-    #     results = tuner.fit()
-    #     dfs = {result.log_dir: result.metrics_dataframe for result in results}
-    #     ax = None
-    #     for d in dfs.values():
-    #         ax = d.loss.plot(ax=ax, legend=False)
-    #         ax.set_xlabel("Epochs")
-    #         ax.set_ylabel("Loss")
-    #         plt.show()
-    #     best_result = results.get_best_result()
-    #     print("Best result config: {}".format(best_result.config))
-    #     print("Best result metrics: {}".format(best_result.metrics))
-    #     ray.shutdown()
-    # else:
-    train_flow.run_training()
+    if run_hyperparameter_tuning is True:
+        ray.init()
+        search_space = {
+            "learning_rate": tune.grid_search(learning_rate),
+            "number_hidden": tune.grid_search(number_hidden),
+            "number_blocks": tune.grid_search(number_blocks),
+            "batch_size": tune.grid_search(batch_size)
+        }
+        trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
+        tuner = tune.Tuner(
+            trainable_with_resources,
+            run_config=air.RunConfig(local_dir=path_output, name="ray_tune"),
+            tune_config=tune.TuneConfig(
+                scheduler=ASHAScheduler(metric="loss", mode="min")
+            ),
+            param_space=search_space,
+            reproducible=reproducible
+        )
+        results = tuner.fit()
+        dfs = {result.log_dir: result.metrics_dataframe for result in results}
+        ax = None
+        for d in dfs.values():
+            ax = d.loss.plot(ax=ax, legend=False)
+            ax.set_xlabel("Epochs")
+            ax.set_ylabel("Loss")
+            plt.show()
+        best_result = results.get_best_result()
+        print("Best result config: {}".format(best_result.config))
+        print("Best result metrics: {}".format(best_result.metrics))
+        ray.shutdown()
+    else:
+        train_flow.run_training()
 
 
 if __name__ == '__main__':
@@ -218,5 +222,7 @@ if __name__ == '__main__':
                                     run=run,
                                     col_output_flow=cfg["OUTPUT_COLS"],
                                     col_label_flow=cfg["INPUT_COLS"],
-                                    reproducible=cfg["REPRODUCIBLE"]
+                                    reproducible=cfg["REPRODUCIBLE"],
+                                    lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
+                                    lst_replace_values=cfg["REPLACE_VALUES"],
                                 )
