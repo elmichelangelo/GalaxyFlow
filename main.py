@@ -1,8 +1,10 @@
-import ray
-from ray import tune
-from ray import air
-from ray.tune import CLIReporter
-from ray.tune.schedulers import ASHAScheduler
+#import ray
+#from ray import tune
+#from ray import air
+#from ray.tune import CLIReporter
+#from ray.tune.schedulers import ASHAScheduler
+import torch.cuda
+
 from galaxyflow.training import TrainFlow
 import argparse
 import matplotlib.pyplot as plt
