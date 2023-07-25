@@ -143,10 +143,14 @@ class TrainFlow(object):
         self.path_mean_plot = f"{self.path_plots}/mean_plot"
         self.path_std_plot = f"{self.path_plots}/std_plot"
         self.path_residual_plot = f"{self.path_plots}/residual_plot"
-        self.path_flag_plot = f"{self.path_plots}/flag_plot"
         self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
         self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
-        self.path_detection_plot = f"{self.path_plots}/detection_plot"
+        self.path_chain_plot_mcal = f"{self.path_plots}/chain_plot_mcal"
+        self.path_mean_plot_mcal = f"{self.path_plots}/mean_plot_mcal"
+        self.path_std_plot_mcal = f"{self.path_plots}/std_plot_mcal"
+        self.path_residual_plot_mcal = f"{self.path_plots}/residual_plot_mcal"
+        self.path_color_diff_plot_mcal = f"{self.path_plots}/color_diff_plot_mcal"
+        self.path_color_color_plot_mcal = f"{self.path_plots}/color_color_plot_mcal"
         self.path_gifs = f"{self.path_plots}/gifs"
         self.path_save_nn = f"{self.path_output_flow}/nn"
         self.make_dirs()
@@ -182,18 +186,27 @@ class TrainFlow(object):
                 os.mkdir(self.path_mean_plot)
             if not os.path.exists(self.path_std_plot):
                 os.mkdir(self.path_std_plot)
-            if not os.path.exists(self.path_flag_plot):
-                os.mkdir(self.path_flag_plot)
-            if not os.path.exists(self.path_detection_plot):
-                os.mkdir(self.path_detection_plot)
-            if not os.path.exists(self.path_gifs):
-                os.mkdir(self.path_gifs)
             if not os.path.exists(self.path_color_diff_plot):
                 os.mkdir(self.path_color_diff_plot)
             if not os.path.exists(self.path_color_color_plot):
                 os.mkdir(self.path_color_color_plot)
             if not os.path.exists(self.path_residual_plot):
                 os.mkdir(self.path_residual_plot)
+            if not os.path.exists(self.path_chain_plot_mcal):
+                os.mkdir(self.path_chain_plot_mcal)
+            if not os.path.exists(self.path_mean_plot_mcal):
+                os.mkdir(self.path_mean_plot_mcal)
+            if not os.path.exists(self.path_std_plot_mcal):
+                os.mkdir(self.path_std_plot_mcal)
+            if not os.path.exists(self.path_color_diff_plot_mcal):
+                os.mkdir(self.path_color_diff_plot_mcal)
+            if not os.path.exists(self.path_color_color_plot_mcal):
+                os.mkdir(self.path_color_color_plot_mcal)
+            if not os.path.exists(self.path_residual_plot_mcal):
+                os.mkdir(self.path_residual_plot_mcal)
+            if not os.path.exists(self.path_gifs):
+                os.mkdir(self.path_gifs)
+
 
         if self.save_nn is True:
             if not os.path.exists(self.path_save_nn):
@@ -295,10 +308,14 @@ class TrainFlow(object):
         self.path_mean_plot = f"{self.path_plots}/mean_plot"
         self.path_std_plot = f"{self.path_plots}/std_plot"
         self.path_residual_plot = f"{self.path_plots}/residual_plot"
-        self.path_flag_plot = f"{self.path_plots}/flag_plot"
         self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
         self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
-        self.path_detection_plot = f"{self.path_plots}/detection_plot"
+        self.path_chain_plot_mcal = f"{self.path_plots}/chain_plot_mcal"
+        self.path_mean_plot_mcal = f"{self.path_plots}/mean_plot_mcal"
+        self.path_std_plot_mcal = f"{self.path_plots}/std_plot_mcal"
+        self.path_residual_plot_mcal = f"{self.path_plots}/residual_plot_mcal"
+        self.path_color_diff_plot_mcal = f"{self.path_plots}/color_diff_plot_mcal"
+        self.path_color_color_plot_mcal = f"{self.path_plots}/color_color_plot_mcal"
         self.path_gifs = f"{self.path_plots}/gifs"
         self.path_save_nn = f"{self.path_output_flow}/nn"
         self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
@@ -341,10 +358,13 @@ class TrainFlow(object):
             make_gif(self.path_loss_plot, f"{self.path_gifs}/loss_plot.gif")
             make_gif(self.path_mean_plot, f"{self.path_gifs}/mean_plot.gif")
             make_gif(self.path_std_plot, f"{self.path_gifs}/std_plot.gif")
-            make_gif(self.path_flag_plot, f"{self.path_gifs}/flag_plot.gif")
-            make_gif(self.path_detection_plot, f"{self.path_gifs}/detection_plot.gif")
             make_gif(self.path_color_color_plot, f"{self.path_gifs}/color_color_plot.gif")
             make_gif(self.path_residual_plot, f"{self.path_gifs}/residual_plot.gif")
+            make_gif(self.path_chain_plot_mcal, f"{self.path_gifs}/chain_plot_mcal.gif")
+            make_gif(self.path_mean_plot_mcal, f"{self.path_gifs}/mean_plot_mcal.gif")
+            make_gif(self.path_std_plot_mcal, f"{self.path_gifs}/std_plot_mcal.gif")
+            make_gif(self.path_color_color_plot_mcal, f"{self.path_gifs}/color_color_plot_mcal.gif")
+            make_gif(self.path_residual_plot_mcal, f"{self.path_gifs}/residual_plot_mcal.gif")
         if self.save_nn is True:
             torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}_run_{self.run}.pt")
             torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{self.epochs}_run_{self.run}.pt")
@@ -503,6 +523,8 @@ class TrainFlow(object):
             df_generated[f"meas {b} - true {b}"] = df_generated[f'unsheared/lupt_{b}'] - df_generated[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
             df_true[f"meas {b} - true {b}"] = df_true[f'unsheared/lupt_{b}'] - df_true[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
 
+        print("true na", df_generated.isna().sum().sum())
+
         df_true = unreplace_and_untransform_data(
             data_frame=df_true,
             dict_pt=self.df_test["power transformer"],
@@ -510,11 +532,15 @@ class TrainFlow(object):
             replace_value=self.lst_replace_values
         )
 
+        print("true na", df_generated.isna().sum().sum())
+
         # df_true_cut = unsheared_object_cuts(data_frame=df_true)
         # df_true_cut = flag_cuts(data_frame=df_true_cut)
         df_true_cut = airmass_cut(data_frame=df_true)
         df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
         df_true_cut = unsheared_shear_cuts(data_frame=df_true_cut)
+
+        print("generated na", df_generated.isna().sum().sum())
 
         df_generated = unreplace_and_untransform_data(
             data_frame=df_generated,
@@ -522,6 +548,8 @@ class TrainFlow(object):
             columns=self.lst_replace_transform_cols,
             replace_value=self.lst_replace_values
         )
+
+        print("generated na", df_generated.isna().sum().sum())
 
         # df_generated_cut = unsheared_object_cuts(data_frame=df_generated)
         # df_generated_cut = flag_cuts(data_frame=df_generated_cut)
@@ -561,7 +589,7 @@ class TrainFlow(object):
                 data_frame_true=df_true_cut,
                 colors=colors,
                 show_plot=self.show_plot,
-                save_name=f'{self.path_color_color_plot}/mcal_color_color_{epoch + 1}.png',
+                save_name=f'{self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png',
                 extents={
                     "unsheared/lupt r-i": (-6, 6),
                     "unsheared/lupt i-z": (-25, 25)
@@ -586,7 +614,7 @@ class TrainFlow(object):
                 bands=bands,
                 show_plot=self.show_plot,
                 save_plot=self.save_plot,
-                save_name=f"{self.path_residual_plot}/mcal_residual_plot_{epoch + 1}.png"
+                save_name=f"{self.path_residual_plot_mcal}/mcal_residual_plot_{epoch + 1}.png"
             )
 
         if self.do_chain_plot is True:
@@ -624,7 +652,7 @@ class TrainFlow(object):
                 data_frame_true=df_true_cut,
                 epoch=epoch,
                 show_plot=self.show_plot,
-                save_name=f'{self.path_chain_plot}/mcal_chainplot_{epoch + 1}.png',
+                save_name=f'{self.path_chain_plot_mcal}/mcal_chainplot_{epoch + 1}.png',
                 columns=[
                     "unsheared/lupt_r",
                     "unsheared/lupt_i",
@@ -680,7 +708,7 @@ class TrainFlow(object):
                 data_frame_true=df_true_cut,
                 epoch=epoch,
                 show_plot=self.show_plot,
-                save_name=f"{self.path_color_diff_plot}/mcal_color_diff_{epoch + 1}.png",
+                save_name=f"{self.path_color_diff_plot_mcal}/mcal_color_diff_{epoch + 1}.png",
                 columns=[
                     "BDF_LUPT_DERED_CALIB_R",
                     "BDF_LUPT_DERED_CALIB_I",
@@ -781,7 +809,7 @@ class TrainFlow(object):
                 plot_title="mcal mean ratio",
                 show_plot=self.show_plot,
                 save_plot=self.save_plot,
-                save_name=f"{self.path_mean_plot}/mcal_mean_{epoch + 1}.png",
+                save_name=f"{self.path_mean_plot_mcal}/mcal_mean_{epoch + 1}.png",
                 statistic_type="mean"
             )
 
@@ -866,36 +894,10 @@ class TrainFlow(object):
                 plot_title="mcal std ratio",
                 show_plot=self.show_plot,
                 save_plot=self.save_plot,
-                save_name=f"{self.path_std_plot}/mcal_std_{epoch + 1}.png",
+                save_name=f"{self.path_std_plot_mcal}/mcal_std_{epoch + 1}.png",
                 statistic_type="std"
             )
 
             for idx_plot_cut, lst_plot_cut in enumerate(lists_std_to_plot_cut):
                 lst_plot_cut = lists_std_to_plot_cut_updated[idx_plot_cut]
-
-        if self.do_flags_plot is True:
-            pass
-            # plt.plot(df_generated["unsheared/flags"], ".b", label="generated flag")
-            # plt.plot(df_true["unsheared/flags"], ".g", label="true flag")
-            # plt.title(f"Compare flags, epoch {epoch}")
-            # plt.xlabel("flags")
-            # plt.legend()
-            # plt.ylim(-0.5, 0.5)
-            # if self.show_plot is True:
-            #     plt.show()
-            # if self.save_plot is True:
-            #     plt.savefig(f"{self.path_flag_plot}/flags_{epoch}.png", dpi=200)
-            # plt.clf()
-            #
-            # plt.plot(df_generated_cut["unsheared/flags"], ".b", label="generated flag")
-            # plt.plot(df_true_cut["unsheared/flags"], ".g", label="true flag")
-            # plt.title(f"Compare flags, epoch {epoch}")
-            # plt.xlabel("flags")
-            # plt.legend()
-            # plt.ylim(-0.5, 0.5)
-            # if self.show_plot is True:
-            #     plt.show()
-            # if self.save_plot is True:
-            #     plt.savefig(f"{self.path_flag_plot}/mcal_flags_{epoch}.png", dpi=200)
-            # plt.clf()
 

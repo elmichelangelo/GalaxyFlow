@@ -131,7 +131,7 @@ def load_data(
             "wb") as f:
         pickle.dump(dict_training_data, f, protocol=2)
     with open(
-            f"{path_output}/df_validation_data_{len(dict_validation_data[f'data frame valid data'])}_run_{run}.pkl",
+            f"{path_output}/df_validation_data_{len(dict_validation_data[f'data frame validation data'])}_run_{run}.pkl",
             "wb") as f:
         pickle.dump(dict_validation_data, f, protocol=2)
     with open(f"{path_output}/df_test_data_{len(dict_test_data[f'data frame test data'])}_run_{run}.pkl",
