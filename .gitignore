@@ -133,3 +133,11 @@ Output/
 Output_run_flow/
 
 *.pt
+
+.idea/
+
+*.png
+*.jpg
+*.jpeg
+*.pkl
+
