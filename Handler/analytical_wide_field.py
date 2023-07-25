@@ -1,6 +1,7 @@
 import pickle
 
-from Handler.helper_functions import calc_ks_critical_value, flux2mag, mag2flux, match_skybrite_2_footprint, change_mean_std_of_dist, plot_2d_kde, plot_2d_kde_compare
+from Handler.helper_functions import flux2mag, mag2flux
+from Handler.plot_functions import plot_2d_kde
 from scipy.optimize import curve_fit
 from scipy.stats import kstest, gaussian_kde
 import sys

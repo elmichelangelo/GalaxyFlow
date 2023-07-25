@@ -15,8 +15,10 @@ import galaxyflow.flow as fnn
 import pandas as pd
 from Handler.data_loader import load_data
 from chainconsumer import ChainConsumer
-from Handler.helper_functions import make_gif, unreplace_and_untransform_data, unsheared_mag_cut, metacal_cuts, \
-    detection_cuts, airmass_cut, loss_plot, color_color_plot, residual_plot, plot_chain_compare, plot_mean_or_std
+from Handler.helper_functions import unreplace_and_untransform_data
+from Handler.cut_functions import unsheared_mag_cut, unsheared_object_cuts, flag_cuts, airmass_cut, unsheared_shear_cuts
+from Handler.plot_functions import make_gif, loss_plot, color_color_plot, residual_plot, plot_chain_compare,\
+    plot_mean_or_std
 from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
 
@@ -202,8 +204,6 @@ class TrainFlow(object):
         training_data, validation_data, test_data = load_data(
             path_training_data=path_train_data,
             path_output=self.path_output,
-            input_flow=self.col_label_flow,
-            output_flow=self.col_output_flow,
             selected_scaler=selected_scaler,
             size_training_dataset=self.size_training_dataset,
             size_validation_dataset=self.size_validation_dataset,
@@ -212,7 +212,7 @@ class TrainFlow(object):
             run=self.run,
             lst_replace_transform_cols=self.lst_replace_transform_cols,
             lst_replace_values=self.lst_replace_values,
-            apply_transformation=True
+            apply_cuts=True
         )
 
         train_tensor = torch.from_numpy(training_data[f"data frame training data"][self.col_output_flow].to_numpy())
@@ -224,11 +224,6 @@ class TrainFlow(object):
         valid_dataset = torch.utils.data.TensorDataset(valid_tensors, valid_labels)
         if self.valid_batch_size == -1:
             self.valid_batch_size = len(validation_data[f"data frame validation data"])
-
-        # test_tensor = torch.from_numpy(test_data[f"output flow in order {self.col_output_flow}"])
-        # test_labels = torch.from_numpy(test_data[f"label flow in order {self.col_label_flow}"])
-        # test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels)
-        # self.test_batch_size = len(test_data[f"output flow in order {self.col_output_flow}"])
 
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -244,14 +239,6 @@ class TrainFlow(object):
             drop_last=False,
             # **kwargs
         )
-
-        # test_loader = torch.utils.data.DataLoader(
-        #     test_dataset,
-        #     batch_size=self.test_batch_size,
-        #     shuffle=False,
-        #     drop_last=False,
-        #     # **kwargs
-        # )
 
         return train_loader, valid_loader, test_data, test_data[f"scaler"]
 
@@ -523,10 +510,11 @@ class TrainFlow(object):
             replace_value=self.lst_replace_values
         )
 
-        df_true_cut = metacal_cuts(data_frame=df_true)
-        df_true_cut = detection_cuts(data_frame=df_true_cut)
-        df_true_cut = airmass_cut(data_frame=df_true_cut)
+        # df_true_cut = unsheared_object_cuts(data_frame=df_true)
+        # df_true_cut = flag_cuts(data_frame=df_true_cut)
+        df_true_cut = airmass_cut(data_frame=df_true)
         df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
+        df_true_cut = unsheared_shear_cuts(data_frame=df_true_cut)
 
         df_generated = unreplace_and_untransform_data(
             data_frame=df_generated,
@@ -535,10 +523,11 @@ class TrainFlow(object):
             replace_value=self.lst_replace_values
         )
 
-        df_generated_cut = metacal_cuts(data_frame=df_generated)
-        df_generated_cut = detection_cuts(data_frame=df_generated_cut)
-        df_generated_cut = airmass_cut(data_frame=df_generated_cut)
+        # df_generated_cut = unsheared_object_cuts(data_frame=df_generated)
+        # df_generated_cut = flag_cuts(data_frame=df_generated_cut)
+        df_generated_cut = airmass_cut(data_frame=df_generated)
         df_generated_cut = unsheared_mag_cut(data_frame=df_generated_cut)
+        df_generated_cut = unsheared_shear_cuts(data_frame=df_generated_cut)
 
         for na in lst_fill_na:
             df_generated[na[0]] = df_generated[na[0]].fillna(na[1])
