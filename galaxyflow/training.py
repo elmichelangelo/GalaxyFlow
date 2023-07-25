@@ -508,8 +508,8 @@ class TrainFlow(object):
         df_generated_scaled = self.df_test[f"data frame test data"].copy()
         df_true_scaled = self.df_test[f"data frame test data"].copy()
 
-        df_generated_label = pd.DataFrame(cond_data.numpy(), columns=self.col_label_flow)
-        df_generated_output = pd.DataFrame(tensor_output.numpy(), columns=self.col_output_flow)
+        df_generated_label = pd.DataFrame(cond_data.cpu().numpy(), columns=self.col_label_flow)
+        df_generated_output = pd.DataFrame(tensor_output.cpu().numpy(), columns=self.col_output_flow)
         df_generated_concat = pd.concat([df_generated_label, df_generated_output], axis=1)
         df_generated_scaled.update(df_generated_concat)
 
