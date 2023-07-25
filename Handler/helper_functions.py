@@ -192,9 +192,9 @@ def flux2mag(flux, zero_pt=30, clip=0.001):
 def replace_and_transform_data(data_frame, columns, replace_value=None):
     """"""
     dict_pt = {}
-    for idx_col, col in enumerate(columns):
+    for col in columns:
         pt = PowerTransformer(method="yeo-johnson")
-        replace_value_index = None if replace_value[idx_col] == "None" else replace_value[idx_col]
+        replace_value_index = None if replace_value[col] == "None" else replace_value[col]
         if replace_value_index is not None:
             replace_value_tuple = eval(replace_value_index)
             data_frame[col] = data_frame[col].replace(replace_value_tuple[0], replace_value_tuple[1])
@@ -206,11 +206,11 @@ def replace_and_transform_data(data_frame, columns, replace_value=None):
 
 def unreplace_and_untransform_data(data_frame, dict_pt, columns, replace_value=None):
     """"""
-    for idx_col, col in enumerate(columns):
+    for col in columns:
         pt = dict_pt[f"{col} pt"]
         data_frame[col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
-        if replace_value[idx_col] is not None:
-            data_frame[col] = data_frame[col].replace(replace_value[idx_col][1], replace_value[idx_col][0])
+        if replace_value[col] is not None:
+            data_frame[col] = data_frame[col].replace(replace_value[col][1], replace_value[col][0])
     return data_frame
 
 

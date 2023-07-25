@@ -296,11 +296,8 @@ def residual_plot(data_frame_generated, data_frame_true, bands, plot_title, show
 
 
 def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, save_name, columns=None, parameter=None,
-                       extends=None, max_ticks = 5, shade_alpha = 0.8, tick_font_size = 12, label_font_size = 12):
+                       extends=None, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12):
     """"""
-    df_plot_generated = pd.DataFrame({})
-    df_plot_true = pd.DataFrame({})
-
     if columns is None:
         columns = [
             "unsheared/mag_r",
@@ -321,9 +318,8 @@ def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, 
             "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
         ]
 
-    for col in columns:
-        df_plot_generated[col] = np.array(data_frame_generated[col])
-        df_plot_true[col] = np.array(data_frame_true[col])
+    df_plot_generated = data_frame_generated[columns]
+    df_plot_true = data_frame_true[columns]
 
     chainchat = ChainConsumer()
     chainchat.add_chain(df_plot_true.to_numpy(), parameters=parameter, name="balrog observed properties: chat")

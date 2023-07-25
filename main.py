@@ -39,6 +39,9 @@ def main(
         col_label_flow,
         lst_replace_values,
         lst_replace_transform_cols,
+        lst_fill_na,
+        apply_fill_na,
+        apply_cuts,
         run_hyperparameter_tuning=True,
         run=None):
     """"""
@@ -75,8 +78,11 @@ def main(
         run_hyperparameter_tuning=run_hyperparameter_tuning,
         lst_replace_values=lst_replace_values,
         lst_replace_transform_cols=lst_replace_transform_cols,
+        lst_fill_na=lst_fill_na,
         run=run,
-        reproducible=reproducible
+        reproducible=reproducible,
+        apply_fill_na=apply_fill_na,
+        apply_cuts=apply_cuts
     )
 
     if run_hyperparameter_tuning is True:
@@ -234,4 +240,7 @@ if __name__ == '__main__':
                                     reproducible=cfg["REPRODUCIBLE"],
                                     lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
                                     lst_replace_values=cfg["REPLACE_VALUES"],
+                                    lst_fill_na=cfg["FILL_NA"],
+                                    apply_fill_na=cfg["APPLY_FILL_NA"],
+                                    apply_cuts=cfg["APPLY_CUTS"]
                                 )

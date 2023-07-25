@@ -30,10 +30,12 @@ def load_data(
         size_training_dataset,
         size_validation_dataset,
         size_test_dataset,
+        apply_fill_na,
         apply_cuts,
         selected_scaler,
         lst_replace_transform_cols=None,
         lst_replace_values=None,
+        lst_fill_na=None,
         reproducible=True,
         run=None
 ):
@@ -50,6 +52,11 @@ def load_data(
 
     # close file
     infile.close()
+
+    # if apply_fill_na is True:
+    #     for na in lst_fill_na:
+    #         na_tuple = eval(na)
+    #         df_training_data[na_tuple[0]] = df_training_data[na_tuple[0]].fillna(na_tuple[1])
 
     if apply_cuts is True:
         df_training_data = unsheared_object_cuts(df_training_data)

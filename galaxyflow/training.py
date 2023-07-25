@@ -57,8 +57,12 @@ class TrainFlow(object):
                  run_hyperparameter_tuning,
                  lst_replace_transform_cols,
                  lst_replace_values,
+                 lst_fill_na,
                  run,
-                 reproducible):
+                 reproducible,
+                 apply_fill_na,
+                 apply_cuts,
+                 ):
         super().__init__()
         self.size_training_dataset = size_training_dataset
         self.size_validation_dataset = size_validation_dataset
@@ -85,6 +89,7 @@ class TrainFlow(object):
         self.test_batch_size = batch_size
         self.lst_replace_transform_cols = lst_replace_transform_cols
         self.lst_replace_values = lst_replace_values
+        self.lst_fill_na = lst_fill_na
         self.lst_epochs = []
         self.lst_epochs_cut = []
         self.lst_mean_mag_r = []
@@ -155,6 +160,8 @@ class TrainFlow(object):
         self.path_save_nn = f"{self.path_output_flow}/nn"
         self.make_dirs()
         self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
+        self.apply_fill_na = apply_fill_na
+        self.apply_cuts = apply_cuts
         self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
             path_train_data=path_train_data,
             selected_scaler=selected_scaler,
@@ -225,7 +232,9 @@ class TrainFlow(object):
             run=self.run,
             lst_replace_transform_cols=self.lst_replace_transform_cols,
             lst_replace_values=self.lst_replace_values,
-            apply_cuts=True
+            lst_fill_na=self.lst_fill_na,
+            apply_fill_na=self.apply_fill_na,
+            apply_cuts=self.apply_cuts
         )
 
         train_tensor = torch.from_numpy(training_data[f"data frame training data"][self.col_output_flow].to_numpy())
@@ -444,60 +453,6 @@ class TrainFlow(object):
             "z"
         ]
 
-        # lst_replace_transform_cols = [
-        #     "unsheared/T",
-        #     "unsheared/snr",
-        #     "unsheared/size_ratio",
-        #     "AIRMASS_WMEAN_R",
-        #     "AIRMASS_WMEAN_I",
-        #     "AIRMASS_WMEAN_Z",
-        #     "FWHM_WMEAN_R",
-        #     "FWHM_WMEAN_I",
-        #     "FWHM_WMEAN_Z",
-        #     "MAGLIM_R",
-        #     "MAGLIM_I",
-        #     "MAGLIM_Z",
-        #     "EBV_SFD98"
-        # ]
-        # lst_replace_values = [
-        #     (-9999, -1),
-        #     (-7070.360705084288, 0),
-        #     None,
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     (-9999, 0),
-        #     None
-        # ]
-
-        lst_fill_na = [
-            ("unsheared/snr", -7070.360705084288),
-            ("unsheared/T", -9999),
-            ("unsheared/size_ratio", -1),
-            ("unsheared/flags", -1),
-            ("unsheared/flux_r", -99999),
-            ("unsheared/flux_i", -99999),
-            ("unsheared/flux_z", -99999),
-            ("unsheared/flux_err_r", -99999),
-            ("unsheared/flux_err_i", -99999),
-            ("unsheared/flux_err_z", -99999),
-            ("AIRMASS_WMEAN_R", -9999),
-            ("AIRMASS_WMEAN_I", -9999),
-            ("AIRMASS_WMEAN_Z", -9999),
-            ("FWHM_WMEAN_R", -9999),
-            ("FWHM_WMEAN_I", -9999),
-            ("FWHM_WMEAN_Z", -9999),
-            ("MAGLIM_R", -9999),
-            ("MAGLIM_I", -9999),
-            ("MAGLIM_Z", -9999),
-            ("EBV_SFD98", -9999),
-        ]
-
         # for batch_idx, data in enumerate(self.df_test):
         cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.col_label_flow].to_numpy())
         cond_data = cond_data.to(self.device)
@@ -523,8 +478,6 @@ class TrainFlow(object):
             df_generated[f"meas {b} - true {b}"] = df_generated[f'unsheared/lupt_{b}'] - df_generated[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
             df_true[f"meas {b} - true {b}"] = df_true[f'unsheared/lupt_{b}'] - df_true[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
 
-        print("true na", df_generated.isna().sum().sum())
-
         df_true = unreplace_and_untransform_data(
             data_frame=df_true,
             dict_pt=self.df_test["power transformer"],
@@ -532,15 +485,13 @@ class TrainFlow(object):
             replace_value=self.lst_replace_values
         )
 
-        print("true na", df_generated.isna().sum().sum())
-
-        # df_true_cut = unsheared_object_cuts(data_frame=df_true)
-        # df_true_cut = flag_cuts(data_frame=df_true_cut)
-        df_true_cut = airmass_cut(data_frame=df_true)
+        df_true_cut = df_true.copy()
+        if self.apply_cuts is not True:
+            df_true_cut = unsheared_object_cuts(data_frame=df_true_cut)
+            df_true_cut = flag_cuts(data_frame=df_true_cut)
+        df_true_cut = airmass_cut(data_frame=df_true_cut)
         df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
         df_true_cut = unsheared_shear_cuts(data_frame=df_true_cut)
-
-        print("generated na", df_generated.isna().sum().sum())
 
         df_generated = unreplace_and_untransform_data(
             data_frame=df_generated,
@@ -549,16 +500,18 @@ class TrainFlow(object):
             replace_value=self.lst_replace_values
         )
 
-        print("generated na", df_generated.isna().sum().sum())
+        if self.apply_fill_na is True:
+            for na in self.lst_fill_na:
+                na_tuple = eval(na)
+                df_generated[na_tuple[0]] = df_generated[na_tuple[0]].fillna(na_tuple[1])
 
-        # df_generated_cut = unsheared_object_cuts(data_frame=df_generated)
-        # df_generated_cut = flag_cuts(data_frame=df_generated_cut)
-        df_generated_cut = airmass_cut(data_frame=df_generated)
+        df_generated_cut = df_generated.copy()
+        if self.apply_cuts is not True:
+            df_generated_cut = unsheared_object_cuts(data_frame=df_generated_cut)
+            df_generated_cut = flag_cuts(data_frame=df_generated_cut)
+        df_generated_cut = airmass_cut(data_frame=df_generated_cut)
         df_generated_cut = unsheared_mag_cut(data_frame=df_generated_cut)
         df_generated_cut = unsheared_shear_cuts(data_frame=df_generated_cut)
-
-        for na in lst_fill_na:
-            df_generated[na[0]] = df_generated[na[0]].fillna(na[1])
 
         if self.do_loss_plot is True:
             loss_plot(
