@@ -4,7 +4,7 @@
 #from ray.tune import CLIReporter
 #from ray.tune.schedulers import ASHAScheduler
 import torch.cuda
-
+from Handler.helper_functions import get_os
 from galaxyflow.training import TrainFlow
 import argparse
 import matplotlib.pyplot as plt
@@ -114,6 +114,13 @@ def main(
 
 
 if __name__ == '__main__':
+    if get_os() == "Mac":
+        config_file_name = "mac.cfg"
+    elif get_os() == "Windows":
+        config_file_name = "windows.cfg"
+    else:
+        raise "OS Error"
+
     path = os.path.abspath(sys.path[1])
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
@@ -122,7 +129,7 @@ if __name__ == '__main__':
         type=str,
         nargs=1,
         required=False,
-        default="default.cfg",
+        default=config_file_name,
         help='Name of config file. If not given default.cfg will be used'
     )
     parser.add_argument(

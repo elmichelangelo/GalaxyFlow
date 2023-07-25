@@ -1,5 +1,6 @@
 from sklearn.preprocessing import PowerTransformer
 import numpy as np
+import os
 """import warnings
 
 warnings.filterwarnings("error")"""
@@ -212,3 +213,14 @@ def unreplace_and_untransform_data(data_frame, dict_pt, columns, replace_value=N
             data_frame[col] = data_frame[col].replace(replace_value[idx_col][1], replace_value[idx_col][0])
     return data_frame
 
+
+def get_os():
+    if os.name == 'nt':
+        return 'Windows'
+    elif os.name == 'posix':
+        if 'darwin' in os.uname().sysname.lower():
+            return 'Mac'
+        else:
+            return 'Linux'
+    else:
+        return 'Unknown OS'
