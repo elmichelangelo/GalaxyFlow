@@ -38,6 +38,7 @@ class TrainFlow(object):
                  save_plot,
                  save_nn,
                  learning_rate,
+                 weight_decay,
                  number_hidden,
                  number_blocks,
                  epochs,
@@ -135,10 +136,12 @@ class TrainFlow(object):
 
         # if run_hyperparameter_tuning is not True:
         self.lr = learning_rate
+        self.wd = weight_decay
         self.num_hidden = number_hidden
         self.num_blocks = number_blocks
         self.path_output_flow = f"{path_output}/Flow_" \
                                 f"lr_{self.lr}_" \
+                                f"wd_{self.wd}_" \
                                 f"num_hidden_{self.num_hidden}_" \
                                 f"num_blocks_{self.num_blocks}_" \
                                 f"batch_size_{self.batch_size}"
@@ -281,8 +284,7 @@ class TrainFlow(object):
                     module.bias.data.fill_(0)
 
         model.to(self.device)
-        optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=1e-6)
-
+        optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.wd)
         return model, optimizer
 
     def hyperparameter_tuning(self, learning_rate, number_hidden, number_blocks, batch_size, reproducible):

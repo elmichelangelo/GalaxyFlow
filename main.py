@@ -26,6 +26,7 @@ def main(
         save_plot,
         save_nn,
         learning_rate,
+        weight_decay,
         number_hidden,
         number_blocks,
         epochs,
@@ -59,6 +60,7 @@ def main(
         save_plot=save_plot,
         save_nn=save_nn,
         learning_rate=learning_rate,
+        weight_decay=weight_decay,
         number_hidden=number_hidden,
         number_blocks=number_blocks,
         epochs=epochs,
@@ -170,6 +172,7 @@ if __name__ == '__main__':
     number_hidden = cfg["NUMBER_HIDDEN"]
     number_blocks = cfg["NUMBER_BLOCKS"]
     learning_rate = cfg["LEARNING_RATE"]
+    weight_decay = cfg["WEIGHT_DECAY"]
 
     if not isinstance(runs, list):
         runs = [runs]
@@ -183,6 +186,8 @@ if __name__ == '__main__':
         number_blocks = [number_blocks]
     if not isinstance(learning_rate, list):
         learning_rate = [learning_rate]
+    if not isinstance(weight_decay, list):
+        weight_decay = [weight_decay]
 
     if mode == "hyperparameter_tuning":
         main(
@@ -205,42 +210,45 @@ if __name__ == '__main__':
             reproducible=False,
             col_output_flow=cfg["OUTPUT_COLS"],
             col_label_flow=cfg["INPUT_COLS"],
+            weight_decay=weight_decay,
             run=1
         )
     else:
         for run in runs:
             for lr in learning_rate:
-                for nh in number_hidden:
-                    for nb in number_blocks:
-                        for bs in batch_size:
-                            for sc in scaler:
-                                main(
-                                    path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
-                                    size_training_dataset=cfg["SIZE_TRAINING_DATA"],
-                                    size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
-                                    size_test_dataset=cfg["SIZE_TEST_DATA"],
-                                    path_output=f"{path}/Output",
-                                    plot_test=cfg["PLOT_TEST"],
-                                    show_plot=cfg["SHOW_PLOT"],
-                                    save_plot=cfg["SAVE_PLOT"],
-                                    save_nn=cfg["SAVE_NN"],
-                                    learning_rate=lr,
-                                    number_hidden=nh,
-                                    number_blocks=nb,
-                                    epochs=cfg["EPOCHS"],
-                                    device=cfg["DEVICE"],
-                                    activation_function=cfg["ACTIVATION_FUNCTION"],
-                                    batch_size=bs,
-                                    valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
-                                    selected_scaler=sc,
-                                    run_hyperparameter_tuning=False,
-                                    run=run,
-                                    col_output_flow=cfg["OUTPUT_COLS"],
-                                    col_label_flow=cfg["INPUT_COLS"],
-                                    reproducible=cfg["REPRODUCIBLE"],
-                                    lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
-                                    lst_replace_values=cfg["REPLACE_VALUES"],
-                                    lst_fill_na=cfg["FILL_NA"],
-                                    apply_fill_na=cfg["APPLY_FILL_NA"],
-                                    apply_cuts=cfg["APPLY_CUTS"]
-                                )
+                for wd in weight_decay:
+                    for nh in number_hidden:
+                        for nb in number_blocks:
+                            for bs in batch_size:
+                                for sc in scaler:
+                                    main(
+                                        path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
+                                        size_training_dataset=cfg["SIZE_TRAINING_DATA"],
+                                        size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
+                                        size_test_dataset=cfg["SIZE_TEST_DATA"],
+                                        path_output=f"{path}/Output",
+                                        plot_test=cfg["PLOT_TEST"],
+                                        show_plot=cfg["SHOW_PLOT"],
+                                        save_plot=cfg["SAVE_PLOT"],
+                                        save_nn=cfg["SAVE_NN"],
+                                        learning_rate=lr,
+                                        weight_decay=wd,
+                                        number_hidden=nh,
+                                        number_blocks=nb,
+                                        epochs=cfg["EPOCHS"],
+                                        device=cfg["DEVICE"],
+                                        activation_function=cfg["ACTIVATION_FUNCTION"],
+                                        batch_size=bs,
+                                        valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
+                                        selected_scaler=sc,
+                                        run_hyperparameter_tuning=False,
+                                        run=run,
+                                        col_output_flow=cfg["OUTPUT_COLS"],
+                                        col_label_flow=cfg["INPUT_COLS"],
+                                        reproducible=cfg["REPRODUCIBLE"],
+                                        lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
+                                        lst_replace_values=cfg["REPLACE_VALUES"],
+                                        lst_fill_na=cfg["FILL_NA"],
+                                        apply_fill_na=cfg["APPLY_FILL_NA"],
+                                        apply_cuts=cfg["APPLY_CUTS"]
+                                    )
