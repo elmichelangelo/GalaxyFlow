@@ -332,36 +332,6 @@ class TrainFlow(object):
         self.run_training()
 
     def run_training(self):
-        self.lst_epochs = []
-        self.lst_epochs_cut = []
-        self.lst_mean_mag_r = []
-        self.lst_mean_mag_i = []
-        self.lst_mean_mag_z = []
-        self.lst_mean_snr = []
-        self.lst_mean_size_ratio = []
-        self.lst_mean_t = []
-        self.lst_std_mag_r = []
-        self.lst_std_mag_i = []
-        self.lst_std_mag_z = []
-        self.lst_std_snr = []
-        self.lst_std_size_ratio = []
-        self.lst_std_t = []
-        self.lst_mean_mag_r_cut = []
-        self.lst_mean_mag_i_cut = []
-        self.lst_mean_mag_z_cut = []
-        self.lst_mean_snr_cut = []
-        self.lst_mean_size_ratio_cut = []
-        self.lst_mean_t_cut = []
-        self.lst_std_mag_r_cut = []
-        self.lst_std_mag_i_cut = []
-        self.lst_std_mag_z_cut = []
-        self.lst_std_snr_cut = []
-        self.lst_std_size_ratio_cut = []
-        self.lst_std_t_cut = []
-        self.lst_train_loss_per_batch = []
-        self.lst_train_loss_per_epoch = []
-        self.lst_valid_loss_per_batch = []
-        self.lst_valid_loss_per_epoch = []
         for epoch in range(self.epochs):
             print('\nEpoch: {}'.format(epoch + 1))
 
@@ -380,8 +350,8 @@ class TrainFlow(object):
                 self.best_model = copy.deepcopy(self.model)
                 self.best_model.eval()
 
-            # if epoch - self.best_validation_epoch >= 30:
-            #     break
+            if epoch - self.best_validation_epoch >= 30:
+                break
 
             print(f"Best validation at epoch {self.best_validation_epoch + 1}"
                   f"\t Average Log Likelihood {-self.best_validation_loss}")
