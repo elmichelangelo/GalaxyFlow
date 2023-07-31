@@ -1,8 +1,8 @@
-#import ray
-#from ray import tune
-#from ray import air
-#from ray.tune import CLIReporter
-#from ray.tune.schedulers import ASHAScheduler
+import ray
+from ray import tune
+from ray import air
+from ray.tune import CLIReporter
+from ray.tune.schedulers import ASHAScheduler
 import torch.cuda
 from Handler.helper_functions import get_os
 from galaxyflow.training import TrainFlow
@@ -93,26 +93,24 @@ def main(
             "learning_rate": tune.grid_search(learning_rate),
             "number_hidden": tune.grid_search(number_hidden),
             "number_blocks": tune.grid_search(number_blocks),
-            "batch_size": tune.grid_search(batch_size)
+            "batch_size": tune.grid_search(batch_size),
+            "weight_decay": tune.grid_search(weight_decay),
         }
         trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
         tuner = tune.Tuner(
             trainable_with_resources,
-            run_config=air.RunConfig(local_dir=path_output, name="ray_tune"),
-            tune_config=tune.TuneConfig(
-                scheduler=ASHAScheduler(metric="loss", mode="min")
-            ),
-            param_space=search_space,
-            reproducible=reproducible
+            run_config=air.RunConfig(local_dir=path_output, name="ray_tune_1"),
+            tune_config=tune.TuneConfig(scheduler=ASHAScheduler(metric="loss", mode="min")),
+            param_space=search_space
         )
         results = tuner.fit()
-        dfs = {result.log_dir: result.metrics_dataframe for result in results}
-        ax = None
-        for d in dfs.values():
-            ax = d.loss.plot(ax=ax, legend=False)
-            ax.set_xlabel("Epochs")
-            ax.set_ylabel("Loss")
-            plt.show()
+        # dfs = {result.log_dir: result.metrics_dataframe for result in results}
+        # ax = None
+        # for d in dfs.values():
+        #     ax = d.loss.plot(ax=ax, legend=False)
+        #     ax.set_xlabel("Epochs")
+        #     ax.set_ylabel("Loss")
+        #     plt.show()
         best_result = results.get_best_result()
         print("Best result config: {}".format(best_result.config))
         print("Best result metrics: {}".format(best_result.metrics))
@@ -190,30 +188,64 @@ if __name__ == '__main__':
         weight_decay = [weight_decay]
 
     if mode == "hyperparameter_tuning":
-        main(
-            path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
-            path_output=f"{path}/Output",
-            plot_test=cfg["PLOT_TEST"],
-            show_plot=cfg["SHOW_PLOT"],
-            save_plot=cfg["SAVE_PLOT"],
-            save_nn=cfg["SAVE_NN"],
-            learning_rate=learning_rate,
-            number_hidden=number_hidden,
-            number_blocks=number_blocks,
-            epochs=cfg["EPOCHS"],
-            device=cfg["DEVICE"],
-            activation_function=cfg["ACTIVATION_FUNCTION"],
-            batch_size=batch_size,
-            valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
-            selected_scaler=scaler,
-            run_hyperparameter_tuning=True,
-            reproducible=False,
-            col_output_flow=cfg["OUTPUT_COLS"],
-            col_label_flow=cfg["INPUT_COLS"],
-            weight_decay=weight_decay,
-            run=1
-        )
-    else:
+        for sc in scaler:
+            main(
+                path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
+                size_training_dataset=cfg["SIZE_TRAINING_DATA"],
+                size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
+                size_test_dataset=cfg["SIZE_TEST_DATA"],
+                path_output=f"{path}/Output",
+                plot_test=cfg["PLOT_TEST"],
+                show_plot=cfg["SHOW_PLOT"],
+                save_plot=cfg["SAVE_PLOT"],
+                save_nn=cfg["SAVE_NN"],
+                learning_rate=learning_rate,
+                weight_decay=weight_decay,
+                number_hidden=number_hidden,
+                number_blocks=number_blocks,
+                epochs=cfg["EPOCHS"],
+                device=cfg["DEVICE"],
+                activation_function=cfg["ACTIVATION_FUNCTION"],
+                batch_size=batch_size,
+                valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
+                selected_scaler=sc,
+                run_hyperparameter_tuning=True,
+                run=1,
+                col_output_flow=cfg["OUTPUT_COLS"],
+                col_label_flow=cfg["INPUT_COLS"],
+                reproducible=cfg["REPRODUCIBLE"],
+                lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
+                lst_replace_values=cfg["REPLACE_VALUES"],
+                lst_fill_na=cfg["FILL_NA"],
+                apply_fill_na=cfg["APPLY_FILL_NA"],
+                apply_cuts=cfg["APPLY_CUTS"]
+            )
+
+
+            # main(
+            #     path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
+            #     path_output=f"{path}/Output",
+            #     plot_test=cfg["PLOT_TEST"],
+            #     show_plot=cfg["SHOW_PLOT"],
+            #     save_plot=cfg["SAVE_PLOT"],
+            #     save_nn=cfg["SAVE_NN"],
+            #     learning_rate=learning_rate,
+            #     number_hidden=number_hidden,
+            #     number_blocks=number_blocks,
+            #     epochs=cfg["EPOCHS"],
+            #     device=cfg["DEVICE"],
+            #     activation_function=cfg["ACTIVATION_FUNCTION"],
+            #     batch_size=batch_size,
+            #     valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
+            #     selected_scaler=scaler,
+            #     run_hyperparameter_tuning=True,
+            #     reproducible=False,
+            #     col_output_flow=cfg["OUTPUT_COLS"],
+            #     col_label_flow=cfg["INPUT_COLS"],
+            #     weight_decay=weight_decay,
+            #     run=1
+            # )
+    elif mode == "train_flow":
         for run in runs:
             for lr in learning_rate:
                 for wd in weight_decay:
@@ -252,3 +284,5 @@ if __name__ == '__main__':
                                         apply_fill_na=cfg["APPLY_FILL_NA"],
                                         apply_cuts=cfg["APPLY_CUTS"]
                                     )
+    else:
+        raise TypeError("Wrong Mode!")

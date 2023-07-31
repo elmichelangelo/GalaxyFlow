@@ -53,11 +53,6 @@ def load_data(
     # close file
     infile.close()
 
-    # if apply_fill_na is True:
-    #     for na in lst_fill_na:
-    #         na_tuple = eval(na)
-    #         df_training_data[na_tuple[0]] = df_training_data[na_tuple[0]].fillna(na_tuple[1])
-
     if apply_cuts is True:
         df_training_data = unsheared_object_cuts(df_training_data)
         df_training_data = flag_cuts(df_training_data)
@@ -84,7 +79,7 @@ def load_data(
     elif selected_scaler is None:
         pass
     else:
-        raise f"{selected_scaler} is no valid scaler"
+        raise TypeError(f"{selected_scaler} is no valid scaler")
 
     if scaler is not None:
         scaler.fit(df_training_data)

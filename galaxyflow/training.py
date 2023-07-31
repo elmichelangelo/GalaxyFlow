@@ -10,7 +10,7 @@ import torch.optim as optim
 import torch.utils.data
 import torch.nn
 from tqdm import tqdm
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import galaxyflow.flow as fnn
 import pandas as pd
 from Handler.data_loader import load_data
@@ -18,7 +18,7 @@ from chainconsumer import ChainConsumer
 from Handler.helper_functions import unreplace_and_untransform_data
 from Handler.cut_functions import unsheared_mag_cut, unsheared_object_cuts, flag_cuts, airmass_cut, unsheared_shear_cuts
 from Handler.plot_functions import make_gif, loss_plot, color_color_plot, residual_plot, plot_chain_compare,\
-    plot_mean_or_std
+    plot_mean_or_std, plot_chain
 from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
 
@@ -82,6 +82,7 @@ class TrainFlow(object):
         self.show_plot = show_plot
         self.save_plot = save_plot
         self.save_nn = save_nn
+        self.reproducible = reproducible
         self.device = torch.device(device)
         self.act = activation_function
         self.actal_selected_values = None
@@ -105,7 +106,6 @@ class TrainFlow(object):
         self.lst_std_snr = []
         self.lst_std_size_ratio = []
         self.lst_std_t = []
-
         self.lst_mean_mag_r_cut = []
         self.lst_mean_mag_i_cut = []
         self.lst_mean_mag_z_cut = []
@@ -118,7 +118,6 @@ class TrainFlow(object):
         self.lst_std_snr_cut = []
         self.lst_std_size_ratio_cut = []
         self.lst_std_t_cut = []
-
         self.lst_train_loss_per_batch = []
         self.lst_train_loss_per_epoch = []
         self.lst_valid_loss_per_batch = []
@@ -133,53 +132,53 @@ class TrainFlow(object):
         self.selected_scaler = selected_scaler
         self.col_label_flow = col_label_flow
         self.col_output_flow = col_output_flow
-
-        # if run_hyperparameter_tuning is not True:
-        self.lr = learning_rate
-        self.wd = weight_decay
-        self.num_hidden = number_hidden
-        self.num_blocks = number_blocks
-        self.path_output_flow = f"{path_output}/Flow_" \
-                                f"lr_{self.lr}_" \
-                                f"wd_{self.wd}_" \
-                                f"num_hidden_{self.num_hidden}_" \
-                                f"num_blocks_{self.num_blocks}_" \
-                                f"batch_size_{self.batch_size}"
-        self.path_plots = f"{self.path_output_flow}/plots"
-        self.path_chain_plot = f"{self.path_plots}/chain_plot"
-        self.path_loss_plot = f"{self.path_plots}/loss_plot"
-        self.path_mean_plot = f"{self.path_plots}/mean_plot"
-        self.path_std_plot = f"{self.path_plots}/std_plot"
-        self.path_residual_plot = f"{self.path_plots}/residual_plot"
-        self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
-        self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
-        self.path_chain_plot_mcal = f"{self.path_plots}/chain_plot_mcal"
-        self.path_mean_plot_mcal = f"{self.path_plots}/mean_plot_mcal"
-        self.path_std_plot_mcal = f"{self.path_plots}/std_plot_mcal"
-        self.path_residual_plot_mcal = f"{self.path_plots}/residual_plot_mcal"
-        self.path_color_diff_plot_mcal = f"{self.path_plots}/color_diff_plot_mcal"
-        self.path_color_color_plot_mcal = f"{self.path_plots}/color_color_plot_mcal"
-        self.path_gifs = f"{self.path_plots}/gifs"
-        self.path_save_nn = f"{self.path_output_flow}/nn"
-        self.make_dirs()
-        self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
         self.apply_fill_na = apply_fill_na
         self.apply_cuts = apply_cuts
-        self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
-            path_train_data=path_train_data,
-            selected_scaler=selected_scaler,
-            reproducible=reproducible
-        )
+        self.run_hyperparameter_tuning = run_hyperparameter_tuning
 
-        self.model, self.optimizer = self.init_network(
-            num_inputs=len(col_output_flow),
-            num_cond_inputs=len(col_label_flow)
-        )
+        if self.run_hyperparameter_tuning is not True:
+            self.lr = learning_rate
+            self.wd = weight_decay
+            self.num_hidden = number_hidden
+            self.num_blocks = number_blocks
+            self.path_output_flow = f"{self.path_output}/Flow_" \
+                                    f"lr_{self.lr}_" \
+                                    f"wd_{self.wd}_" \
+                                    f"num_hidden_{self.num_hidden}_" \
+                                    f"num_blocks_{self.num_blocks}_" \
+                                    f"batch_size_{self.batch_size}"
+            self.path_plots = f"{self.path_output_flow}/plots"
+            self.path_chain_plot = f"{self.path_plots}/chain_plot"
+            self.path_loss_plot = f"{self.path_plots}/loss_plot"
+            self.path_mean_plot = f"{self.path_plots}/mean_plot"
+            self.path_std_plot = f"{self.path_plots}/std_plot"
+            self.path_residual_plot = f"{self.path_plots}/residual_plot"
+            self.path_color_diff_plot = f"{self.path_plots}/color_diff_plot"
+            self.path_color_color_plot = f"{self.path_plots}/color_color_plot"
+            self.path_chain_plot_mcal = f"{self.path_plots}/chain_plot_mcal"
+            self.path_mean_plot_mcal = f"{self.path_plots}/mean_plot_mcal"
+            self.path_std_plot_mcal = f"{self.path_plots}/std_plot_mcal"
+            self.path_residual_plot_mcal = f"{self.path_plots}/residual_plot_mcal"
+            self.path_color_diff_plot_mcal = f"{self.path_plots}/color_diff_plot_mcal"
+            self.path_color_color_plot_mcal = f"{self.path_plots}/color_color_plot_mcal"
+            self.path_gifs = f"{self.path_plots}/gifs"
+            self.path_save_nn = f"{self.path_output_flow}/nn"
+            self.make_dirs()
+            self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
+            self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
+                path_train_data=path_train_data,
+                selected_scaler=selected_scaler
+            )
 
-        self.global_step = 0
-        self.best_validation_loss = float('inf')
-        self.best_validation_epoch = 0
-        self.best_model = self.model
+            self.model, self.optimizer = self.init_network(
+                num_inputs=len(col_output_flow),
+                num_cond_inputs=len(col_label_flow)
+            )
+
+            self.global_step = 0
+            self.best_validation_loss = float('inf')
+            self.best_validation_epoch = 0
+            self.best_model = self.model
 
     def make_dirs(self):
         """"""
@@ -217,12 +216,11 @@ class TrainFlow(object):
             if not os.path.exists(self.path_gifs):
                 os.mkdir(self.path_gifs)
 
-
         if self.save_nn is True:
             if not os.path.exists(self.path_save_nn):
                 os.mkdir(self.path_save_nn)
 
-    def init_dataset(self, path_train_data, selected_scaler, reproducible):
+    def init_dataset(self, path_train_data, selected_scaler):
         """"""
         training_data, validation_data, test_data = load_data(
             path_training_data=path_train_data,
@@ -231,7 +229,7 @@ class TrainFlow(object):
             size_training_dataset=self.size_training_dataset,
             size_validation_dataset=self.size_validation_dataset,
             size_test_dataset=self.size_test_dataset,
-            reproducible=reproducible,
+            reproducible=self.reproducible,
             run=self.run,
             lst_replace_transform_cols=self.lst_replace_transform_cols,
             lst_replace_values=self.lst_replace_values,
@@ -287,16 +285,15 @@ class TrainFlow(object):
         optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.wd)
         return model, optimizer
 
-    def hyperparameter_tuning(self, learning_rate, number_hidden, number_blocks, batch_size, reproducible):
-        # , number_hidden, number_blocks
-        self.lr = learning_rate,
-        self.num_hidden = number_hidden
-        self.num_blocks = number_blocks
-        self.batch_size = batch_size
-        self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
+    def hyperparameter_tuning(self, config):
+        self.lr = config["learning_rate"]
+        self.num_hidden = config["number_hidden"]
+        self.num_blocks = config["number_blocks"]
+        self.batch_size = config["batch_size"]
+        self.wd = config["weight_decay"]
+        self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
             path_train_data=self.path_train_data,
-            selected_scaler=self.selected_scaler,
-            reproducible=reproducible
+            selected_scaler=self.selected_scaler
         )
 
         self.model, self.optimizer = self.init_network(
@@ -308,8 +305,9 @@ class TrainFlow(object):
         self.best_validation_loss = float('inf')
         self.best_validation_epoch = 0
         self.best_model = self.model
-        self.path_output_flow = f"{self.path_output}/Flow_hyper_" \
+        self.path_output_flow = f"{self.path_output}/Flow_hypertuning_" \
                                 f"lr_{self.lr}_" \
+                                f"wd_{self.wd}_" \
                                 f"num_hidden_{self.num_hidden}_" \
                                 f"num_blocks_{self.num_blocks}_" \
                                 f"batch_size_{self.batch_size}"
@@ -334,6 +332,36 @@ class TrainFlow(object):
         self.run_training()
 
     def run_training(self):
+        self.lst_epochs = []
+        self.lst_epochs_cut = []
+        self.lst_mean_mag_r = []
+        self.lst_mean_mag_i = []
+        self.lst_mean_mag_z = []
+        self.lst_mean_snr = []
+        self.lst_mean_size_ratio = []
+        self.lst_mean_t = []
+        self.lst_std_mag_r = []
+        self.lst_std_mag_i = []
+        self.lst_std_mag_z = []
+        self.lst_std_snr = []
+        self.lst_std_size_ratio = []
+        self.lst_std_t = []
+        self.lst_mean_mag_r_cut = []
+        self.lst_mean_mag_i_cut = []
+        self.lst_mean_mag_z_cut = []
+        self.lst_mean_snr_cut = []
+        self.lst_mean_size_ratio_cut = []
+        self.lst_mean_t_cut = []
+        self.lst_std_mag_r_cut = []
+        self.lst_std_mag_i_cut = []
+        self.lst_std_mag_z_cut = []
+        self.lst_std_snr_cut = []
+        self.lst_std_size_ratio_cut = []
+        self.lst_std_t_cut = []
+        self.lst_train_loss_per_batch = []
+        self.lst_train_loss_per_epoch = []
+        self.lst_valid_loss_per_batch = []
+        self.lst_valid_loss_per_epoch = []
         for epoch in range(self.epochs):
             print('\nEpoch: {}'.format(epoch + 1))
 
@@ -358,11 +386,14 @@ class TrainFlow(object):
             print(f"Best validation at epoch {self.best_validation_epoch + 1}"
                   f"\t Average Log Likelihood {-self.best_validation_loss}")
 
+            self.writer.add_scalar('training loss', train_loss_epoch, epoch)
+            self.writer.add_scalar('validation loss', validation_loss, epoch)
+
             if self.plot_test is True:
-                # try:
                 self.plot_data(epoch=epoch)
-                # except:
-                #     print(f"Error epoch {epoch+1}")
+
+            if self.run_hyperparameter_tuning is True:
+                ray.tune.report(loss=train_loss_epoch)
 
         if self.plot_test is True:
             make_gif(self.path_chain_plot, f"{self.path_gifs}/chain_plot.gif")
@@ -400,7 +431,6 @@ class TrainFlow(object):
             self.optimizer.step()
             pbar.update(data.size(0))
             pbar.set_description(f'Train, Log likelihood: {train_loss / (batch_idx + 1)}')
-            self.writer.add_scalar('training/loss', loss.item(), self.global_step)
             self.global_step += 1
         pbar.close()
 
@@ -455,17 +485,14 @@ class TrainFlow(object):
             "z"
         ]
 
-        # for batch_idx, data in enumerate(self.df_test):
         cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.col_label_flow].to_numpy())
-        cond_data = cond_data.to(self.device)
         with torch.no_grad():
-            tensor_output = self.model.sample(len(self.df_test[f"data frame test data"]),
-                                              cond_inputs=cond_data).detach().cpu()
+            tensor_output = self.model.sample(len(cond_data), cond_inputs=cond_data).detach().cpu()
 
         df_generated_scaled = self.df_test[f"data frame test data"].copy()
         df_true_scaled = self.df_test[f"data frame test data"].copy()
 
-        df_generated_label = pd.DataFrame(cond_data.cpu().numpy(), columns=self.col_label_flow)
+        df_generated_label = pd.DataFrame(cond_data.numpy(), columns=self.col_label_flow)
         df_generated_output = pd.DataFrame(tensor_output.cpu().numpy(), columns=self.col_output_flow)
         df_generated_concat = pd.concat([df_generated_label, df_generated_output], axis=1)
         df_generated_scaled.update(df_generated_concat)
@@ -528,331 +555,380 @@ class TrainFlow(object):
             )
 
         if self.do_color_color_plot is True:
-            color_color_plot(
-                data_frame_generated=df_generated,
-                data_frame_true=df_true,
-                colors=colors,
-                show_plot=self.show_plot,
-                save_name=f'{self.path_color_color_plot}/color_color_{epoch + 1}.png',
-                extents={
-                    "unsheared/lupt r-i": (-6, 6),
-                    "unsheared/lupt i-z": (-25, 25)
-                }
-            )
-            color_color_plot(
-                data_frame_generated=df_generated_cut,
-                data_frame_true=df_true_cut,
-                colors=colors,
-                show_plot=self.show_plot,
-                save_name=f'{self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png',
-                extents={
-                    "unsheared/lupt r-i": (-6, 6),
-                    "unsheared/lupt i-z": (-25, 25)
-                }
-            )
+            try:
+                color_color_plot(
+                    data_frame_generated=df_generated,
+                    data_frame_true=df_true,
+                    colors=colors,
+                    show_plot=self.show_plot,
+                    save_name=f'{self.path_color_color_plot}/color_color_{epoch + 1}.png',
+                    extents={
+                        "unsheared/lupt r-i": (-6, 6),
+                        "unsheared/lupt i-z": (-25, 25)
+                    }
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_color_color_plot}/color_color_{epoch + 1}.png")
+
+            try:
+                color_color_plot(
+                    data_frame_generated=df_generated_cut,
+                    data_frame_true=df_true_cut,
+                    colors=colors,
+                    show_plot=self.show_plot,
+                    save_name=f'{self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png',
+                    extents={
+                        "unsheared/lupt r-i": (-6, 6),
+                        "unsheared/lupt i-z": (-25, 25)
+                    }
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png")
 
         if self.do_residual_plot:
-            residual_plot(
-                data_frame_generated=df_generated,
-                data_frame_true=df_true,
-                plot_title=f"residual, epoch {epoch+1}",
-                bands=bands,
-                show_plot=self.show_plot,
-                save_plot=self.save_plot,
-                save_name=f"{self.path_residual_plot}/residual_plot_{epoch + 1}.png"
-            )
+            try:
+                residual_plot(
+                    data_frame_generated=df_generated,
+                    data_frame_true=df_true,
+                    plot_title=f"residual, epoch {epoch+1}",
+                    bands=bands,
+                    show_plot=self.show_plot,
+                    save_plot=self.save_plot,
+                    save_name=f"{self.path_residual_plot}/residual_plot_{epoch + 1}.png"
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_residual_plot}/residual_plot_{epoch + 1}.png")
 
-            residual_plot(
-                data_frame_generated=df_generated_cut,
-                data_frame_true=df_true_cut,
-                plot_title=f"mcal residual, epoch {epoch+1}",
-                bands=bands,
-                show_plot=self.show_plot,
-                save_plot=self.save_plot,
-                save_name=f"{self.path_residual_plot_mcal}/mcal_residual_plot_{epoch + 1}.png"
-            )
+            try:
+                residual_plot(
+                    data_frame_generated=df_generated_cut,
+                    data_frame_true=df_true_cut,
+                    plot_title=f"mcal residual, epoch {epoch+1}",
+                    bands=bands,
+                    show_plot=self.show_plot,
+                    save_plot=self.save_plot,
+                    save_name=f"{self.path_residual_plot_mcal}/mcal_residual_plot_{epoch + 1}.png"
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_residual_plot_mcal}/mcal_residual_plot_{epoch + 1}.png")
 
         if self.do_chain_plot is True:
-            plot_chain_compare(
-                data_frame_generated=df_generated,
-                data_frame_true=df_true,
-                epoch=epoch,
-                show_plot=self.show_plot,
-                save_name=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
-                columns=[
-                    "unsheared/lupt_r",
-                    "unsheared/lupt_i",
-                    "unsheared/lupt_z",
-                    "unsheared/snr",
-                    "unsheared/size_ratio",
-                    "unsheared/T"
-                ],
-                parameter=[
-                    "lupt_r",
-                    "lupt_i",
-                    "lupt_z",
-                    "snr",
-                    "size_ratio",
-                    "T",
-                ],
-                extends=None,
-                max_ticks=5,
-                shade_alpha=0.8,
-                tick_font_size=12,
-                label_font_size=12
-            )
+            try:
+                plot_chain_compare(
+                    data_frame_generated=df_generated,
+                    data_frame_true=df_true,
+                    epoch=epoch,
+                    show_plot=self.show_plot,
+                    save_name=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
+                    columns=[
+                        "unsheared/lupt_r",
+                        "unsheared/lupt_i",
+                        "unsheared/lupt_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T"
+                    ],
+                    parameter=[
+                        "lupt_r",
+                        "lupt_i",
+                        "lupt_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    extends=None,
+                    max_ticks=5,
+                    shade_alpha=0.8,
+                    tick_font_size=12,
+                    label_font_size=12
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_chain_plot}/chainplot_{epoch + 1}.png")
 
-            plot_chain_compare(
-                data_frame_generated=df_generated_cut,
-                data_frame_true=df_true_cut,
-                epoch=epoch,
-                show_plot=self.show_plot,
-                save_name=f'{self.path_chain_plot_mcal}/mcal_chainplot_{epoch + 1}.png',
-                columns=[
-                    "unsheared/lupt_r",
-                    "unsheared/lupt_i",
-                    "unsheared/lupt_z",
-                    "unsheared/snr",
-                    "unsheared/size_ratio",
-                    "unsheared/T",
-                ],
-                parameter=[
-                    "lupt_r",
-                    "lupt_i",
-                    "lupt_z",
-                    "snr",
-                    "size_ratio",
-                    "T",
-                ],
-                max_ticks=5,
-                shade_alpha=0.8,
-                tick_font_size=12,
-                label_font_size=12
-            )
+            try:
+                plot_chain_compare(
+                    data_frame_generated=df_generated_cut,
+                    data_frame_true=df_true_cut,
+                    epoch=epoch,
+                    show_plot=self.show_plot,
+                    save_name=f'{self.path_chain_plot_mcal}/mcal_chainplot_{epoch + 1}.png',
+                    columns=[
+                        "unsheared/lupt_r",
+                        "unsheared/lupt_i",
+                        "unsheared/lupt_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T",
+                    ],
+                    parameter=[
+                        "lupt_r",
+                        "lupt_i",
+                        "lupt_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    max_ticks=5,
+                    shade_alpha=0.8,
+                    tick_font_size=12,
+                    label_font_size=12
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_chain_plot_mcal}/mcal_chainplot_{epoch + 1}.png")
 
-            plot_chain_compare(
-                data_frame_generated=df_generated,
-                data_frame_true=df_true,
-                epoch=epoch,
-                show_plot=self.show_plot,
-                save_name=f"{self.path_color_diff_plot}/color_diff_{epoch + 1}.png",
-                columns=[
-                    "BDF_LUPT_DERED_CALIB_R",
-                    "BDF_LUPT_DERED_CALIB_I",
-                    "BDF_LUPT_DERED_CALIB_Z",
-                    "meas r - true r",
-                    "meas i - true i",
-                    "meas z - true z"
-                ],
-                parameter=[
-                    "true r",
-                    "true i",
-                    "true z",
-                    "meas r - true r",
-                    "meas i - true i",
-                    "meas z - true z"
-                ],
-                max_ticks=5,
-                shade_alpha=0.8,
-                tick_font_size=12,
-                label_font_size=12
-            )
+            try:
+                plot_chain_compare(
+                    data_frame_generated=df_generated,
+                    data_frame_true=df_true,
+                    epoch=epoch,
+                    show_plot=self.show_plot,
+                    save_name=f"{self.path_color_diff_plot}/color_diff_{epoch + 1}.png",
+                    columns=[
+                        "BDF_LUPT_DERED_CALIB_R",
+                        "BDF_LUPT_DERED_CALIB_I",
+                        "BDF_LUPT_DERED_CALIB_Z",
+                        "meas r - true r",
+                        "meas i - true i",
+                        "meas z - true z"
+                    ],
+                    parameter=[
+                        "true r",
+                        "true i",
+                        "true z",
+                        "meas r - true r",
+                        "meas i - true i",
+                        "meas z - true z"
+                    ],
+                    max_ticks=5,
+                    shade_alpha=0.8,
+                    tick_font_size=12,
+                    label_font_size=12
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_color_diff_plot}/color_diff_{epoch + 1}.png")
 
-            plot_chain_compare(
-                data_frame_generated=df_generated_cut,
-                data_frame_true=df_true_cut,
-                epoch=epoch,
-                show_plot=self.show_plot,
-                save_name=f"{self.path_color_diff_plot_mcal}/mcal_color_diff_{epoch + 1}.png",
-                columns=[
-                    "BDF_LUPT_DERED_CALIB_R",
-                    "BDF_LUPT_DERED_CALIB_I",
-                    "BDF_LUPT_DERED_CALIB_Z",
-                    "meas r - true r",
-                    "meas i - true i",
-                    "meas z - true z"
-                ],
-                parameter=[
-                    "true r",
-                    "true i",
-                    "true z",
-                    "meas r - true r",
-                    "meas i - true i",
-                    "meas z - true z"
-                ],
-                max_ticks=5,
-                shade_alpha=0.8,
-                tick_font_size=12,
-                label_font_size=12
-            )
+            try:
+                plot_chain_compare(
+                    data_frame_generated=df_generated_cut,
+                    data_frame_true=df_true_cut,
+                    epoch=epoch,
+                    show_plot=self.show_plot,
+                    save_name=f"{self.path_color_diff_plot_mcal}/mcal_color_diff_{epoch + 1}.png",
+                    columns=[
+                        "BDF_LUPT_DERED_CALIB_R",
+                        "BDF_LUPT_DERED_CALIB_I",
+                        "BDF_LUPT_DERED_CALIB_Z",
+                        "meas r - true r",
+                        "meas i - true i",
+                        "meas z - true z"
+                    ],
+                    parameter=[
+                        "true r",
+                        "true i",
+                        "true z",
+                        "meas r - true r",
+                        "meas i - true i",
+                        "meas z - true z"
+                    ],
+                    max_ticks=5,
+                    shade_alpha=0.8,
+                    tick_font_size=12,
+                    label_font_size=12
+                )
+            except Exception as e:
+                print(f"Error {e}: {self.path_color_diff_plot_mcal}/mcal_color_diff_{epoch + 1}.png")
 
         if self.do_mean_plot is True:
-            lists_mean_to_plot = [
-                self.lst_mean_mag_r,
-                self.lst_mean_mag_i,
-                self.lst_mean_mag_z,
-                self.lst_mean_snr,
-                self.lst_mean_size_ratio,
-                self.lst_mean_t,
-            ]
+            try:
+                lists_mean_to_plot = [
+                    self.lst_mean_mag_r,
+                    self.lst_mean_mag_i,
+                    self.lst_mean_mag_z,
+                    self.lst_mean_snr,
+                    self.lst_mean_size_ratio,
+                    self.lst_mean_t,
+                ]
 
-            lists_mean_to_plot_updated = plot_mean_or_std(
-                data_frame_generated=df_generated,
-                data_frame_true=df_true,
-                lists_to_plot=lists_mean_to_plot,
-                list_epochs=self.lst_epochs,
-                columns=[
-                    "unsheared/lupt_r",
-                    "unsheared/lupt_i",
-                    "unsheared/lupt_z",
-                    "unsheared/snr",
-                    "unsheared/size_ratio",
-                    "unsheared/T"
-                ],
-                lst_labels=[
-                    "lupt_r",
-                    "lupt_i",
-                    "lupt_z",
-                    "snr",
-                    "size_ratio",
-                    "T",
-                ],
-                lst_marker=["o", "^", "X", "d", "s", "*"],
-                lst_color=["blue", "red", "green", "orange", "purple", "black"],
-                plot_title="mean ratio",
-                show_plot=self.show_plot,
-                save_plot=self.save_plot,
-                save_name=f"{self.path_mean_plot}/mean_{epoch+1}.png",
-                statistic_type="mean"
-            )
+                lists_mean_to_plot_updated = plot_mean_or_std(
+                    data_frame_generated=df_generated,
+                    data_frame_true=df_true,
+                    lists_to_plot=lists_mean_to_plot,
+                    list_epochs=self.lst_epochs,
+                    columns=[
+                        "unsheared/lupt_r",
+                        "unsheared/lupt_i",
+                        "unsheared/lupt_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T"
+                    ],
+                    lst_labels=[
+                        "lupt_r",
+                        "lupt_i",
+                        "lupt_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    lst_marker=["o", "^", "X", "d", "s", "*"],
+                    lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                    plot_title="mean ratio",
+                    show_plot=self.show_plot,
+                    save_plot=self.save_plot,
+                    save_name=f"{self.path_mean_plot}/mean_{epoch+1}.png",
+                    statistic_type="mean"
+                )
 
-            for idx_plot, lst_plot in enumerate(lists_mean_to_plot):
-                lst_plot = lists_mean_to_plot_updated[idx_plot]
+                for idx_plot, lst_plot in enumerate(lists_mean_to_plot):
+                    lst_plot = lists_mean_to_plot_updated[idx_plot]
 
-            lists_mean_to_plot_cut = [
-                self.lst_mean_mag_r_cut,
-                self.lst_mean_mag_i_cut,
-                self.lst_mean_mag_z_cut,
-                self.lst_mean_snr_cut,
-                self.lst_mean_size_ratio_cut,
-                self.lst_mean_t_cut,
-            ]
+            except Exception as e:
+                print(f"Error {e}: {self.path_mean_plot}/mean_{epoch+1}.png")
+                print(f"Mean shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r)} \t {len(self.lst_mean_mag_i)} \t {len(self.lst_mean_mag_z)} \t {len(self.lst_mean_snr)} \t {len(self.lst_mean_size_ratio)} \t {len(self.lst_mean_t)}")
 
-            lists_mean_to_plot_cut_updated = plot_mean_or_std(
-                data_frame_generated=df_generated_cut,
-                data_frame_true=df_true_cut,
-                lists_to_plot=lists_mean_to_plot_cut,
-                list_epochs=self.lst_epochs,
-                columns=[
-                    "unsheared/lupt_r",
-                    "unsheared/lupt_i",
-                    "unsheared/lupt_z",
-                    "unsheared/snr",
-                    "unsheared/size_ratio",
-                    "unsheared/T"
-                ],
-                lst_labels=[
-                    "lupt_r",
-                    "lupt_i",
-                    "lupt_z",
-                    "snr",
-                    "size_ratio",
-                    "T",
-                ],
-                lst_marker=["o", "^", "X", "d", "s", "*"],
-                lst_color=["blue", "red", "green", "orange", "purple", "black"],
-                plot_title="mcal mean ratio",
-                show_plot=self.show_plot,
-                save_plot=self.save_plot,
-                save_name=f"{self.path_mean_plot_mcal}/mcal_mean_{epoch + 1}.png",
-                statistic_type="mean"
-            )
+            try:
+                lists_mean_to_plot_cut = [
+                    self.lst_mean_mag_r_cut,
+                    self.lst_mean_mag_i_cut,
+                    self.lst_mean_mag_z_cut,
+                    self.lst_mean_snr_cut,
+                    self.lst_mean_size_ratio_cut,
+                    self.lst_mean_t_cut,
+                ]
 
-            for idx_plot_cut, lst_plot_cut in enumerate(lists_mean_to_plot_cut):
-                lst_plot_cut = lists_mean_to_plot_cut_updated[idx_plot_cut]
+                lists_mean_to_plot_cut_updated = plot_mean_or_std(
+                    data_frame_generated=df_generated_cut,
+                    data_frame_true=df_true_cut,
+                    lists_to_plot=lists_mean_to_plot_cut,
+                    list_epochs=self.lst_epochs,
+                    columns=[
+                        "unsheared/lupt_r",
+                        "unsheared/lupt_i",
+                        "unsheared/lupt_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T"
+                    ],
+                    lst_labels=[
+                        "lupt_r",
+                        "lupt_i",
+                        "lupt_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    lst_marker=["o", "^", "X", "d", "s", "*"],
+                    lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                    plot_title="mcal mean ratio",
+                    show_plot=self.show_plot,
+                    save_plot=self.save_plot,
+                    save_name=f"{self.path_mean_plot_mcal}/mcal_mean_{epoch + 1}.png",
+                    statistic_type="mean"
+                )
+
+                for idx_plot_cut, lst_plot_cut in enumerate(lists_mean_to_plot_cut):
+                    lst_plot_cut = lists_mean_to_plot_cut_updated[idx_plot_cut]
+
+            except Exception as e:
+                print(f"Error {e}: {self.path_mean_plot_mcal}/mcal_mean_{epoch + 1}.png")
+                print(f"Mean mcal shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r_cut)} \t {len(self.lst_mean_mag_i_cut)} \t {len(self.lst_mean_mag_z_cut)} \t {len(self.lst_mean_snr_cut)} \t {len(self.lst_mean_size_ratio_cut)} \t {len(self.lst_mean_t_cut)}")
 
         if self.do_std_plot is True:
-            lists_std_to_plot = [
-                self.lst_std_mag_r,
-                self.lst_std_mag_i,
-                self.lst_std_mag_z,
-                self.lst_std_snr,
-                self.lst_std_size_ratio,
-                self.lst_std_t,
-            ]
+            try:
+                lists_std_to_plot = [
+                    self.lst_std_mag_r,
+                    self.lst_std_mag_i,
+                    self.lst_std_mag_z,
+                    self.lst_std_snr,
+                    self.lst_std_size_ratio,
+                    self.lst_std_t,
+                ]
 
-            lists_std_to_plot_updated = plot_mean_or_std(
-                data_frame_generated=df_generated,
-                data_frame_true=df_true,
-                lists_to_plot=lists_std_to_plot,
-                list_epochs=self.lst_epochs,
-                columns=[
-                    "unsheared/lupt_r",
-                    "unsheared/lupt_i",
-                    "unsheared/lupt_z",
-                    "unsheared/snr",
-                    "unsheared/size_ratio",
-                    "unsheared/T"
-                ],
-                lst_labels=[
-                    "lupt_r",
-                    "lupt_i",
-                    "lupt_z",
-                    "snr",
-                    "size_ratio",
-                    "T",
-                ],
-                lst_marker=["o", "^", "X", "d", "s", "*"],
-                lst_color=["blue", "red", "green", "orange", "purple", "black"],
-                plot_title="std ratio",
-                show_plot=self.show_plot,
-                save_plot=self.save_plot,
-                save_name=f"{self.path_std_plot}/std_{epoch + 1}.png",
-                statistic_type="std"
-            )
+                lists_std_to_plot_updated = plot_mean_or_std(
+                    data_frame_generated=df_generated,
+                    data_frame_true=df_true,
+                    lists_to_plot=lists_std_to_plot,
+                    list_epochs=self.lst_epochs,
+                    columns=[
+                        "unsheared/lupt_r",
+                        "unsheared/lupt_i",
+                        "unsheared/lupt_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T"
+                    ],
+                    lst_labels=[
+                        "lupt_r",
+                        "lupt_i",
+                        "lupt_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    lst_marker=["o", "^", "X", "d", "s", "*"],
+                    lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                    plot_title="std ratio",
+                    show_plot=self.show_plot,
+                    save_plot=self.save_plot,
+                    save_name=f"{self.path_std_plot}/std_{epoch + 1}.png",
+                    statistic_type="std"
+                )
 
-            for idx_plot, lst_plot in enumerate(lists_std_to_plot):
-                lst_plot = lists_std_to_plot_updated[idx_plot]
+                for idx_plot, lst_plot in enumerate(lists_std_to_plot):
+                    lst_plot = lists_std_to_plot_updated[idx_plot]
 
-            lists_std_to_plot_cut = [
-                self.lst_std_mag_r_cut,
-                self.lst_std_mag_i_cut,
-                self.lst_std_mag_z_cut,
-                self.lst_std_snr_cut,
-                self.lst_std_size_ratio_cut,
-                self.lst_std_t_cut,
-            ]
+            except Exception as e:
+                print(f"Error {e}: {self.path_std_plot}/std_{epoch + 1}.png")
+                print(f"Std shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r)} \t {len(self.lst_std_mag_i)} \t {len(self.lst_std_mag_z)} \t {len(self.lst_std_snr)} \t {len(self.lst_std_size_ratio)} \t {len(self.lst_std_t)}")
 
-            lists_std_to_plot_cut_updated = plot_mean_or_std(
-                data_frame_generated=df_generated_cut,
-                data_frame_true=df_true_cut,
-                lists_to_plot=lists_std_to_plot_cut,
-                list_epochs=self.lst_epochs,
-                columns=[
-                    "unsheared/lupt_r",
-                    "unsheared/lupt_i",
-                    "unsheared/lupt_z",
-                    "unsheared/snr",
-                    "unsheared/size_ratio",
-                    "unsheared/T"
-                ],
-                lst_labels=[
-                    "lupt_r",
-                    "lupt_i",
-                    "lupt_z",
-                    "snr",
-                    "size_ratio",
-                    "T",
-                ],
-                lst_marker=["o", "^", "X", "d", "s", "*"],
-                lst_color=["blue", "red", "green", "orange", "purple", "black"],
-                plot_title="mcal std ratio",
-                show_plot=self.show_plot,
-                save_plot=self.save_plot,
-                save_name=f"{self.path_std_plot_mcal}/mcal_std_{epoch + 1}.png",
-                statistic_type="std"
-            )
+            try:
+                lists_std_to_plot_cut = [
+                    self.lst_std_mag_r_cut,
+                    self.lst_std_mag_i_cut,
+                    self.lst_std_mag_z_cut,
+                    self.lst_std_snr_cut,
+                    self.lst_std_size_ratio_cut,
+                    self.lst_std_t_cut,
+                ]
 
-            for idx_plot_cut, lst_plot_cut in enumerate(lists_std_to_plot_cut):
-                lst_plot_cut = lists_std_to_plot_cut_updated[idx_plot_cut]
+                lists_std_to_plot_cut_updated = plot_mean_or_std(
+                    data_frame_generated=df_generated_cut,
+                    data_frame_true=df_true_cut,
+                    lists_to_plot=lists_std_to_plot_cut,
+                    list_epochs=self.lst_epochs,
+                    columns=[
+                        "unsheared/lupt_r",
+                        "unsheared/lupt_i",
+                        "unsheared/lupt_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T"
+                    ],
+                    lst_labels=[
+                        "lupt_r",
+                        "lupt_i",
+                        "lupt_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    lst_marker=["o", "^", "X", "d", "s", "*"],
+                    lst_color=["blue", "red", "green", "orange", "purple", "black"],
+                    plot_title="mcal std ratio",
+                    show_plot=self.show_plot,
+                    save_plot=self.save_plot,
+                    save_name=f"{self.path_std_plot_mcal}/mcal_std_{epoch + 1}.png",
+                    statistic_type="std"
+                )
+
+                for idx_plot_cut, lst_plot_cut in enumerate(lists_std_to_plot_cut):
+                    lst_plot_cut = lists_std_to_plot_cut_updated[idx_plot_cut]
+
+            except Exception as e:
+                print(f"Error {e}: {self.path_std_plot_mcal}/mcal_std_{epoch + 1}.png")
+                print(f"Std mcal shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r_cut)} \t {len(self.lst_std_mag_i_cut)} \t {len(self.lst_std_mag_z_cut)} \t {len(self.lst_std_snr_cut)} \t {len(self.lst_std_size_ratio_cut)} \t {len(self.lst_std_t_cut)}")
 
