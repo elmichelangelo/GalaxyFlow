@@ -300,7 +300,36 @@ class TrainFlow(object):
             num_inputs=len(self.col_output_flow),
             num_cond_inputs=len(self.col_label_flow)
         )
-
+        self.lst_epochs = []
+        self.lst_epochs_cut = []
+        self.lst_mean_mag_r = []
+        self.lst_mean_mag_i = []
+        self.lst_mean_mag_z = []
+        self.lst_mean_snr = []
+        self.lst_mean_size_ratio = []
+        self.lst_mean_t = []
+        self.lst_std_mag_r = []
+        self.lst_std_mag_i = []
+        self.lst_std_mag_z = []
+        self.lst_std_snr = []
+        self.lst_std_size_ratio = []
+        self.lst_std_t = []
+        self.lst_mean_mag_r_cut = []
+        self.lst_mean_mag_i_cut = []
+        self.lst_mean_mag_z_cut = []
+        self.lst_mean_snr_cut = []
+        self.lst_mean_size_ratio_cut = []
+        self.lst_mean_t_cut = []
+        self.lst_std_mag_r_cut = []
+        self.lst_std_mag_i_cut = []
+        self.lst_std_mag_z_cut = []
+        self.lst_std_snr_cut = []
+        self.lst_std_size_ratio_cut = []
+        self.lst_std_t_cut = []
+        self.lst_train_loss_per_batch = []
+        self.lst_train_loss_per_epoch = []
+        self.lst_valid_loss_per_batch = []
+        self.lst_valid_loss_per_epoch = []
         self.global_step = 0
         self.best_validation_loss = float('inf')
         self.best_validation_epoch = 0
@@ -350,8 +379,8 @@ class TrainFlow(object):
                 self.best_model = copy.deepcopy(self.model)
                 self.best_model.eval()
 
-            if epoch - self.best_validation_epoch >= 30:
-                break
+            # if epoch - self.best_validation_epoch >= 30:
+            #     break
 
             print(f"Best validation at epoch {self.best_validation_epoch + 1}"
                   f"\t Average Log Likelihood {-self.best_validation_loss}")
@@ -377,9 +406,11 @@ class TrainFlow(object):
             make_gif(self.path_std_plot_mcal, f"{self.path_gifs}/std_plot_mcal.gif")
             make_gif(self.path_color_color_plot_mcal, f"{self.path_gifs}/color_color_plot_mcal.gif")
             make_gif(self.path_residual_plot_mcal, f"{self.path_gifs}/residual_plot_mcal.gif")
+
         if self.save_nn is True:
             torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}_run_{self.run}.pt")
             torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{self.epochs}_run_{self.run}.pt")
+
         self.writer.close()
 
     def train(self):
@@ -533,8 +564,8 @@ class TrainFlow(object):
                     show_plot=self.show_plot,
                     save_name=f'{self.path_color_color_plot}/color_color_{epoch + 1}.png',
                     extents={
-                        "unsheared/lupt r-i": (-6, 6),
-                        "unsheared/lupt i-z": (-25, 25)
+                        "unsheared/lupt r-i": (-4, 4),
+                        "unsheared/lupt i-z": (-4, 4)
                     }
                 )
             except Exception as e:
@@ -548,8 +579,8 @@ class TrainFlow(object):
                     show_plot=self.show_plot,
                     save_name=f'{self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png',
                     extents={
-                        "unsheared/lupt r-i": (-6, 6),
-                        "unsheared/lupt i-z": (-25, 25)
+                        "unsheared/lupt r-i": (-1.2, 1.8),
+                        "unsheared/lupt i-z": (-1.5, 1.5)
                     }
                 )
             except Exception as e:
@@ -638,6 +669,14 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
+                    extends={
+                        "lupt_r": (10, 19),
+                        "lupt_i": (10, 19),
+                        "lupt_z": (10, 19),
+                        "snr": (-75, 425),
+                        "size_ratio": (-1.5, 6),
+                        "T": (-1, 4)
+                    },
                     max_ticks=5,
                     shade_alpha=0.8,
                     tick_font_size=12,
@@ -669,6 +708,14 @@ class TrainFlow(object):
                         "meas i - true i",
                         "meas z - true z"
                     ],
+                    extends={
+                        "true r": (9, 18),
+                        "true i": (9, 18),
+                        "true z": (9, 18),
+                        "meas r - true r": (-4, 4),
+                        "meas i - true i": (-4, 4),
+                        "meas z - true z": (-4, 4),
+                    },
                     max_ticks=5,
                     shade_alpha=0.8,
                     tick_font_size=12,
@@ -700,6 +747,14 @@ class TrainFlow(object):
                         "meas i - true i",
                         "meas z - true z"
                     ],
+                    extends={
+                        "true r": (9, 18),
+                        "true i": (9, 18),
+                        "true z": (9, 18),
+                        "meas r - true r": (-1.5, 1.5),
+                        "meas i - true i": (-1.5, 1.5),
+                        "meas z - true z": (-1.5, 1.5),
+                    },
                     max_ticks=5,
                     shade_alpha=0.8,
                     tick_font_size=12,

@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
 from Handler.helper_functions import replace_and_transform_data
 from Handler.plot_functions import plot_chain

@@ -486,4 +486,4 @@ def make_gif(frame_folder, name_save_folder, fps=10):
     for filename in filenames:
         image = imageio.imread(f"{frame_folder}/{filename}")
         images_data.append(image)
-    imageio.mimwrite(uri=f"{name_save_folder}", ims=images_data, format='.gif', fps=fps)
+    imageio.mimwrite(uri=f"{name_save_folder}", ims=images_data, format='.gif', duration=int(1000*1/fps))

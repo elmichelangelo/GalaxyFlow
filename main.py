@@ -96,7 +96,10 @@ def main(
             "batch_size": tune.grid_search(batch_size),
             "weight_decay": tune.grid_search(weight_decay),
         }
-        trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
+        if get_os() == "Windows":
+            trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 10, "gpu": 1})
+        else:
+            trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 10})
         tuner = tune.Tuner(
             trainable_with_resources,
             run_config=air.RunConfig(local_dir=path_output, name="run_1"),
