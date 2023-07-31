@@ -99,18 +99,11 @@ def main(
         trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
         tuner = tune.Tuner(
             trainable_with_resources,
-            run_config=air.RunConfig(local_dir=path_output, name="ray_tune_1"),
+            run_config=air.RunConfig(local_dir=path_output, name="run_1"),
             tune_config=tune.TuneConfig(scheduler=ASHAScheduler(metric="loss", mode="min")),
             param_space=search_space
         )
         results = tuner.fit()
-        # dfs = {result.log_dir: result.metrics_dataframe for result in results}
-        # ax = None
-        # for d in dfs.values():
-        #     ax = d.loss.plot(ax=ax, legend=False)
-        #     ax.set_xlabel("Epochs")
-        #     ax.set_ylabel("Loss")
-        #     plt.show()
         best_result = results.get_best_result()
         print("Best result config: {}".format(best_result.config))
         print("Best result metrics: {}".format(best_result.metrics))
@@ -220,31 +213,6 @@ if __name__ == '__main__':
                 apply_fill_na=cfg["APPLY_FILL_NA"],
                 apply_cuts=cfg["APPLY_CUTS"]
             )
-
-
-            # main(
-            #     path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
-            #     path_output=f"{path}/Output",
-            #     plot_test=cfg["PLOT_TEST"],
-            #     show_plot=cfg["SHOW_PLOT"],
-            #     save_plot=cfg["SAVE_PLOT"],
-            #     save_nn=cfg["SAVE_NN"],
-            #     learning_rate=learning_rate,
-            #     number_hidden=number_hidden,
-            #     number_blocks=number_blocks,
-            #     epochs=cfg["EPOCHS"],
-            #     device=cfg["DEVICE"],
-            #     activation_function=cfg["ACTIVATION_FUNCTION"],
-            #     batch_size=batch_size,
-            #     valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
-            #     selected_scaler=scaler,
-            #     run_hyperparameter_tuning=True,
-            #     reproducible=False,
-            #     col_output_flow=cfg["OUTPUT_COLS"],
-            #     col_label_flow=cfg["INPUT_COLS"],
-            #     weight_decay=weight_decay,
-            #     run=1
-            # )
     elif mode == "train_flow":
         for run in runs:
             for lr in learning_rate:
