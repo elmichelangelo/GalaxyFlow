@@ -20,6 +20,7 @@ def main(
         size_training_dataset,
         size_validation_dataset,
         size_test_dataset,
+        luminosity_type,
         path_output,
         plot_test,
         show_plot,
@@ -42,7 +43,11 @@ def main(
         lst_replace_transform_cols,
         lst_fill_na,
         apply_fill_na,
-        apply_cuts,
+        apply_object_cut,
+        apply_flag_cut,
+        apply_airmass_cut,
+        apply_unsheared_mag_cut,
+        apply_unsheared_shear_cut,
         run_hyperparameter_tuning=True,
         run=None):
     """"""
@@ -52,6 +57,7 @@ def main(
         size_training_dataset=size_training_dataset,
         size_validation_dataset=size_validation_dataset,
         size_test_dataset=size_test_dataset,
+        luminosity_type=luminosity_type,
         path_output=path_output,
         col_output_flow=col_output_flow,
         col_label_flow=col_label_flow,
@@ -84,7 +90,11 @@ def main(
         run=run,
         reproducible=reproducible,
         apply_fill_na=apply_fill_na,
-        apply_cuts=apply_cuts
+        apply_object_cut=apply_object_cut,
+        apply_flag_cut=apply_flag_cut,
+        apply_airmass_cut=apply_airmass_cut,
+        apply_unsheared_mag_cut=apply_unsheared_mag_cut,
+        apply_unsheared_shear_cut=apply_unsheared_shear_cut,
     )
 
     if run_hyperparameter_tuning is True:
@@ -96,10 +106,7 @@ def main(
             "batch_size": tune.grid_search(batch_size),
             "weight_decay": tune.grid_search(weight_decay),
         }
-        if get_os() == "Windows":
-            trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 10, "gpu": 1})
-        else:
-            trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 10})
+        trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
         tuner = tune.Tuner(
             trainable_with_resources,
             run_config=air.RunConfig(local_dir=path_output, name="run_1"),
@@ -117,7 +124,7 @@ def main(
 
 if __name__ == '__main__':
     if get_os() == "Mac":
-        config_file_name = "mac.cfg"
+        config_file_name = "mac_mag.cfg"
     elif get_os() == "Windows":
         config_file_name = "windows.cfg"
     else:
@@ -190,6 +197,7 @@ if __name__ == '__main__':
                 size_training_dataset=cfg["SIZE_TRAINING_DATA"],
                 size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
                 size_test_dataset=cfg["SIZE_TEST_DATA"],
+                luminosity_type=cfg["LUM_TYPE"],
                 path_output=f"{path}/Output",
                 plot_test=cfg["PLOT_TEST"],
                 show_plot=cfg["SHOW_PLOT"],
@@ -214,7 +222,11 @@ if __name__ == '__main__':
                 lst_replace_values=cfg["REPLACE_VALUES"],
                 lst_fill_na=cfg["FILL_NA"],
                 apply_fill_na=cfg["APPLY_FILL_NA"],
-                apply_cuts=cfg["APPLY_CUTS"]
+                apply_object_cut=cfg["APPLY_OBJECT_CUT"],
+                apply_flag_cut=cfg["APPLY_FLAG_CUT"],
+                apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
+                apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
+                apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"]
             )
     elif mode == "train_flow":
         for run in runs:
@@ -229,6 +241,7 @@ if __name__ == '__main__':
                                         size_training_dataset=cfg["SIZE_TRAINING_DATA"],
                                         size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
                                         size_test_dataset=cfg["SIZE_TEST_DATA"],
+                                        luminosity_type=cfg["LUM_TYPE"],
                                         path_output=f"{path}/Output",
                                         plot_test=cfg["PLOT_TEST"],
                                         show_plot=cfg["SHOW_PLOT"],
@@ -253,7 +266,11 @@ if __name__ == '__main__':
                                         lst_replace_values=cfg["REPLACE_VALUES"],
                                         lst_fill_na=cfg["FILL_NA"],
                                         apply_fill_na=cfg["APPLY_FILL_NA"],
-                                        apply_cuts=cfg["APPLY_CUTS"]
+                                        apply_object_cut=cfg["APPLY_OBJECT_CUT"],
+                                        apply_flag_cut=cfg["APPLY_FLAG_CUT"],
+                                        apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
+                                        apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
+                                        apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"]
                                     )
     else:
         raise TypeError("Wrong Mode!")

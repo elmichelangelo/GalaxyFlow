@@ -189,15 +189,21 @@ def flux2mag(flux, zero_pt=30, clip=0.001):
     return zero_pt - 2.5 * np.log10(flux.clip(clip))
 
 
+def replace_values(data_frame, replace_value):
+    for col in replace_value.keys():
+        replace_value_index = None if replace_value[col] == "None" else replace_value[col]
+        if replace_value_index is not None:
+            replace_value_tuple = eval(replace_value_index)
+            data_frame[col] = data_frame[col].replace(replace_value_tuple[0], replace_value_tuple[1])
+    return data_frame
+
+
 def replace_and_transform_data(data_frame, columns, replace_value=None):
     """"""
     dict_pt = {}
     for col in columns:
         pt = PowerTransformer(method="yeo-johnson")
-        replace_value_index = None if replace_value[col] == "None" else replace_value[col]
-        if replace_value_index is not None:
-            replace_value_tuple = eval(replace_value_index)
-            data_frame[col] = data_frame[col].replace(replace_value_tuple[0], replace_value_tuple[1])
+        # data_frame = replace_value(data_frame, replace_value)
         pt.fit(np.array(data_frame[col]).reshape(-1, 1))
         data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
         dict_pt[f"{col} pt"] = pt

@@ -176,23 +176,23 @@ def loss_plot(
     plt.clf()
 
 
-def color_color_plot(data_frame_generated, data_frame_true, colors, show_plot, save_name, extents=None):
+def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, extents=None):
     """"""
     df_generated_measured = pd.DataFrame({})
     df_true_measured = pd.DataFrame({})
     for color in colors:
         df_generated_measured[f"{color[0]}-{color[1]}"] = \
-            np.array(data_frame_generated[f"unsheared/lupt_{color[0]}"]) - np.array(
-                data_frame_generated[f"unsheared/lupt_{color[1]}"])
+            np.array(data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
+                data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
         df_true_measured[f"{color[0]}-{color[1]}"] = \
-            np.array(data_frame_true[f"unsheared/lupt_{color[0]}"]) - np.array(
-                data_frame_true[f"unsheared/lupt_{color[1]}"])
+            np.array(data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
+                data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
 
     arr_true = df_true_measured.to_numpy()
     arr_generated = df_generated_measured.to_numpy()
     parameter = [
-        "unsheared/lupt r-i",
-        "unsheared/lupt i-z"
+        f"unsheared/{luminosity_type.lower()} r-i",
+        f"unsheared/{luminosity_type.lower()} i-z"
     ]
     chainchat = ChainConsumer()
     chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
@@ -210,7 +210,7 @@ def color_color_plot(data_frame_generated, data_frame_true, colors, show_plot, s
     plt.close()
 
 
-def residual_plot(data_frame_generated, data_frame_true, bands, plot_title, show_plot, save_plot, save_name):
+def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands, plot_title, show_plot, save_plot, save_name):
     """"""
     hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = \
         plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
@@ -230,24 +230,24 @@ def residual_plot(data_frame_generated, data_frame_true, bands, plot_title, show
     ]
 
     df_hist_balrog = pd.DataFrame({
-        "dataset": ["balrog" for _ in range(len(data_frame_true[f"unsheared/lupt_r"]))]
+        "dataset": ["balrog" for _ in range(len(data_frame_true[f"unsheared/{luminosity_type.lower()}_r"]))]
     })
     df_hist_generated = pd.DataFrame({
-        "dataset": ["generated" for _ in range(len(data_frame_generated[f"unsheared/lupt_r"]))]
+        "dataset": ["generated" for _ in range(len(data_frame_generated[f"unsheared/{luminosity_type.lower()}_r"]))]
     })
     for band in bands:
-        df_hist_balrog[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"] = data_frame_true[
-                                                                              f"BDF_LUPT_DERED_CALIB_{band.upper()}"] - \
-                                                                          data_frame_true[f"unsheared/lupt_{band}"]
-        df_hist_generated[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"] = data_frame_generated[
-                                                                                 f"BDF_LUPT_DERED_CALIB_{band.upper()}"] - \
+        df_hist_balrog[f"BDF_{luminosity_type.upper()}_DERED_CALIB - unsheared/{luminosity_type.lower()} {band}"] = data_frame_true[
+                                                                              f"BDF_{luminosity_type.upper()}_DERED_CALIB_{band.upper()}"] - \
+                                                                          data_frame_true[f"unsheared/{luminosity_type.lower()}_{band}"]
+        df_hist_generated[f"BDF_{luminosity_type.upper()}_DERED_CALIB - unsheared/{luminosity_type.lower()} {band}"] = data_frame_generated[
+                                                                                 f"BDF_{luminosity_type.upper()}_DERED_CALIB_{band.upper()}"] - \
                                                                              data_frame_generated[
-                                                                                 f"unsheared/lupt_{band}"]
+                                                                                 f"unsheared/{luminosity_type.lower()}_{band}"]
 
     for idx, band in enumerate(bands):
         sns.histplot(
             data=df_hist_balrog,
-            x=f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}",
+            x=f"BDF_{luminosity_type.upper()}_DERED_CALIB - unsheared/{luminosity_type.lower()} {band}",
             ax=lst_axis_res[idx],
             element="step",
             stat="density",
@@ -257,7 +257,7 @@ def residual_plot(data_frame_generated, data_frame_true, bands, plot_title, show
         )
         sns.histplot(
             data=df_hist_generated,
-            x=f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}",
+            x=f"BDF_{luminosity_type.upper()}_DERED_CALIB - unsheared/{luminosity_type.lower()} {band}",
             ax=lst_axis_res[idx],
             element="step",
             stat="density",
@@ -267,14 +267,14 @@ def residual_plot(data_frame_generated, data_frame_true, bands, plot_title, show
             label="generated"
         )
         lst_axis_res[idx].axvline(
-            x=df_hist_balrog[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"].median(),
+            x=df_hist_balrog[f"BDF_{luminosity_type.upper()}_DERED_CALIB - unsheared/{luminosity_type.lower()} {band}"].median(),
             color='dodgerblue',
             ls='--',
             lw=1.5,
             label="Mean balrog"
         )
         lst_axis_res[idx].axvline(
-            x=df_hist_generated[f"BDF_LUPT_DERED_CALIB - unsheared/lupt {band}"].median(),
+            x=df_hist_generated[f"BDF_{luminosity_type.upper()}_DERED_CALIB - unsheared/{luminosity_type.lower()} {band}"].median(),
             color='darkorange',
             ls='--',
             lw=1.5,

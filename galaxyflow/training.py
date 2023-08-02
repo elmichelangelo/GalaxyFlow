@@ -15,10 +15,9 @@ import galaxyflow.flow as fnn
 import pandas as pd
 from Handler.data_loader import load_data
 from chainconsumer import ChainConsumer
-from Handler.helper_functions import unreplace_and_untransform_data
-from Handler.cut_functions import unsheared_mag_cut, unsheared_object_cuts, flag_cuts, airmass_cut, unsheared_shear_cuts
-from Handler.plot_functions import make_gif, loss_plot, color_color_plot, residual_plot, plot_chain_compare,\
-    plot_mean_or_std, plot_chain
+from Handler.helper_functions import *
+from Handler.cut_functions import *
+from Handler.plot_functions import *
 from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
 
@@ -30,6 +29,7 @@ class TrainFlow(object):
                  size_training_dataset,
                  size_validation_dataset,
                  size_test_dataset,
+                 luminosity_type,
                  path_output,
                  col_label_flow,
                  col_output_flow,
@@ -62,7 +62,11 @@ class TrainFlow(object):
                  run,
                  reproducible,
                  apply_fill_na,
-                 apply_cuts,
+                 apply_object_cut,
+                 apply_flag_cut,
+                 apply_airmass_cut,
+                 apply_unsheared_mag_cut,
+                 apply_unsheared_shear_cut,
                  ):
         super().__init__()
         self.size_training_dataset = size_training_dataset
@@ -133,7 +137,12 @@ class TrainFlow(object):
         self.col_label_flow = col_label_flow
         self.col_output_flow = col_output_flow
         self.apply_fill_na = apply_fill_na
-        self.apply_cuts = apply_cuts
+        self.apply_object_cut = apply_object_cut
+        self.apply_flag_cut = apply_flag_cut
+        self.apply_airmass_cut = apply_airmass_cut
+        self.apply_unsheared_mag_cut = apply_unsheared_mag_cut
+        self.apply_unsheared_shear_cut = apply_unsheared_shear_cut
+        self.luminosity_type = luminosity_type
         self.run_hyperparameter_tuning = run_hyperparameter_tuning
 
         if self.run_hyperparameter_tuning is not True:
@@ -225,6 +234,7 @@ class TrainFlow(object):
         training_data, validation_data, test_data = load_data(
             path_training_data=path_train_data,
             path_output=self.path_output,
+            luminosity_type=self.luminosity_type,
             selected_scaler=selected_scaler,
             size_training_dataset=self.size_training_dataset,
             size_validation_dataset=self.size_validation_dataset,
@@ -233,9 +243,11 @@ class TrainFlow(object):
             run=self.run,
             lst_replace_transform_cols=self.lst_replace_transform_cols,
             lst_replace_values=self.lst_replace_values,
-            lst_fill_na=self.lst_fill_na,
-            apply_fill_na=self.apply_fill_na,
-            apply_cuts=self.apply_cuts
+            apply_object_cut=self.apply_object_cut,
+            apply_flag_cut=self.apply_flag_cut,
+            apply_airmass_cut=self.apply_airmass_cut,
+            apply_unsheared_mag_cut=self.apply_unsheared_mag_cut,
+            apply_unsheared_shear_cut=self.apply_unsheared_shear_cut
         )
 
         train_tensor = torch.from_numpy(training_data[f"data frame training data"][self.col_output_flow].to_numpy())
@@ -364,7 +376,9 @@ class TrainFlow(object):
         for epoch in range(self.epochs):
             print('\nEpoch: {}'.format(epoch + 1))
 
-            train_loss, train_loss_epoch = self.train()
+            train_loss_epoch = self.train(
+                epoch=epoch
+            )
             validation_loss = self.validate(
                 epoch=epoch
             )
@@ -379,14 +393,11 @@ class TrainFlow(object):
                 self.best_model = copy.deepcopy(self.model)
                 self.best_model.eval()
 
-            # if epoch - self.best_validation_epoch >= 30:
-            #     break
+            if epoch - self.best_validation_epoch >= 30:
+                break
 
             print(f"Best validation at epoch {self.best_validation_epoch + 1}"
                   f"\t Average Log Likelihood {-self.best_validation_loss}")
-
-            self.writer.add_scalar('training loss', train_loss_epoch, epoch)
-            self.writer.add_scalar('validation loss', validation_loss, epoch)
 
             if self.plot_test is True:
                 self.plot_data(epoch=epoch)
@@ -413,9 +424,9 @@ class TrainFlow(object):
 
         self.writer.close()
 
-    def train(self):
+    def train(self, epoch):
         self.model.train()
-        train_loss = 0
+        train_loss = 0.0
         pbar = tqdm(total=len(self.train_loader.dataset))
         for batch_idx, data in enumerate(self.train_loader):
             cond_data = data[1].float()
@@ -424,16 +435,19 @@ class TrainFlow(object):
             data = data.to(self.device)
             self.optimizer.zero_grad()
             loss = -self.model.log_probs(data, cond_data).mean()
-            if loss.isnan():
-                print(loss)
-            self.lst_train_loss_per_batch.append(loss.item())
-            train_loss += loss.item()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1, error_if_nonfinite=True)
             self.optimizer.step()
+            train_loss += loss.data.item() * data.size(0)
             pbar.update(data.size(0))
-            pbar.set_description(f'Train, Log likelihood: {train_loss / (batch_idx + 1)}')
+            pbar.set_description(f'Train, Log likelihood: {train_loss / pbar.n}')
+            self.lst_train_loss_per_batch.append(loss.item())
             self.global_step += 1
         pbar.close()
+
+        train_loss = train_loss / len(self.train_loader.dataset)  # loss.data.item() * data.size(0)
+
+        self.writer.add_scalar('training loss', train_loss, epoch)
 
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -446,12 +460,11 @@ class TrainFlow(object):
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
                 module.momentum = 1
-        return train_loss, train_loss / (batch_idx + 1)
+        return train_loss
 
     def validate(self, epoch):
         self.model.eval()
         val_loss = 0
-
         pbar = tqdm(total=len(self.valid_loader.dataset))
         pbar.set_description('Eval')
         for batch_idx, data in enumerate(self.valid_loader):
@@ -460,15 +473,15 @@ class TrainFlow(object):
             data = data[0]
             data = data.to(self.device)
             with torch.no_grad():
-                val_loss += -self.model.log_probs(data, cond_data).sum().item()
+                loss = -self.model.log_probs(data, cond_data).mean()
+                self.lst_valid_loss_per_batch.append(loss.item())
+                val_loss += loss.data.item() * data.size(0)
             pbar.update(data.size(0))
             pbar.set_description(f'Val, Log likelihood in nats: {val_loss / pbar.n}')
-            self.lst_valid_loss_per_batch.append(val_loss / pbar.n)
-
-        self.writer.add_scalar('validation/LL', val_loss / len(self.valid_loader.dataset), epoch)
-
+        val_loss = val_loss / len(self.valid_loader.dataset)
+        self.writer.add_scalar('validation/LL', val_loss, epoch)
         pbar.close()
-        return val_loss / len(self.valid_loader.dataset)
+        return val_loss
 
     def plot_data(self, epoch):
         """"""
@@ -504,44 +517,52 @@ class TrainFlow(object):
         true = self.scaler.inverse_transform(df_true_scaled)
         df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
 
-        for b in bands:
-            df_generated[f"meas {b} - true {b}"] = df_generated[f'unsheared/lupt_{b}'] - df_generated[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
-            df_true[f"meas {b} - true {b}"] = df_true[f'unsheared/lupt_{b}'] - df_true[f'BDF_LUPT_DERED_CALIB_{b.upper()}']
-
-        df_true = unreplace_and_untransform_data(
-            data_frame=df_true,
-            dict_pt=self.df_test["power transformer"],
-            columns=self.lst_replace_transform_cols,
-            replace_value=self.lst_replace_values
-        )
-
-        df_true_cut = df_true.copy()
-        if self.apply_cuts is not True:
-            df_true_cut = unsheared_object_cuts(data_frame=df_true_cut)
-            df_true_cut = flag_cuts(data_frame=df_true_cut)
-        df_true_cut = airmass_cut(data_frame=df_true_cut)
-        df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
-        df_true_cut = unsheared_shear_cuts(data_frame=df_true_cut)
-
-        df_generated = unreplace_and_untransform_data(
-            data_frame=df_generated,
-            dict_pt=self.df_test["power transformer"],
-            columns=self.lst_replace_transform_cols,
-            replace_value=self.lst_replace_values
-        )
-
         if self.apply_fill_na is True:
             for na in self.lst_fill_na:
                 na_tuple = eval(na)
                 df_generated[na_tuple[0]] = df_generated[na_tuple[0]].fillna(na_tuple[1])
 
+        for b in bands:
+            df_generated[f"meas {b} - true {b}"] = (df_generated[f'unsheared/{self.luminosity_type.lower()}_{b}'] - df_generated[f'BDF_{self.luminosity_type.upper()}_DERED_CALIB_{b.upper()}'])
+            df_true[f"meas {b} - true {b}"] = df_true[f'unsheared/{self.luminosity_type.lower()}_{b}'] - df_true[f'BDF_{self.luminosity_type.upper()}_DERED_CALIB_{b.upper()}']
+
+        df_true_cut = df_true.copy()
+        df_true_cut = unreplace_and_untransform_data(
+            data_frame=df_true_cut,
+            dict_pt=self.df_test["power transformer"],
+            columns=self.lst_replace_transform_cols,
+            replace_value=self.lst_replace_values
+        )
+
+        if self.apply_object_cut is not True:
+            df_true_cut = unsheared_object_cuts(data_frame=df_true_cut)
+        if self.apply_flag_cut is not True:
+            df_true_cut = flag_cuts(data_frame=df_true_cut)
+        if self.apply_unsheared_mag_cut is not True:
+            df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
+        if self.apply_unsheared_shear_cut is not True:
+            df_true_cut = unsheared_shear_cuts(data_frame=df_true_cut)
+        if self.apply_airmass_cut is not True:
+            df_true_cut = airmass_cut(data_frame=df_true_cut)
+
         df_generated_cut = df_generated.copy()
-        if self.apply_cuts is not True:
+        df_generated_cut = unreplace_and_untransform_data(
+            data_frame=df_generated_cut,
+            dict_pt=self.df_test["power transformer"],
+            columns=self.lst_replace_transform_cols,
+            replace_value=self.lst_replace_values
+        )
+
+        if self.apply_object_cut is not True:
             df_generated_cut = unsheared_object_cuts(data_frame=df_generated_cut)
+        if self.apply_flag_cut is not True:
             df_generated_cut = flag_cuts(data_frame=df_generated_cut)
-        df_generated_cut = airmass_cut(data_frame=df_generated_cut)
-        df_generated_cut = unsheared_mag_cut(data_frame=df_generated_cut)
-        df_generated_cut = unsheared_shear_cuts(data_frame=df_generated_cut)
+        if self.apply_unsheared_mag_cut is not True:
+            df_generated_cut = unsheared_mag_cut(data_frame=df_generated_cut)
+        if self.apply_unsheared_shear_cut is not True:
+            df_generated_cut = unsheared_shear_cuts(data_frame=df_generated_cut)
+        if self.apply_airmass_cut is not True:
+            df_generated_cut = airmass_cut(data_frame=df_generated_cut)
 
         if self.do_loss_plot is True:
             loss_plot(
@@ -560,12 +581,13 @@ class TrainFlow(object):
                 color_color_plot(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
+                    luminosity_type=self.luminosity_type,
                     colors=colors,
                     show_plot=self.show_plot,
                     save_name=f'{self.path_color_color_plot}/color_color_{epoch + 1}.png',
                     extents={
-                        "unsheared/lupt r-i": (-4, 4),
-                        "unsheared/lupt i-z": (-4, 4)
+                        f"unsheared/{self.luminosity_type.lower()} r-i": (-4, 4),
+                        f"unsheared/{self.luminosity_type.lower()} i-z": (-4, 4)
                     }
                 )
             except Exception as e:
@@ -575,12 +597,13 @@ class TrainFlow(object):
                 color_color_plot(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
+                    luminosity_type=self.luminosity_type,
                     colors=colors,
                     show_plot=self.show_plot,
                     save_name=f'{self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png',
                     extents={
-                        "unsheared/lupt r-i": (-1.2, 1.8),
-                        "unsheared/lupt i-z": (-1.5, 1.5)
+                        f"unsheared/{self.luminosity_type.lower()} r-i": (-1.2, 1.8),
+                        f"unsheared/{self.luminosity_type.lower()} i-z": (-1.5, 1.5)
                     }
                 )
             except Exception as e:
@@ -591,6 +614,7 @@ class TrainFlow(object):
                 residual_plot(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
+                    luminosity_type=self.luminosity_type,
                     plot_title=f"residual, epoch {epoch+1}",
                     bands=bands,
                     show_plot=self.show_plot,
@@ -604,6 +628,7 @@ class TrainFlow(object):
                 residual_plot(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
+                    luminosity_type=self.luminosity_type,
                     plot_title=f"mcal residual, epoch {epoch+1}",
                     bands=bands,
                     show_plot=self.show_plot,
@@ -622,22 +647,29 @@ class TrainFlow(object):
                     show_plot=self.show_plot,
                     save_name=f'{self.path_chain_plot}/chainplot_{epoch + 1}.png',
                     columns=[
-                        "unsheared/lupt_r",
-                        "unsheared/lupt_i",
-                        "unsheared/lupt_z",
+                        f"unsheared/{self.luminosity_type.lower()}_r",
+                        f"unsheared/{self.luminosity_type.lower()}_i",
+                        f"unsheared/{self.luminosity_type.lower()}_z",
                         "unsheared/snr",
                         "unsheared/size_ratio",
                         "unsheared/T"
                     ],
                     parameter=[
-                        "lupt_r",
-                        "lupt_i",
-                        "lupt_z",
+                        f"{self.luminosity_type.lower()}_r",
+                        f"{self.luminosity_type.lower()}_i",
+                        f"{self.luminosity_type.lower()}_z",
                         "snr",
                         "size_ratio",
                         "T",
                     ],
-                    extends=None,
+                    extends={
+                        f"{self.luminosity_type.lower()}_r": (15, 30),
+                        f"{self.luminosity_type.lower()}_i": (15, 30),
+                        f"{self.luminosity_type.lower()}_z": (15, 30),
+                        "snr": (-2, 4),
+                        "size_ratio": (-3.5, 4),
+                        "T": (-1.5, 2)
+                    },
                     max_ticks=5,
                     shade_alpha=0.8,
                     tick_font_size=12,
@@ -654,25 +686,25 @@ class TrainFlow(object):
                     show_plot=self.show_plot,
                     save_name=f'{self.path_chain_plot_mcal}/mcal_chainplot_{epoch + 1}.png',
                     columns=[
-                        "unsheared/lupt_r",
-                        "unsheared/lupt_i",
-                        "unsheared/lupt_z",
+                        f"unsheared/{self.luminosity_type.lower()}_r",
+                        f"unsheared/{self.luminosity_type.lower()}_i",
+                        f"unsheared/{self.luminosity_type.lower()}_z",
                         "unsheared/snr",
                         "unsheared/size_ratio",
                         "unsheared/T",
                     ],
                     parameter=[
-                        "lupt_r",
-                        "lupt_i",
-                        "lupt_z",
+                        f"{self.luminosity_type.lower()}_r",
+                        f"{self.luminosity_type.lower()}_i",
+                        f"{self.luminosity_type.lower()}_z",
                         "snr",
                         "size_ratio",
                         "T",
                     ],
                     extends={
-                        "lupt_r": (10, 19),
-                        "lupt_i": (10, 19),
-                        "lupt_z": (10, 19),
+                        f"{self.luminosity_type.lower()}_r": (15, 30),
+                        f"{self.luminosity_type.lower()}_i": (15, 30),
+                        f"{self.luminosity_type.lower()}_z": (15, 30),
                         "snr": (-75, 425),
                         "size_ratio": (-1.5, 6),
                         "T": (-1, 4)
@@ -693,9 +725,9 @@ class TrainFlow(object):
                     show_plot=self.show_plot,
                     save_name=f"{self.path_color_diff_plot}/color_diff_{epoch + 1}.png",
                     columns=[
-                        "BDF_LUPT_DERED_CALIB_R",
-                        "BDF_LUPT_DERED_CALIB_I",
-                        "BDF_LUPT_DERED_CALIB_Z",
+                        f"BDF_{self.luminosity_type.upper()}_DERED_CALIB_R",
+                        f"BDF_{self.luminosity_type.upper()}_DERED_CALIB_I",
+                        f"BDF_{self.luminosity_type.upper()}_DERED_CALIB_Z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
@@ -709,9 +741,9 @@ class TrainFlow(object):
                         "meas z - true z"
                     ],
                     extends={
-                        "true r": (9, 18),
-                        "true i": (9, 18),
-                        "true z": (9, 18),
+                        "true r": (18, 30),
+                        "true i": (18, 30),
+                        "true z": (18, 30),
                         "meas r - true r": (-4, 4),
                         "meas i - true i": (-4, 4),
                         "meas z - true z": (-4, 4),
@@ -732,9 +764,9 @@ class TrainFlow(object):
                     show_plot=self.show_plot,
                     save_name=f"{self.path_color_diff_plot_mcal}/mcal_color_diff_{epoch + 1}.png",
                     columns=[
-                        "BDF_LUPT_DERED_CALIB_R",
-                        "BDF_LUPT_DERED_CALIB_I",
-                        "BDF_LUPT_DERED_CALIB_Z",
+                        f"BDF_{self.luminosity_type.upper()}_DERED_CALIB_R",
+                        f"BDF_{self.luminosity_type.upper()}_DERED_CALIB_I",
+                        f"BDF_{self.luminosity_type.upper()}_DERED_CALIB_Z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
@@ -748,9 +780,9 @@ class TrainFlow(object):
                         "meas z - true z"
                     ],
                     extends={
-                        "true r": (9, 18),
-                        "true i": (9, 18),
-                        "true z": (9, 18),
+                        "true r": (18, 30),
+                        "true i": (18, 30),
+                        "true z": (18, 30),
                         "meas r - true r": (-1.5, 1.5),
                         "meas i - true i": (-1.5, 1.5),
                         "meas z - true z": (-1.5, 1.5),
@@ -779,18 +811,19 @@ class TrainFlow(object):
                     data_frame_true=df_true,
                     lists_to_plot=lists_mean_to_plot,
                     list_epochs=self.lst_epochs,
+
                     columns=[
-                        "unsheared/lupt_r",
-                        "unsheared/lupt_i",
-                        "unsheared/lupt_z",
+                        f"unsheared/{self.luminosity_type.lower()}_r",
+                        f"unsheared/{self.luminosity_type.lower()}_i",
+                        f"unsheared/{self.luminosity_type.lower()}_z",
                         "unsheared/snr",
                         "unsheared/size_ratio",
                         "unsheared/T"
                     ],
                     lst_labels=[
-                        "lupt_r",
-                        "lupt_i",
-                        "lupt_z",
+                        f"{self.luminosity_type.lower()}_r",
+                        f"{self.luminosity_type.lower()}_i",
+                        f"{self.luminosity_type.lower()}_z",
                         "snr",
                         "size_ratio",
                         "T",
@@ -809,7 +842,7 @@ class TrainFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.path_mean_plot}/mean_{epoch+1}.png")
-                print(f"Mean shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"Mean shapes: \t epoch \t {self.luminosity_type.lower()} r \t {self.luminosity_type.lower()} i \t {self.luminosity_type.lower()} z \t snr \t size_ratio \t T")
                 print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r)} \t {len(self.lst_mean_mag_i)} \t {len(self.lst_mean_mag_z)} \t {len(self.lst_mean_snr)} \t {len(self.lst_mean_size_ratio)} \t {len(self.lst_mean_t)}")
 
             try:
@@ -828,17 +861,17 @@ class TrainFlow(object):
                     lists_to_plot=lists_mean_to_plot_cut,
                     list_epochs=self.lst_epochs,
                     columns=[
-                        "unsheared/lupt_r",
-                        "unsheared/lupt_i",
-                        "unsheared/lupt_z",
+                        f"unsheared/{self.luminosity_type.lower()}_r",
+                        f"unsheared/{self.luminosity_type.lower()}_i",
+                        f"unsheared/{self.luminosity_type.lower()}_z",
                         "unsheared/snr",
                         "unsheared/size_ratio",
                         "unsheared/T"
                     ],
                     lst_labels=[
-                        "lupt_r",
-                        "lupt_i",
-                        "lupt_z",
+                        f"{self.luminosity_type.lower()}_r",
+                        f"{self.luminosity_type.lower()}_i",
+                        f"{self.luminosity_type.lower()}_z",
                         "snr",
                         "size_ratio",
                         "T",
@@ -857,7 +890,7 @@ class TrainFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.path_mean_plot_mcal}/mcal_mean_{epoch + 1}.png")
-                print(f"Mean mcal shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"Mean mcal shapes: \t epoch \t {self.luminosity_type.lower()} r \t {self.luminosity_type.lower()} i \t {self.luminosity_type.lower()} z \t snr \t size_ratio \t T")
                 print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r_cut)} \t {len(self.lst_mean_mag_i_cut)} \t {len(self.lst_mean_mag_z_cut)} \t {len(self.lst_mean_snr_cut)} \t {len(self.lst_mean_size_ratio_cut)} \t {len(self.lst_mean_t_cut)}")
 
         if self.do_std_plot is True:
@@ -877,17 +910,17 @@ class TrainFlow(object):
                     lists_to_plot=lists_std_to_plot,
                     list_epochs=self.lst_epochs,
                     columns=[
-                        "unsheared/lupt_r",
-                        "unsheared/lupt_i",
-                        "unsheared/lupt_z",
+                        f"unsheared/{self.luminosity_type.lower()}_r",
+                        f"unsheared/{self.luminosity_type.lower()}_i",
+                        f"unsheared/{self.luminosity_type.lower()}_z",
                         "unsheared/snr",
                         "unsheared/size_ratio",
                         "unsheared/T"
                     ],
                     lst_labels=[
-                        "lupt_r",
-                        "lupt_i",
-                        "lupt_z",
+                        f"{self.luminosity_type.lower()}_r",
+                        f"{self.luminosity_type.lower()}_i",
+                        f"{self.luminosity_type.lower()}_z",
                         "snr",
                         "size_ratio",
                         "T",
@@ -906,7 +939,7 @@ class TrainFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.path_std_plot}/std_{epoch + 1}.png")
-                print(f"Std shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"Std shapes: \t epoch \t {self.luminosity_type.lower()} r \t {self.luminosity_type.lower()} i \t {self.luminosity_type.lower()} z \t snr \t size_ratio \t T")
                 print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r)} \t {len(self.lst_std_mag_i)} \t {len(self.lst_std_mag_z)} \t {len(self.lst_std_snr)} \t {len(self.lst_std_size_ratio)} \t {len(self.lst_std_t)}")
 
             try:
@@ -925,17 +958,17 @@ class TrainFlow(object):
                     lists_to_plot=lists_std_to_plot_cut,
                     list_epochs=self.lst_epochs,
                     columns=[
-                        "unsheared/lupt_r",
-                        "unsheared/lupt_i",
-                        "unsheared/lupt_z",
+                        f"unsheared/{self.luminosity_type.lower()}_r",
+                        f"unsheared/{self.luminosity_type.lower()}_i",
+                        f"unsheared/{self.luminosity_type.lower()}_z",
                         "unsheared/snr",
                         "unsheared/size_ratio",
                         "unsheared/T"
                     ],
                     lst_labels=[
-                        "lupt_r",
-                        "lupt_i",
-                        "lupt_z",
+                        f"{self.luminosity_type.lower()}_r",
+                        f"{self.luminosity_type.lower()}_i",
+                        f"{self.luminosity_type.lower()}_z",
                         "snr",
                         "size_ratio",
                         "T",
@@ -954,6 +987,6 @@ class TrainFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.path_std_plot_mcal}/mcal_std_{epoch + 1}.png")
-                print(f"Std mcal shapes: \t epoch \t mag r \t mag i \t mag z \t snr \t size_ratio \t T")
+                print(f"Std mcal shapes: \t epoch \t {self.luminosity_type.lower()} r \t {self.luminosity_type.lower()} i \t {self.luminosity_type.lower()} z \t snr \t size_ratio \t T")
                 print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r_cut)} \t {len(self.lst_std_mag_i_cut)} \t {len(self.lst_std_mag_z_cut)} \t {len(self.lst_std_snr_cut)} \t {len(self.lst_std_size_ratio_cut)} \t {len(self.lst_std_t_cut)}")
 
