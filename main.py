@@ -126,7 +126,7 @@ if __name__ == '__main__':
     if get_os() == "Mac":
         config_file_name = "mac_mag.cfg"
     elif get_os() == "Windows":
-        config_file_name = "windows.cfg"
+        config_file_name = "windows_mag.cfg"
     else:
         raise "OS Error"
 

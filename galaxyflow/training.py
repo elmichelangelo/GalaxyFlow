@@ -406,17 +406,25 @@ class TrainFlow(object):
                 ray.tune.report(loss=train_loss_epoch)
 
         if self.plot_test is True:
-            make_gif(self.path_chain_plot, f"{self.path_gifs}/chain_plot.gif")
-            make_gif(self.path_loss_plot, f"{self.path_gifs}/loss_plot.gif")
-            make_gif(self.path_mean_plot, f"{self.path_gifs}/mean_plot.gif")
-            make_gif(self.path_std_plot, f"{self.path_gifs}/std_plot.gif")
-            make_gif(self.path_color_color_plot, f"{self.path_gifs}/color_color_plot.gif")
-            make_gif(self.path_residual_plot, f"{self.path_gifs}/residual_plot.gif")
-            make_gif(self.path_chain_plot_mcal, f"{self.path_gifs}/chain_plot_mcal.gif")
-            make_gif(self.path_mean_plot_mcal, f"{self.path_gifs}/mean_plot_mcal.gif")
-            make_gif(self.path_std_plot_mcal, f"{self.path_gifs}/std_plot_mcal.gif")
-            make_gif(self.path_color_color_plot_mcal, f"{self.path_gifs}/color_color_plot_mcal.gif")
-            make_gif(self.path_residual_plot_mcal, f"{self.path_gifs}/residual_plot_mcal.gif")
+            lst_gif = [
+                (self.path_chain_plot, f"{self.path_gifs}/chain_plot.gif"),
+                (self.path_loss_plot, f"{self.path_gifs}/loss_plot.gif"),
+                (self.path_mean_plot, f"{self.path_gifs}/mean_plot.gif"),
+                (self.path_std_plot, f"{self.path_gifs}/std_plot.gif"),
+                (self.path_color_color_plot, f"{self.path_gifs}/color_color_plot.gif"),
+                (self.path_residual_plot, f"{self.path_gifs}/residual_plot.gif"),
+                (self.path_chain_plot_mcal, f"{self.path_gifs}/chain_plot_mcal.gif"),
+                (self.path_mean_plot_mcal, f"{self.path_gifs}/mean_plot_mcal.gif"),
+                (self.path_std_plot_mcal, f"{self.path_gifs}/std_plot_mcal.gif"),
+                (self.path_color_color_plot_mcal, f"{self.path_gifs}/color_color_plot_mcal.gif"),
+                (self.path_residual_plot_mcal, f"{self.path_gifs}/residual_plot_mcal.gif")
+            ]
+
+            for gif in lst_gif:
+                try:
+                    make_gif(gif[0], gif[1])
+                except:
+                    pass
 
         if self.save_nn is True:
             torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}_run_{self.run}.pt")
