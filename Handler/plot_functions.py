@@ -7,6 +7,18 @@ import os
 from natsort import natsorted
 from chainconsumer import ChainConsumer
 from scipy.stats import gaussian_kde
+from torchvision.transforms import ToTensor
+from io import BytesIO
+
+
+def plot_to_tensor():
+    buf = BytesIO()  # Ein Zwischenspeicher, um das Bild zu speichern
+    plt.savefig(buf, format='png')  # Speichern Sie das Matplotlib-Bild in den Zwischenspeicher
+    buf.seek(0)
+
+    img = plt.imread(buf)  # Lesen Sie das gespeicherte Bild zurück
+    img_t = ToTensor()(img)  # Konvertieren Sie das Bild in einen PyTorch Tensor
+    return img_t
 
 
 def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
@@ -97,9 +109,9 @@ def loss_plot(
         save_plot,
         save_name
 ):
-    statistical_figure, ((stat_ax1, stat_ax2), (stat_ax3, stat_ax4)) = plt.subplots(nrows=2, ncols=2)
+    statistical_figure, (stat_ax1, stat_ax2, stat_ax3) = plt.subplots(nrows=3, ncols=1)
     statistical_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.25, hspace=0.25)
-    statistical_figure.suptitle(f"Epoch: {epoch}", fontsize=16)
+    statistical_figure.suptitle(f"Epoch: {epoch+1}", fontsize=16)
 
     # Create dataframe of progress list
     df_training_loss_per_batch = pd.DataFrame({
@@ -128,7 +140,7 @@ def loss_plot(
     stat_ax1.set_ylabel("loss", fontsize=12, loc='top')
     stat_ax1.set_title(f"Loss per batch")
 
-    df_training_loss_per_epoch.plot(
+    df_valid_loss_per_batch.plot(
         figsize=(16, 9),
         alpha=0.5,
         marker=".",
@@ -136,12 +148,11 @@ def loss_plot(
         # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
         ax=stat_ax2)
 
-    stat_ax2.set_xlabel("epoch", fontsize=10, loc='right')
+    stat_ax2.set_xlabel("batch", fontsize=10, loc='right')
     stat_ax2.set_ylabel("loss", fontsize=12, loc='top')
-    stat_ax2.set_title(f"Loss per epoch")
+    stat_ax2.set_title(f"Loss per batch")
 
-    # Create plot
-    df_valid_loss_per_batch.plot(
+    df_training_loss_per_epoch.plot(
         figsize=(16, 9),
         alpha=0.5,
         marker=".",
@@ -149,9 +160,9 @@ def loss_plot(
         # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
         ax=stat_ax3)
 
-    stat_ax3.set_xlabel("batch", fontsize=10, loc='right')
+    stat_ax3.set_xlabel("epoch", fontsize=10, loc='right')
     stat_ax3.set_ylabel("loss", fontsize=12, loc='top')
-    stat_ax3.set_title(f"Loss per batch")
+    stat_ax3.set_title(f"Loss per epoch")
 
     df_valid_loss_per_epoch.plot(
         figsize=(16, 9),
@@ -159,11 +170,11 @@ def loss_plot(
         marker=".",
         grid=True,
         # yticks=(0, 0.25, 0.5, 0.69, 1.0, 5.0),
-        ax=stat_ax4)
+        ax=stat_ax3)
 
-    stat_ax4.set_xlabel("epoch", fontsize=10, loc='right')
-    stat_ax4.set_ylabel("loss", fontsize=12, loc='top')
-    stat_ax4.set_title(f"Loss per epoch")
+    stat_ax3.set_xlabel("epoch", fontsize=10, loc='right')
+    stat_ax3.set_ylabel("loss", fontsize=12, loc='top')
+    stat_ax3.set_title(f"Loss per epoch")
 
     if show_plot is True:
         statistical_figure.show()
@@ -171,9 +182,11 @@ def loss_plot(
         statistical_figure.savefig(f"{save_name}", dpi=200)
 
     # Clear and close open figure to avoid memory overload
+    img_tensor = plot_to_tensor()
     statistical_figure.clf()
     plt.close(statistical_figure)
     plt.clf()
+    return img_tensor
 
 
 def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, extents=None):
@@ -206,8 +219,10 @@ def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, col
     )
     if show_plot is True:
         plt.show()
+    img_tensor = plot_to_tensor()
     plt.clf()
     plt.close()
+    return img_tensor
 
 
 def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands, plot_title, show_plot, save_plot, save_name):
@@ -291,8 +306,10 @@ def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands,
 
     if save_plot is True:
         plt.savefig(save_name)
+    img_tensor = plot_to_tensor()
     plt.clf()
     plt.close()
+    return img_tensor
 
 
 def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, save_name, columns=None, parameter=None,
@@ -340,7 +357,9 @@ def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, 
         print("chain error at epoch", epoch + 1)
     if show_plot is True:
         plt.show()
+    img_tensor = plot_to_tensor()
     plt.clf()
+    return img_tensor
 
 
 def plot_mean_or_std(data_frame_generated, data_frame_true, lists_to_plot, list_epochs, columns, lst_labels, lst_marker,
@@ -373,10 +392,11 @@ def plot_mean_or_std(data_frame_generated, data_frame_true, lists_to_plot, list_
         plt.show()
     if save_plot is True:
         plt.savefig(save_name, dpi=200)
+    img_tensor = plot_to_tensor()
     plt.clf()
     plt.close()
 
-    return lists_to_plot
+    return lists_to_plot, img_tensor
 
 
 def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title="", color=None):
@@ -424,6 +444,8 @@ def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title=
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     plt.title(title)
+    img_tensor = plot_to_tensor()
+    return img_tensor
 
 
 def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", y_label="", title="", color=None):
@@ -478,6 +500,8 @@ def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", 
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     plt.title(title)
+    img_tensor = plot_to_tensor()
+    return img_tensor
 
 
 def make_gif(frame_folder, name_save_folder, fps=10):

@@ -9,6 +9,7 @@ import torch
 import torch.optim as optim
 import torch.utils.data
 import torch.nn
+import torchvision.utils
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import galaxyflow.flow as fnn
@@ -158,6 +159,11 @@ class TrainFlow(object):
                                     f"num_hidden_{self.num_hidden}_" \
                                     f"num_blocks_{self.num_blocks}_" \
                                     f"batch_size_{self.batch_size}"
+            self.path_writer = f"{self.path_output}/writer/" \
+                               f"lr_{self.lr}_" \
+                               f"num_hidden_{self.num_hidden}_" \
+                               f"num_blocks_{self.num_blocks}_" \
+                               f"batch_size_{self.batch_size}"
             self.path_plots = f"{self.path_output_flow}/plots"
             self.path_chain_plot = f"{self.path_plots}/chain_plot"
             self.path_loss_plot = f"{self.path_plots}/loss_plot"
@@ -175,7 +181,13 @@ class TrainFlow(object):
             self.path_gifs = f"{self.path_plots}/gifs"
             self.path_save_nn = f"{self.path_output_flow}/nn"
             self.make_dirs()
-            self.writer = SummaryWriter(log_dir=f"{self.path_output_flow}/writer", comment=f"_lr_{self.lr}")
+            self.writer = SummaryWriter(
+                log_dir=self.path_writer,
+                comment=f"learning rate: {self.lr} "
+                        f"number hidden: {self.num_hidden}_"
+                        f"number blocks: {self.num_blocks}_"
+                        f"batch size: {self.batch_size}"
+            )
             self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
                 path_train_data=path_train_data,
                 selected_scaler=selected_scaler
@@ -185,6 +197,15 @@ class TrainFlow(object):
                 num_inputs=len(col_output_flow),
                 num_cond_inputs=len(col_label_flow)
             )
+            with torch.no_grad():
+                for batch_idx, data in enumerate(self.train_loader):
+                    cond_data = data[1].float()
+                    cond_data = cond_data.to(self.device)
+                    data = data[0]
+                    data = data.to(self.device)
+                    self.writer.add_graph(self.model, (data, cond_data))
+                    self.writer.close()
+                    break
 
             self.global_step = 0
             self.best_validation_loss = float('inf')
@@ -376,8 +397,9 @@ class TrainFlow(object):
         self.run_training()
 
     def run_training(self):
+
         for epoch in range(self.epochs):
-            print('\nEpoch: {}'.format(epoch + 1))
+            # print('\nEpoch: {}'.format(epoch + 1))
 
             train_loss_epoch = self.train(
                 epoch=epoch
@@ -399,8 +421,8 @@ class TrainFlow(object):
             if epoch - self.best_validation_epoch >= 30:
                 break
 
-            print(f"Best validation at epoch {self.best_validation_epoch + 1}"
-                  f"\t Average Log Likelihood {-self.best_validation_loss}")
+            # print(f"Best validation at epoch {self.best_validation_epoch + 1}"
+            #       f"\t Average Log Likelihood {-self.best_validation_loss}")
 
             if self.plot_test is True:
                 self.plot_data(epoch=epoch)
@@ -447,18 +469,24 @@ class TrainFlow(object):
             self.optimizer.zero_grad()
             loss = -self.model.log_probs(data, cond_data).mean()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1, error_if_nonfinite=False)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
             self.optimizer.step()
             train_loss += loss.data.item() * data.size(0)
             pbar.update(data.size(0))
-            pbar.set_description(f'Train, Log likelihood: {train_loss / pbar.n}')
+            pbar.set_description(f"Training,\t"
+                                 f"Epoch: {epoch+1},\t"
+                                 f"learning rate: {self.lr},\t"
+                                 f"number hidden: {self.num_hidden},\t"
+                                 f"number blocks: {self.num_blocks},\t"
+                                 f"batch size: {self.batch_size},\t"
+                                 f"loss: {train_loss / pbar.n}")
             self.lst_train_loss_per_batch.append(loss.item())
             self.global_step += 1
         pbar.close()
 
-        train_loss = train_loss / len(self.train_loader.dataset)  # loss.data.item() * data.size(0)
+        train_loss = train_loss / len(self.train_loader.dataset)
 
-        self.writer.add_scalar('training loss', train_loss, epoch)
+        self.writer.add_scalar('training loss', train_loss, epoch+1)
 
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -466,7 +494,7 @@ class TrainFlow(object):
 
         with torch.no_grad():
             self.model(self.train_loader.dataset.tensors[0].to(data.device),
-                  self.train_loader.dataset.tensors[1].to(data.device).float())
+                       self.train_loader.dataset.tensors[1].to(data.device).float())
 
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -477,7 +505,6 @@ class TrainFlow(object):
         self.model.eval()
         val_loss = 0
         pbar = tqdm(total=len(self.valid_loader.dataset))
-        pbar.set_description('Eval')
         for batch_idx, data in enumerate(self.valid_loader):
             cond_data = data[1].float()
             cond_data = cond_data.to(self.device)
@@ -488,10 +515,16 @@ class TrainFlow(object):
                 self.lst_valid_loss_per_batch.append(loss.item())
                 val_loss += loss.data.item() * data.size(0)
             pbar.update(data.size(0))
-            pbar.set_description(f'Val, Log likelihood in nats: {val_loss / pbar.n}')
-        val_loss = val_loss / len(self.valid_loader.dataset)
-        self.writer.add_scalar('validation/LL', val_loss, epoch)
+            pbar.set_description(f"Validation,\t"
+                                 f"Epoch: {epoch + 1},\t"
+                                 f"learning rate: {self.lr},\t"
+                                 f"number hidden: {self.num_hidden},\t"
+                                 f"number blocks: {self.num_blocks},\t"
+                                 f"batch size: {self.batch_size},\t"
+                                 f"loss: {val_loss / pbar.n}")
         pbar.close()
+        val_loss = val_loss / len(self.valid_loader.dataset)
+        self.writer.add_scalar('validation loss', val_loss, epoch+1)
         return val_loss
 
     def plot_data(self, epoch):
@@ -575,7 +608,7 @@ class TrainFlow(object):
             df_generated_cut = airmass_cut(data_frame=df_generated_cut)
 
         if self.do_loss_plot is True:
-            loss_plot(
+            img_grid = loss_plot(
                 epoch=epoch,
                 lst_train_loss_per_batch=self.lst_train_loss_per_batch,
                 lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
@@ -585,10 +618,11 @@ class TrainFlow(object):
                 save_plot=self.save_plot,
                 save_name=f"{self.path_loss_plot}/loss_{epoch + 1}.png"
             )
+            self.writer.add_image("loss plot", img_grid, epoch + 1)
 
         if self.do_color_color_plot is True:
             try:
-                color_color_plot(
+                img_grid = color_color_plot(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
                     luminosity_type=self.luminosity_type,
@@ -600,11 +634,12 @@ class TrainFlow(object):
                         f"unsheared/{self.luminosity_type.lower()} i-z": (-4, 4)
                     }
                 )
+                self.writer.add_image("color color plot", img_grid, epoch+1)
             except Exception as e:
                 print(f"Error {e}: {self.path_color_color_plot}/color_color_{epoch + 1}.png")
 
             try:
-                color_color_plot(
+                img_grid = color_color_plot(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
                     luminosity_type=self.luminosity_type,
@@ -616,12 +651,13 @@ class TrainFlow(object):
                         f"unsheared/{self.luminosity_type.lower()} i-z": (-1.5, 1.5)
                     }
                 )
+                self.writer.add_image("color color plot mcal", img_grid, epoch+1)
             except Exception as e:
                 print(f"Error {e}: {self.path_color_color_plot_mcal}/mcal_color_color_{epoch + 1}.png")
 
         if self.do_residual_plot:
             try:
-                residual_plot(
+                img_grid = residual_plot(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
                     luminosity_type=self.luminosity_type,
@@ -631,11 +667,12 @@ class TrainFlow(object):
                     save_plot=self.save_plot,
                     save_name=f"{self.path_residual_plot}/residual_plot_{epoch + 1}.png"
                 )
+                self.writer.add_image("residual plot", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.path_residual_plot}/residual_plot_{epoch + 1}.png")
 
             try:
-                residual_plot(
+                img_grid = residual_plot(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
                     luminosity_type=self.luminosity_type,
@@ -645,12 +682,13 @@ class TrainFlow(object):
                     save_plot=self.save_plot,
                     save_name=f"{self.path_residual_plot_mcal}/mcal_residual_plot_{epoch + 1}.png"
                 )
+                self.writer.add_image("residual plot mcal", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.path_residual_plot_mcal}/mcal_residual_plot_{epoch + 1}.png")
 
         if self.do_chain_plot is True:
             try:
-                plot_chain_compare(
+                img_grid = plot_chain_compare(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
                     epoch=epoch,
@@ -685,11 +723,12 @@ class TrainFlow(object):
                     tick_font_size=12,
                     label_font_size=12
                 )
+                self.writer.add_image("chain plot", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.path_chain_plot}/chainplot_{epoch + 1}.png")
 
             try:
-                plot_chain_compare(
+                img_grid = plot_chain_compare(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
                     epoch=epoch,
@@ -724,11 +763,12 @@ class TrainFlow(object):
                     tick_font_size=12,
                     label_font_size=12
                 )
+                self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.path_chain_plot_mcal}/mcal_chainplot_{epoch + 1}.png")
 
             try:
-                plot_chain_compare(
+                img_grid = plot_chain_compare(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
                     epoch=epoch,
@@ -763,11 +803,12 @@ class TrainFlow(object):
                     tick_font_size=12,
                     label_font_size=12
                 )
+                self.writer.add_image("color diff plot", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.path_color_diff_plot}/color_diff_{epoch + 1}.png")
 
             try:
-                plot_chain_compare(
+                img_grid = plot_chain_compare(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
                     epoch=epoch,
@@ -802,6 +843,7 @@ class TrainFlow(object):
                     tick_font_size=12,
                     label_font_size=12
                 )
+                self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.path_color_diff_plot_mcal}/mcal_color_diff_{epoch + 1}.png")
 
@@ -816,7 +858,7 @@ class TrainFlow(object):
                     self.lst_mean_t,
                 ]
 
-                lists_mean_to_plot_updated = plot_mean_or_std(
+                lists_mean_to_plot_updated, img_grid = plot_mean_or_std(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
                     lists_to_plot=lists_mean_to_plot,
@@ -846,7 +888,7 @@ class TrainFlow(object):
                     save_name=f"{self.path_mean_plot}/mean_{epoch+1}.png",
                     statistic_type="mean"
                 )
-
+                self.writer.add_image("mean plot", img_grid, epoch + 1)
                 for idx_plot, lst_plot in enumerate(lists_mean_to_plot):
                     lst_plot = lists_mean_to_plot_updated[idx_plot]
 
@@ -865,7 +907,7 @@ class TrainFlow(object):
                     self.lst_mean_t_cut,
                 ]
 
-                lists_mean_to_plot_cut_updated = plot_mean_or_std(
+                lists_mean_to_plot_cut_updated, img_grid = plot_mean_or_std(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
                     lists_to_plot=lists_mean_to_plot_cut,
@@ -894,7 +936,7 @@ class TrainFlow(object):
                     save_name=f"{self.path_mean_plot_mcal}/mcal_mean_{epoch + 1}.png",
                     statistic_type="mean"
                 )
-
+                self.writer.add_image("mean plot mcal", img_grid, epoch + 1)
                 for idx_plot_cut, lst_plot_cut in enumerate(lists_mean_to_plot_cut):
                     lst_plot_cut = lists_mean_to_plot_cut_updated[idx_plot_cut]
 
@@ -914,7 +956,7 @@ class TrainFlow(object):
                     self.lst_std_t,
                 ]
 
-                lists_std_to_plot_updated = plot_mean_or_std(
+                lists_std_to_plot_updated, img_grid = plot_mean_or_std(
                     data_frame_generated=df_generated,
                     data_frame_true=df_true,
                     lists_to_plot=lists_std_to_plot,
@@ -943,7 +985,7 @@ class TrainFlow(object):
                     save_name=f"{self.path_std_plot}/std_{epoch + 1}.png",
                     statistic_type="std"
                 )
-
+                self.writer.add_image("std plot", img_grid, epoch + 1)
                 for idx_plot, lst_plot in enumerate(lists_std_to_plot):
                     lst_plot = lists_std_to_plot_updated[idx_plot]
 
@@ -962,7 +1004,7 @@ class TrainFlow(object):
                     self.lst_std_t_cut,
                 ]
 
-                lists_std_to_plot_cut_updated = plot_mean_or_std(
+                lists_std_to_plot_cut_updated, img_grid = plot_mean_or_std(
                     data_frame_generated=df_generated_cut,
                     data_frame_true=df_true_cut,
                     lists_to_plot=lists_std_to_plot_cut,
@@ -991,7 +1033,7 @@ class TrainFlow(object):
                     save_name=f"{self.path_std_plot_mcal}/mcal_std_{epoch + 1}.png",
                     statistic_type="std"
                 )
-
+                self.writer.add_image("std plot mcal", img_grid, epoch + 1)
                 for idx_plot_cut, lst_plot_cut in enumerate(lists_std_to_plot_cut):
                     lst_plot_cut = lists_std_to_plot_cut_updated[idx_plot_cut]
 
