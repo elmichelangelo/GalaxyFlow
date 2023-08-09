@@ -418,11 +418,11 @@ class TrainFlow(object):
                 self.best_model = copy.deepcopy(self.model)
                 self.best_model.eval()
 
-            if epoch - self.best_validation_epoch >= 30:
-                break
+            # if epoch - self.best_validation_epoch >= 30:
+            #     break
 
-            # print(f"Best validation at epoch {self.best_validation_epoch + 1}"
-            #       f"\t Average Log Likelihood {-self.best_validation_loss}")
+            print(f"Best validation at epoch {self.best_validation_epoch + 1}"
+                  f"\t Best validation loss {-self.best_validation_loss}")
 
             if self.plot_test is True:
                 self.plot_data(epoch=epoch)
