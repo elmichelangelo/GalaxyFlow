@@ -41,7 +41,8 @@ def load_data(
         lst_replace_transform_cols=None,
         lst_replace_values=None,
         reproducible=True,
-        run=None
+        run=None,
+        plot_data=False
 ):
     """"""
 
@@ -84,189 +85,190 @@ def load_data(
     else:
         df_training_data = df_training_data.sample(frac=1)
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name=f"unsheared_{luminosity_type.lower()}",
-        columns=[
-            f"unsheared/{luminosity_type.lower()}_r",
-            f"unsheared/{luminosity_type.lower()}_i",
-            f"unsheared/{luminosity_type.lower()}_z",
-            "unsheared/snr",
-            "unsheared/size_ratio",
-            "unsheared/T"
-        ],
-        parameter=[
-                f"{luminosity_type.lower()} r",
-                f"{luminosity_type.lower()} i",
-                f"{luminosity_type.lower()} z",
-                "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
-                "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-                "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
+    if plot_data is True:
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name=f"unsheared_{luminosity_type.lower()}",
+            columns=[
+                f"unsheared/{luminosity_type.lower()}_r",
+                f"unsheared/{luminosity_type.lower()}_i",
+                f"unsheared/{luminosity_type.lower()}_z",
+                "unsheared/snr",
+                "unsheared/size_ratio",
+                "unsheared/T"
             ],
-        extends=None
-    )
+            parameter=[
+                    f"{luminosity_type.lower()} r",
+                    f"{luminosity_type.lower()} i",
+                    f"{luminosity_type.lower()} z",
+                    "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
+                    "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
+                    "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
+                ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name=f"unsheared_{luminosity_type.lower()}",
-        columns=[
-            f"unsheared/{luminosity_type.lower()}_err_r",
-            f"unsheared/{luminosity_type.lower()}_err_i",
-            f"unsheared/{luminosity_type.lower()}_err_z",
-            "unsheared/snr",
-            "unsheared/size_ratio",
-            "unsheared/T"
-        ],
-        parameter=[
-            f"{luminosity_type.lower()} err r",
-            f"{luminosity_type.lower()} err i",
-            f"{luminosity_type.lower()} err z",
-            "snr",  # signal-noise      Range: min=0.3795, max=38924.4662
-            "size ratio",  # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-            "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name=f"unsheared_{luminosity_type.lower()}",
+            columns=[
+                f"unsheared/{luminosity_type.lower()}_err_r",
+                f"unsheared/{luminosity_type.lower()}_err_i",
+                f"unsheared/{luminosity_type.lower()}_err_z",
+                "unsheared/snr",
+                "unsheared/size_ratio",
+                "unsheared/T"
+            ],
+            parameter=[
+                f"{luminosity_type.lower()} err r",
+                f"{luminosity_type.lower()} err i",
+                f"{luminosity_type.lower()} err z",
+                "snr",  # signal-noise      Range: min=0.3795, max=38924.4662
+                "size ratio",  # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
+                "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name=f"BDF_{luminosity_type.upper()}",
-        columns=[
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_U",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_G",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_R",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_I",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_Z",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_J",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_H",
-            f"BDF_{luminosity_type.upper()}_DERED_CALIB_K",
-        ],
-        parameter=[
-            f"BDF {luminosity_type.upper()} U",
-            f"BDF {luminosity_type.upper()} G",
-            f"BDF {luminosity_type.upper()} R",
-            f"BDF {luminosity_type.upper()} I",
-            f"BDF {luminosity_type.upper()} Z",
-            f"BDF {luminosity_type.upper()} J",
-            f"BDF {luminosity_type.upper()} H",
-            f"BDF {luminosity_type.upper()} K",
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name=f"BDF_{luminosity_type.upper()}",
+            columns=[
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_U",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_G",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_R",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_I",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_Z",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_J",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_H",
+                f"BDF_{luminosity_type.upper()}_DERED_CALIB_K",
+            ],
+            parameter=[
+                f"BDF {luminosity_type.upper()} U",
+                f"BDF {luminosity_type.upper()} G",
+                f"BDF {luminosity_type.upper()} R",
+                f"BDF {luminosity_type.upper()} I",
+                f"BDF {luminosity_type.upper()} Z",
+                f"BDF {luminosity_type.upper()} J",
+                f"BDF {luminosity_type.upper()} H",
+                f"BDF {luminosity_type.upper()} K",
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name=f"BDF_{luminosity_type.upper()}",
-        columns=[
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_U",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_G",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_R",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_I",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_Z",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_J",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_H",
-            f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_K",
-        ],
-        parameter=[
-            f"BDF {luminosity_type.upper()} ERR U",
-            f"BDF {luminosity_type.upper()} ERR G",
-            f"BDF {luminosity_type.upper()} ERR R",
-            f"BDF {luminosity_type.upper()} ERR I",
-            f"BDF {luminosity_type.upper()} ERR Z",
-            f"BDF {luminosity_type.upper()} ERR J",
-            f"BDF {luminosity_type.upper()} ERR H",
-            f"BDF {luminosity_type.upper()} ERR K",
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name=f"BDF_{luminosity_type.upper()}",
+            columns=[
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_U",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_G",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_R",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_I",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_Z",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_J",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_H",
+                f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_K",
+            ],
+            parameter=[
+                f"BDF {luminosity_type.upper()} ERR U",
+                f"BDF {luminosity_type.upper()} ERR G",
+                f"BDF {luminosity_type.upper()} ERR R",
+                f"BDF {luminosity_type.upper()} ERR I",
+                f"BDF {luminosity_type.upper()} ERR Z",
+                f"BDF {luminosity_type.upper()} ERR J",
+                f"BDF {luminosity_type.upper()} ERR H",
+                f"BDF {luminosity_type.upper()} ERR K",
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name=f"BDF_COLOR_{luminosity_type.upper()}",
-        columns=[
-            f"Color BDF {luminosity_type.upper()} U-G",
-            f"Color BDF {luminosity_type.upper()} G-R",
-            f"Color BDF {luminosity_type.upper()} R-I",
-            f"Color BDF {luminosity_type.upper()} I-Z",
-            f"Color BDF {luminosity_type.upper()} Z-J",
-            f"Color BDF {luminosity_type.upper()} J-H",
-            f"Color BDF {luminosity_type.upper()} H-K",
-        ],
-        parameter=[
-            f"{luminosity_type.upper()} U-G",
-            f"{luminosity_type.upper()} G-R",
-            f"{luminosity_type.upper()} R-I",
-            f"{luminosity_type.upper()} I-Z",
-            f"{luminosity_type.upper()} Z-J",
-            f"{luminosity_type.upper()} J-H",
-            f"{luminosity_type.upper()} H-K",
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name=f"BDF_COLOR_{luminosity_type.upper()}",
+            columns=[
+                f"Color BDF {luminosity_type.upper()} U-G",
+                f"Color BDF {luminosity_type.upper()} G-R",
+                f"Color BDF {luminosity_type.upper()} R-I",
+                f"Color BDF {luminosity_type.upper()} I-Z",
+                f"Color BDF {luminosity_type.upper()} Z-J",
+                f"Color BDF {luminosity_type.upper()} J-H",
+                f"Color BDF {luminosity_type.upper()} H-K",
+            ],
+            parameter=[
+                f"{luminosity_type.upper()} U-G",
+                f"{luminosity_type.upper()} G-R",
+                f"{luminosity_type.upper()} R-I",
+                f"{luminosity_type.upper()} I-Z",
+                f"{luminosity_type.upper()} Z-J",
+                f"{luminosity_type.upper()} J-H",
+                f"{luminosity_type.upper()} H-K",
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name="AIRMASS",
-        columns=[
-            "AIRMASS_WMEAN_R",
-            "AIRMASS_WMEAN_I",
-            "AIRMASS_WMEAN_Z"
-        ],
-        parameter=[
-            "AIRMASS R",
-            "AIRMASS I",
-            "AIRMASS Z"
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name="AIRMASS",
+            columns=[
+                "AIRMASS_WMEAN_R",
+                "AIRMASS_WMEAN_I",
+                "AIRMASS_WMEAN_Z"
+            ],
+            parameter=[
+                "AIRMASS R",
+                "AIRMASS I",
+                "AIRMASS Z"
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name="FWHM",
-        columns=[
-            "FWHM_WMEAN_R",
-            "FWHM_WMEAN_I",
-            "FWHM_WMEAN_Z"
-        ],
-        parameter=[
-            "FWHM R",
-            "FWHM I",
-            "FWHM Z"
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name="FWHM",
+            columns=[
+                "FWHM_WMEAN_R",
+                "FWHM_WMEAN_I",
+                "FWHM_WMEAN_Z"
+            ],
+            parameter=[
+                "FWHM R",
+                "FWHM I",
+                "FWHM Z"
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name="MAGLIM",
-        columns=[
-            "MAGLIM_R",
-            "MAGLIM_I",
-            "MAGLIM_Z"
-        ],
-        parameter=[
-            "MAGLIM R",
-            "MAGLIM I",
-            "MAGLIM Z"
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name="MAGLIM",
+            columns=[
+                "MAGLIM_R",
+                "MAGLIM_I",
+                "MAGLIM_Z"
+            ],
+            parameter=[
+                "MAGLIM R",
+                "MAGLIM I",
+                "MAGLIM Z"
+            ],
+            extends=None
+        )
 
-    plot_chain(
-        data_frame=df_training_data,
-        plot_name="OBS",
-        columns=[
-            "BDF_T",
-            "BDF_G",
-            "EBV_SFD98"
-        ],
-        parameter=[
-            "BDF T",
-            "BDF G",
-            "EBV_SFD98"
-        ],
-        extends=None
-    )
+        plot_chain(
+            data_frame=df_training_data,
+            plot_name="OBS",
+            columns=[
+                "BDF_T",
+                "BDF_G",
+                "EBV_SFD98"
+            ],
+            parameter=[
+                "BDF T",
+                "BDF G",
+                "EBV_SFD98"
+            ],
+            extends=None
+        )
 
     scaler = None
     if selected_scaler == "MinMaxScaler":

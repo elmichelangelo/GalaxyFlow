@@ -67,6 +67,7 @@ class TrainFlow(object):
                  apply_airmass_cut,
                  apply_unsheared_mag_cut,
                  apply_unsheared_shear_cut,
+                 plot_load_data
                  ):
         super().__init__()
         self.size_training_dataset = size_training_dataset
@@ -90,6 +91,7 @@ class TrainFlow(object):
         self.device = torch.device(device)
         self.act = activation_function
         self.actal_selected_values = None
+        self.plot_load_data = plot_load_data
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
         self.test_batch_size = batch_size
@@ -247,7 +249,8 @@ class TrainFlow(object):
             apply_flag_cut=self.apply_flag_cut,
             apply_airmass_cut=self.apply_airmass_cut,
             apply_unsheared_mag_cut=self.apply_unsheared_mag_cut,
-            apply_unsheared_shear_cut=self.apply_unsheared_shear_cut
+            apply_unsheared_shear_cut=self.apply_unsheared_shear_cut,
+            plot_data=self.plot_load_data
         )
 
         train_tensor = torch.from_numpy(training_data[f"data frame training data"][self.col_output_flow].to_numpy())
@@ -444,7 +447,7 @@ class TrainFlow(object):
             self.optimizer.zero_grad()
             loss = -self.model.log_probs(data, cond_data).mean()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1, error_if_nonfinite=True)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1, error_if_nonfinite=False)
             self.optimizer.step()
             train_loss += loss.data.item() * data.size(0)
             pbar.update(data.size(0))
@@ -516,11 +519,10 @@ class TrainFlow(object):
 
         df_generated_label = pd.DataFrame(cond_data.numpy(), columns=self.col_label_flow)
         df_generated_output = pd.DataFrame(tensor_output.cpu().numpy(), columns=self.col_output_flow)
-        df_generated_concat = pd.concat([df_generated_label, df_generated_output], axis=1)
-        df_generated_scaled.update(df_generated_concat)
-
-        test_generated_rescaled = self.scaler.inverse_transform(df_generated_scaled)
-        df_generated = pd.DataFrame(test_generated_rescaled, columns=df_generated_scaled.keys())
+        df_generated_output = pd.concat([df_generated_label, df_generated_output], axis=1)
+        df_generated_scaled[self.col_label_flow+self.col_output_flow] = df_generated_output
+        generated_rescaled = self.scaler.inverse_transform(df_generated_scaled)
+        df_generated = pd.DataFrame(generated_rescaled, columns=df_generated_scaled.keys())
 
         true = self.scaler.inverse_transform(df_true_scaled)
         df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())

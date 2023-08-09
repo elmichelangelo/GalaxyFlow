@@ -48,6 +48,7 @@ def main(
         apply_airmass_cut,
         apply_unsheared_mag_cut,
         apply_unsheared_shear_cut,
+        plot_load_data,
         run_hyperparameter_tuning=True,
         run=None):
     """"""
@@ -95,6 +96,7 @@ def main(
         apply_airmass_cut=apply_airmass_cut,
         apply_unsheared_mag_cut=apply_unsheared_mag_cut,
         apply_unsheared_shear_cut=apply_unsheared_shear_cut,
+        plot_load_data=plot_load_data
     )
 
     if run_hyperparameter_tuning is True:
@@ -190,6 +192,9 @@ if __name__ == '__main__':
     if not isinstance(weight_decay, list):
         weight_decay = [weight_decay]
 
+    output_cols = cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE']}"]
+    input_cols = cfg[f"INPUT_COLS_{cfg['LUM_TYPE']}"]
+
     if mode == "hyperparameter_tuning":
         for sc in scaler:
             main(
@@ -215,8 +220,8 @@ if __name__ == '__main__':
                 selected_scaler=sc,
                 run_hyperparameter_tuning=True,
                 run=1,
-                col_output_flow=cfg["OUTPUT_COLS"],
-                col_label_flow=cfg["INPUT_COLS"],
+                col_output_flow=output_cols,
+                col_label_flow=input_cols,
                 reproducible=cfg["REPRODUCIBLE"],
                 lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
                 lst_replace_values=cfg["REPLACE_VALUES"],
@@ -226,7 +231,8 @@ if __name__ == '__main__':
                 apply_flag_cut=cfg["APPLY_FLAG_CUT"],
                 apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
                 apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
-                apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"]
+                apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"],
+                plot_load_data=cfg["PLOT_LOAD_DATA"]
             )
     elif mode == "train_flow":
         for run in runs:
@@ -259,8 +265,8 @@ if __name__ == '__main__':
                                         selected_scaler=sc,
                                         run_hyperparameter_tuning=False,
                                         run=run,
-                                        col_output_flow=cfg["OUTPUT_COLS"],
-                                        col_label_flow=cfg["INPUT_COLS"],
+                                        col_output_flow=output_cols,
+                                        col_label_flow=input_cols,
                                         reproducible=cfg["REPRODUCIBLE"],
                                         lst_replace_transform_cols=cfg["TRANSFORM_COLS"],
                                         lst_replace_values=cfg["REPLACE_VALUES"],
@@ -270,7 +276,8 @@ if __name__ == '__main__':
                                         apply_flag_cut=cfg["APPLY_FLAG_CUT"],
                                         apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
                                         apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
-                                        apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"]
+                                        apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"],
+                                        plot_load_data=cfg["PLOT_LOAD_DATA"]
                                     )
     else:
         raise TypeError("Wrong Mode!")
