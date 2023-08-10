@@ -109,7 +109,7 @@ def main(
             "batch_size": tune.grid_search(batch_size),
             "weight_decay": tune.grid_search(weight_decay),
         }
-        trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 5})
+        trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 2})
         tuner = tune.Tuner(
             trainable_with_resources,
             run_config=air.RunConfig(local_dir=path_output, name="run_1"),
@@ -127,9 +127,9 @@ def main(
 
 if __name__ == '__main__':
     if get_os() == "Mac":
-        config_file_name = "mac_mag.cfg"
+        config_file_name = "mac.cfg"
     elif get_os() == "Windows":
-        config_file_name = "windows_mag.cfg"
+        config_file_name = "windows.cfg"
     else:
         raise "OS Error"
 

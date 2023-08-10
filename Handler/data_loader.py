@@ -38,6 +38,7 @@ def load_data(
         apply_unsheared_mag_cut,
         apply_unsheared_shear_cut,
         selected_scaler,
+        writer,
         lst_replace_transform_cols=None,
         lst_replace_values=None,
         reproducible=True,
@@ -86,7 +87,7 @@ def load_data(
         df_training_data = df_training_data.sample(frac=1)
 
     if plot_data is True:
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name=f"unsheared_{luminosity_type.lower()}",
             columns=[
@@ -105,10 +106,12 @@ def load_data(
                     "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
                     "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
                 ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("unsheared chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name=f"unsheared_{luminosity_type.lower()}",
             columns=[
@@ -127,10 +130,12 @@ def load_data(
                 "size ratio",  # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
                 "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("unsheared error chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name=f"BDF_{luminosity_type.upper()}",
             columns=[
@@ -153,10 +158,12 @@ def load_data(
                 f"BDF {luminosity_type.upper()} H",
                 f"BDF {luminosity_type.upper()} K",
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("BDF chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name=f"BDF_{luminosity_type.upper()}",
             columns=[
@@ -179,10 +186,12 @@ def load_data(
                 f"BDF {luminosity_type.upper()} ERR H",
                 f"BDF {luminosity_type.upper()} ERR K",
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("BDF error chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name=f"BDF_COLOR_{luminosity_type.upper()}",
             columns=[
@@ -203,10 +212,12 @@ def load_data(
                 f"{luminosity_type.upper()} J-H",
                 f"{luminosity_type.upper()} H-K",
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("COLOR BDF chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name="AIRMASS",
             columns=[
@@ -219,10 +230,12 @@ def load_data(
                 "AIRMASS I",
                 "AIRMASS Z"
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("AIRMASS chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name="FWHM",
             columns=[
@@ -235,10 +248,12 @@ def load_data(
                 "FWHM I",
                 "FWHM Z"
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("FWHM chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name="MAGLIM",
             columns=[
@@ -251,10 +266,12 @@ def load_data(
                 "MAGLIM I",
                 "MAGLIM Z"
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("MAGLIM chain plot", img_grid)
 
-        plot_chain(
+        img_grid = plot_chain(
             data_frame=df_training_data,
             plot_name="OBS",
             columns=[
@@ -267,8 +284,10 @@ def load_data(
                 "BDF G",
                 "EBV_SFD98"
             ],
-            extends=None
+            extends=None,
+            show_plot=False
         )
+        writer.add_image("GALAXY chain plot", img_grid)
 
     scaler = None
     if selected_scaler == "MinMaxScaler":

@@ -22,7 +22,7 @@ def plot_to_tensor():
 
 
 def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
-               parameter=None, extends=None):
+               parameter=None, extends=None, show_plot=False):
     """
 
     :param extends: extents={
@@ -95,8 +95,12 @@ def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_si
         figsize="page",
         extents=extends
     )
-    plt.show()
+    img_tensor = plot_to_tensor()
+    if show_plot is True:
+        plt.show()
     plt.clf()
+    plt.close()
+    return img_tensor
 
 
 def loss_plot(
@@ -184,8 +188,8 @@ def loss_plot(
     # Clear and close open figure to avoid memory overload
     img_tensor = plot_to_tensor()
     statistical_figure.clf()
-    plt.close(statistical_figure)
     plt.clf()
+    plt.close(statistical_figure)
     return img_tensor
 
 
@@ -359,6 +363,7 @@ def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, 
         plt.show()
     img_tensor = plot_to_tensor()
     plt.clf()
+    plt.close()
     return img_tensor
 
 
@@ -395,7 +400,6 @@ def plot_mean_or_std(data_frame_generated, data_frame_true, lists_to_plot, list_
     img_tensor = plot_to_tensor()
     plt.clf()
     plt.close()
-
     return lists_to_plot, img_tensor
 
 
@@ -445,6 +449,8 @@ def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title=
     ax.set_ylabel(y_label)
     plt.title(title)
     img_tensor = plot_to_tensor()
+    plt.clf()
+    plt.close()
     return img_tensor
 
 
@@ -501,6 +507,8 @@ def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", 
     ax.set_ylabel(y_label)
     plt.title(title)
     img_tensor = plot_to_tensor()
+    plt.clf()
+    plt.close()
     return img_tensor
 
 

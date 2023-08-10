@@ -12,6 +12,7 @@ import torch.nn
 import torchvision.utils
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+from tensorboard.plugins.hparams import api as hp
 import galaxyflow.flow as fnn
 import pandas as pd
 from Handler.data_loader import load_data
@@ -209,7 +210,9 @@ class TrainFlow(object):
 
             self.global_step = 0
             self.best_validation_loss = float('inf')
-            self.best_validation_epoch = 0
+            self.best_validation_epoch = 1
+            self.best_train_loss = float('inf')
+            self.best_train_epoch = 1
             self.best_model = self.model
 
     def make_dirs(self):
@@ -271,7 +274,8 @@ class TrainFlow(object):
             apply_airmass_cut=self.apply_airmass_cut,
             apply_unsheared_mag_cut=self.apply_unsheared_mag_cut,
             apply_unsheared_shear_cut=self.apply_unsheared_shear_cut,
-            plot_data=self.plot_load_data
+            plot_data=self.plot_load_data,
+            writer=self.writer
         )
 
         train_tensor = torch.from_numpy(training_data[f"data frame training data"][self.col_output_flow].to_numpy())
@@ -399,8 +403,6 @@ class TrainFlow(object):
     def run_training(self):
 
         for epoch in range(self.epochs):
-            # print('\nEpoch: {}'.format(epoch + 1))
-
             train_loss_epoch = self.train(
                 epoch=epoch
             )
@@ -418,17 +420,45 @@ class TrainFlow(object):
                 self.best_model = copy.deepcopy(self.model)
                 self.best_model.eval()
 
+            if train_loss_epoch < self.best_train_loss:
+                self.best_train_epoch = epoch
+                self.best_train_loss = train_loss_epoch
+
             if epoch - self.best_validation_epoch >= 30:
                 break
 
-            # print(f"Best validation at epoch {self.best_validation_epoch + 1}"
-            #       f"\t Average Log Likelihood {-self.best_validation_loss}")
+            print(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
+                  f"best validation loss: {-self.best_validation_loss}\t"
+                  f"learning rate: {self.lr}\t"
+                  f"num_hidden: {self.num_hidden}\t"
+                  f"num_blocks: {self.num_blocks}\t"
+                  f"batch_size: {self.batch_size}")
 
             if self.plot_test is True:
                 self.plot_data(epoch=epoch)
 
             if self.run_hyperparameter_tuning is True:
                 ray.tune.report(loss=train_loss_epoch)
+
+            for name, param in self.model.named_parameters():
+                self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
+
+        self.writer.add_hparams(
+            hparam_dict={
+                "learning rate": self.lr,
+                "batch size": self.batch_size,
+                "number hidden": self.num_hidden,
+                "number blocks": self.num_blocks},
+            metric_dict={
+                "hparam/last training loss": train_loss_epoch,
+                "hparam/last validation loss": validation_loss,
+                "hparam/best validation loss": self.best_validation_loss,
+                "hparam/best train loss": self.best_train_loss,
+                "hparam/best validation epoch": self.best_validation_epoch,
+                "hparam/best train epoch": self.best_train_epoch,
+            },
+            run_name=f"final result"
+        )
 
         if self.plot_test is True:
             lst_gif = [
@@ -455,6 +485,7 @@ class TrainFlow(object):
             torch.save(self.best_model, f"{self.path_save_nn}/best_model_des_epoch_{self.best_validation_epoch+1}_run_{self.run}.pt")
             torch.save(self.model, f"{self.path_save_nn}/last_model_des_epoch_{self.epochs}_run_{self.run}.pt")
 
+        self.writer.flush()
         self.writer.close()
 
     def train(self, epoch):
