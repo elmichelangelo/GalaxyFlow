@@ -208,6 +208,9 @@ class TrainFlow(object):
                     self.writer.close()
                     break
 
+                total_parameters = count_parameters(self.model)
+                print(f"Total trainable parameters: {total_parameters}")
+
             self.global_step = 0
             self.best_validation_loss = float('inf')
             self.best_validation_epoch = 1
