@@ -1,9 +1,5 @@
-import ray
-from ray import tune
-from ray import air
+
 from datetime import datetime
-from ray.tune import CLIReporter
-from ray.tune.schedulers import ASHAScheduler
 import torch.cuda
 from Handler.helper_functions import get_os
 from galaxyflow.training import TrainFlow
@@ -101,6 +97,11 @@ def main(
     )
 
     if run_hyperparameter_tuning is True:
+        import ray
+        from ray import tune
+        from ray import air
+        from ray.tune import CLIReporter
+        from ray.tune.schedulers import ASHAScheduler
         ray.init()
         search_space = {
             "learning_rate": tune.grid_search(learning_rate),
@@ -128,12 +129,17 @@ def main(
 if __name__ == '__main__':
     if get_os() == "Mac":
         config_file_name = "mac.cfg"
+        path = os.path.abspath(sys.path[1])
     elif get_os() == "Windows":
         config_file_name = "windows.cfg"
+        path = os.path.abspath(sys.path[1])
+    elif get_os() == "Linux":
+        config_file_name = "linux.cfg"
+        path = os.path.abspath(sys.path[0])
     else:
-        raise "OS Error"
-
-    path = os.path.abspath(sys.path[1])
+        print(f"OS Error: {get_os()}")
+    
+    
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
         '--config_filename',

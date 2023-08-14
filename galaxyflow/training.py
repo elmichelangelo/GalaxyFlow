@@ -4,7 +4,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-import ray
 import torch
 import torch.optim as optim
 import torch.utils.data
@@ -441,6 +440,7 @@ class TrainFlow(object):
                 self.plot_data(epoch=epoch)
 
             if self.run_hyperparameter_tuning is True:
+                import ray
                 ray.tune.report(loss=train_loss_epoch)
 
             for name, param in self.model.named_parameters():
