@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
-from Handler.helper_functions import replace_and_transform_data
+from Handler.helper_functions import yj_transform_data
 from Handler.plot_functions import plot_chain
 from Handler.cut_functions import *
 import numpy as np
@@ -39,8 +39,7 @@ def load_data(
         apply_unsheared_shear_cut,
         selected_scaler,
         writer,
-        lst_replace_transform_cols=None,
-        lst_replace_values=None,
+        lst_yj_transform_cols=None,
         reproducible=True,
         run=None,
         plot_data=False
@@ -74,10 +73,9 @@ def load_data(
     if apply_airmass_cut is True:
         df_training_data = airmass_cut(df_training_data)
 
-    df_training_data, dict_pt = replace_and_transform_data(
+    df_training_data, dict_pt = yj_transform_data(
         data_frame=df_training_data,
-        columns=lst_replace_transform_cols,
-        replace_value=lst_replace_values
+        columns=lst_yj_transform_cols
     )
 
     if reproducible is True:

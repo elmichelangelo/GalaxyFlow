@@ -198,25 +198,29 @@ def replace_values(data_frame, replace_value):
     return data_frame
 
 
-def replace_and_transform_data(data_frame, columns, replace_value=None):
+def unreplace_values(data_frame, replace_value):
+    for col in replace_value.keys():
+        if replace_value[col] is not None:
+            data_frame[col] = data_frame[col].replace(replace_value[col][1], replace_value[col][0])
+    return data_frame
+
+
+def yj_transform_data(data_frame, columns):
     """"""
     dict_pt = {}
     for col in columns:
         pt = PowerTransformer(method="yeo-johnson")
-        # data_frame = replace_value(data_frame, replace_value)
         pt.fit(np.array(data_frame[col]).reshape(-1, 1))
         data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
         dict_pt[f"{col} pt"] = pt
     return data_frame, dict_pt
 
 
-def unreplace_and_untransform_data(data_frame, dict_pt, columns, replace_value=None):
+def yj_inverse_transform_data(data_frame, dict_pt, columns):
     """"""
     for col in columns:
         pt = dict_pt[f"{col} pt"]
         data_frame[col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
-        if replace_value[col] is not None:
-            data_frame[col] = data_frame[col].replace(replace_value[col][1], replace_value[col][0])
     return data_frame
 
 

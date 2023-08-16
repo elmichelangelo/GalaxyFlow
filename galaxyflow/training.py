@@ -57,7 +57,7 @@ class TrainFlow(object):
                  do_flags_plot,
                  do_detected_plot,
                  run_hyperparameter_tuning,
-                 lst_replace_transform_cols,
+                 lst_yj_transform_cols,
                  lst_replace_values,
                  lst_fill_na,
                  run,
@@ -96,7 +96,7 @@ class TrainFlow(object):
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
         self.test_batch_size = batch_size
-        self.lst_replace_transform_cols = lst_replace_transform_cols
+        self.lst_yj_transform_cols = lst_yj_transform_cols
         self.lst_replace_values = lst_replace_values
         self.lst_fill_na = lst_fill_na
         self.lst_epochs = []
@@ -269,8 +269,7 @@ class TrainFlow(object):
             size_test_dataset=self.size_test_dataset,
             reproducible=self.reproducible,
             run=self.run,
-            lst_replace_transform_cols=self.lst_replace_transform_cols,
-            lst_replace_values=self.lst_replace_values,
+            lst_yj_transform_cols=self.lst_yj_transform_cols,
             apply_object_cut=self.apply_object_cut,
             apply_flag_cut=self.apply_flag_cut,
             apply_airmass_cut=self.apply_airmass_cut,
@@ -426,8 +425,8 @@ class TrainFlow(object):
                 self.best_train_epoch = epoch
                 self.best_train_loss = train_loss_epoch
 
-            if epoch - self.best_validation_epoch >= 30:
-                break
+            # if epoch - self.best_validation_epoch >= 30:
+            #     break
 
             print(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
                   f"best validation loss: {-self.best_validation_loss}\t"
@@ -604,10 +603,14 @@ class TrainFlow(object):
             df_true[f"meas {b} - true {b}"] = df_true[f'unsheared/{self.luminosity_type.lower()}_{b}'] - df_true[f'BDF_{self.luminosity_type.upper()}_DERED_CALIB_{b.upper()}']
 
         df_true_cut = df_true.copy()
-        df_true_cut = unreplace_and_untransform_data(
+        df_true_cut = yj_inverse_transform_data(
             data_frame=df_true_cut,
             dict_pt=self.df_test["power transformer"],
-            columns=self.lst_replace_transform_cols,
+            columns=self.lst_yj_transform_cols
+        )
+
+        df_true_cut = unreplace_values(
+            data_frame=df_true_cut,
             replace_value=self.lst_replace_values
         )
 
@@ -623,10 +626,14 @@ class TrainFlow(object):
             df_true_cut = airmass_cut(data_frame=df_true_cut)
 
         df_generated_cut = df_generated.copy()
-        df_generated_cut = unreplace_and_untransform_data(
+        df_generated_cut = yj_inverse_transform_data(
             data_frame=df_generated_cut,
             dict_pt=self.df_test["power transformer"],
-            columns=self.lst_replace_transform_cols,
+            columns=self.lst_yj_transform_cols
+        )
+
+        df_generated_cut = unreplace_values(
+            data_frame=df_generated_cut,
             replace_value=self.lst_replace_values
         )
 
