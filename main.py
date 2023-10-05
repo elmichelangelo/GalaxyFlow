@@ -242,6 +242,8 @@ if __name__ == '__main__':
                 plot_load_data=cfg["PLOT_LOAD_DATA"]
             )
     elif mode == "train_flow":
+        path_data = "/Users/P.Gebhardt/Development/PhD/data/"
+        path_output = "/Users/P.Gebhardt/Development/PhD/output/gaNdalF/"
         for lr in learning_rate:
             for wd in weight_decay:
                 for nh in number_hidden:
@@ -249,12 +251,12 @@ if __name__ == '__main__':
                         for bs in batch_size:
                             for sc in scaler:
                                 main(
-                                    path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
+                                    path_train_data=f"{path_data}{cfg['DATA_FILE_NAME']}",
                                     size_training_dataset=cfg["SIZE_TRAINING_DATA"],
                                     size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
                                     size_test_dataset=cfg["SIZE_TEST_DATA"],
                                     luminosity_type=cfg["LUM_TYPE"],
-                                    path_output=f"{path}/Output",
+                                    path_output=path_output,
                                     plot_test=cfg["PLOT_TEST"],
                                     show_plot=cfg["SHOW_PLOT"],
                                     save_plot=cfg["SAVE_PLOT"],
