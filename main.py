@@ -129,7 +129,7 @@ def main(
 if __name__ == '__main__':
     if get_os() == "Mac":
         config_file_name = "mac.cfg"
-        path = os.path.abspath(sys.path[1])
+        path = os.path.abspath(sys.path[0])
     elif get_os() == "Windows":
         config_file_name = "windows.cfg"
         path = os.path.abspath(sys.path[1])
@@ -138,8 +138,7 @@ if __name__ == '__main__':
         path = os.path.abspath(sys.path[0])
     else:
         print(f"OS Error: {get_os()}")
-    
-    
+
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
         '--config_filename',

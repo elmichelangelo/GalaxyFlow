@@ -1,9 +1,12 @@
 from Handler.data_loader import load_test_data
 from chainconsumer import ChainConsumer
+from Handler.helper_functions import yj_transform_data
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
 from scipy.stats import binned_statistic, median_abs_deviation
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import yaml
 import torch
 import os
 import sys
@@ -17,7 +20,7 @@ def load_model(path_model):
 
 
 def main(path_test_data, path_model, path_save_plots, path_save_generated_data, run, number_samples, plot_chain,
-         plot_residual, plot_luptize_conditions, conditions, bands, colors, save_generated_data, plot_hist):
+         plot_residual, plot_luptize_conditions, conditions, bands, colors, save_generated_data, plot_hist, cfg):
     col_label_flow = [
         "BDF_MAG_DERED_CALIB_U",
         "BDF_MAG_DERED_CALIB_G",
@@ -66,8 +69,7 @@ def main(path_test_data, path_model, path_save_plots, path_save_generated_data, 
         "unsheared/snr",
         "unsheared/size_ratio",
         "unsheared/flags",
-        "unsheared/T",
-        "detected"
+        "unsheared/T"
     ]
     print("Load data...")
 
@@ -77,14 +79,14 @@ def main(path_test_data, path_model, path_save_plots, path_save_generated_data, 
         run=run
     )
 
-    test_data = load_test_data(
+    dict_test_data, df_test_data = load_test_data(
         path_test_data=path_test_data
     )
-    scaler = test_data["scaler"]
 
+    scaler = dict_test_data["scaler"]
     # # Write data as torch loader
-    test_tensor = torch.from_numpy(test_data[f"output flow in order {col_output_flow}"])
-    test_labels = torch.from_numpy(test_data[f"label flow in order {col_label_flow}"])
+    test_tensor = torch.from_numpy(np.array(df_test_data[cfg["OUTPUT_COLS_MAG"]]))
+    test_labels = torch.from_numpy(np.array(df_test_data[cfg["INPUT_COLS_MAG"]]))
     test_dataset = torch.utils.data.TensorDataset(test_tensor, test_labels)
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
@@ -93,20 +95,6 @@ def main(path_test_data, path_model, path_save_plots, path_save_generated_data, 
         drop_last=False,
         # **kwargs
     )
-
-    # scaler = all_data["scaler"]
-    #
-    # # Write data as torch loader
-    # all_tensor = torch.from_numpy(all_data[f"output flow in order {col_output_flow}"])
-    # all_labels = torch.from_numpy(all_data[f"label flow in order {col_label_flow}"])
-    # all_dataset = torch.utils.data.TensorDataset(all_tensor, all_labels)
-    # all_loader = torch.utils.data.DataLoader(
-    #     all_dataset,
-    #     batch_size=len(all_dataset),
-    #     shuffle=False,
-    #     drop_last=False,
-    #     # **kwargs
-    # )
 
     print("Load model...")
     model = load_model(path_model)
@@ -125,6 +113,7 @@ def main(path_test_data, path_model, path_save_plots, path_save_generated_data, 
         print("Plot data")
         df_true, df_generated = plot_data(
             path_save_plots=path_save_plots,
+            df_test_data=df_test_data,
             cond_data=cond_data,
             test_output=test_output,
             col_label_flow=col_label_flow,
@@ -188,17 +177,37 @@ def main(path_test_data, path_model, path_save_plots, path_save_generated_data, 
         break
 
 
-def plot_data(path_save_plots, cond_data, test_output, col_label_flow, col_output_flow, scaler, true_data,
+def plot_data(path_save_plots, df_test_data, cond_data, test_output, col_label_flow, col_output_flow, scaler, true_data,
               plot_chain, plot_residual, plot_luptize_conditions, conditions, bands, colors, plot_hist):
 
-    df_generator_label = pd.DataFrame(cond_data.numpy(), columns=col_label_flow)
-    df_generator_output = pd.DataFrame(test_output.numpy(), columns=col_output_flow)
-    df_generator_scaled = pd.concat([df_generator_label, df_generator_output], axis=1)
-    generator_rescaled = scaler.inverse_transform(df_generator_scaled)
-    df_generated = pd.DataFrame(generator_rescaled, columns=df_generator_scaled.columns)
+    df_generated_scaled = df_test_data.copy()
+    df_true_scaled = df_test_data.copy()
 
+    lst_del_cols = [
+        "Color Mag U-G",
+        "Color Mag G-R",
+        "Color Mag R-I",
+        "Color Mag I-Z",
+        "Color Mag Z-J",
+        "Color Mag J-H",
+        "Color Mag H-K"
+    ]
+
+    df_generated_label = pd.DataFrame(cond_data.numpy(), columns=col_label_flow)
+    df_generated_output = pd.DataFrame(test_output.numpy(), columns=col_output_flow)
+    df_generated_output = pd.concat([df_generated_label, df_generated_output], axis=1)
+    df_generated_scaled[col_label_flow + col_output_flow] = df_generated_output
+    for col in lst_del_cols:
+        del df_generated_scaled[col]
+    generator_rescaled = scaler.inverse_transform(df_generated_scaled)
+    df_generated = pd.DataFrame(generator_rescaled, columns=df_generated_scaled.columns)
+
+    df_true_label = df_generated_label
     df_true_output = pd.DataFrame(true_data, columns=col_output_flow)
-    df_true_scaled = pd.concat([df_generator_label, df_true_output], axis=1)
+    df_true_output = pd.concat([df_true_label, df_true_output], axis=1)
+    df_true_scaled[col_label_flow + col_output_flow] = df_true_output
+    for col in lst_del_cols:
+        del df_true_scaled[col]
     true_rescaled = scaler.inverse_transform(df_true_scaled)
     df_true = pd.DataFrame(true_rescaled, columns=df_true_scaled.columns)
 
@@ -498,8 +507,12 @@ def save_emulated_cat(path_save_generated_data, df_generated, df_true, run):
         pickle.dump(df_true.to_dict(), f, protocol=2)
     # df_data.to_pickle(path_save_catalog)
 
+
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[0])
+    path_data = "/Users/P.Gebhardt/Development/PhD/data"
+    path_output = "/Users/P.Gebhardt/Development/PhD/output/run_gaNdalF"
+    path_nn = "/Users/P.Gebhardt/Development/PhD/trained_models"
     lst_conditions = [
         "BDF_MAG_DERED_CALIB_U",
         "BDF_MAG_DERED_CALIB_G",
@@ -547,12 +560,16 @@ if __name__ == '__main__':
         ("i", "z")
     ]
     # for run in range(10):
-    run = 0
+    run = None
+
+    with open(f"{path}/../files/conf/mac.cfg", 'r') as fp:
+        cfg = yaml.load(fp, Loader=yaml.Loader)
+
     main(
-        path_test_data=f"{path}/Data/df_test_data_651028_run_0.pkl",
-        path_model=f"{path}/../trained_models/best_model_des_epoch_2_run_{run}.pt",
-        path_save_plots=f"{path}/output_run_flow_DES",
-        path_save_generated_data=f"{path}/generated_data",
+        path_test_data=f"{path_data}/df_complete_data_250000.pkl",
+        path_model=f"{path_nn}/last_model_des_epoch_10_run_2023-10-08_20-19.pt",
+        path_save_plots=f"{path_output}/Plots",
+        path_save_generated_data=f"{path_output}/Catalogs",
         run=run,
         number_samples=None,
         plot_chain=True,
@@ -562,6 +579,7 @@ if __name__ == '__main__':
         conditions=lst_conditions,
         bands=lst_bands,
         colors=lst_colors,
-        save_generated_data=True
+        save_generated_data=True,
+        cfg=cfg
     )
 

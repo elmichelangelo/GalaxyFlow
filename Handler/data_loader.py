@@ -18,11 +18,14 @@ def load_test_data(path_test_data):
     infile = open(path_test_data, 'rb')  # filename
 
     # load pickle as pandas dataframe
-    data = pickle.load(infile, encoding='latin1')
+    dict_data = pickle.load(infile, encoding='latin1')
 
     # close file
     infile.close()
-    return data
+
+    data = dict_data["data frame complete data"]
+
+    return dict_data, data
 
 
 def load_data(
@@ -298,7 +301,7 @@ def load_data(
         pass
     else:
         raise TypeError(f"{selected_scaler} is no valid scaler")
-
+    df_training_data = df_training_data.drop(columns=["FIELD"])
     if scaler is not None:
         scaler.fit(df_training_data)
         scaled = scaler.transform(df_training_data)
@@ -345,6 +348,19 @@ def load_data(
         "scaler": scaler,
         "power transformer": dict_pt
     }
+    dict_complete_data = {
+        f"data frame complete data": pd.DataFrame(
+            data=arr_data_scaled,
+            columns=df_training_data.columns
+        ),
+        f"data frame complete data unscaled": pd.DataFrame(
+            data=arr_data,
+            columns=df_training_data.columns
+        ),
+        f"columns": df_training_data.columns,
+        "scaler": scaler,
+        "power transformer": dict_pt
+    }
 
     with open(
             f"{path_output}/df_train_data_{len(dict_training_data[f'data frame training data'])}_run_{run}.pkl",
@@ -357,6 +373,10 @@ def load_data(
     with open(f"{path_output}/df_test_data_{len(dict_test_data[f'data frame test data'])}_run_{run}.pkl",
               "wb") as f:
         pickle.dump(dict_test_data, f, protocol=2)
+    with open(
+            f"{path_output}/df_complete_data_{len(dict_complete_data[f'data frame complete data'])}.pkl",
+            "wb") as f:
+        pickle.dump(dict_complete_data, f)
 
     return dict_training_data, dict_validation_data, dict_test_data
 
