@@ -128,12 +128,15 @@ def main(
 
 if __name__ == '__main__':
     if get_os() == "Mac":
+        print("load mac config-file")
         config_file_name = "mac.cfg"
         path = os.path.abspath(sys.path[0])
     elif get_os() == "Windows":
+        print("load windows config-file")
         config_file_name = "windows.cfg"
         path = os.path.abspath(sys.path[1])
     elif get_os() == "Linux":
+        print("load linux config-file")
         config_file_name = "linux.cfg"
         path = os.path.abspath(sys.path[0])
     else:
@@ -241,8 +244,8 @@ if __name__ == '__main__':
                 plot_load_data=cfg["PLOT_LOAD_DATA"]
             )
     elif mode == "train_flow":
-        path_data = "/Users/P.Gebhardt/Development/PhD/data/"
-        path_output = "/Users/P.Gebhardt/Development/PhD/output/gaNdalF/"
+        path_data = cfg["PATH_DATA"]
+        path_output = cfg["PATH_OUTPUT"]
         for lr in learning_rate:
             for wd in weight_decay:
                 for nh in number_hidden:

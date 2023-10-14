@@ -89,6 +89,7 @@ class TrainFlow(object):
         self.save_plot = save_plot
         self.save_nn = save_nn
         self.reproducible = reproducible
+        print("device", device, type(device))
         self.device = torch.device(device)
         self.act = activation_function
         self.actal_selected_values = None
