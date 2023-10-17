@@ -26,6 +26,7 @@ import seaborn as sns
 class TrainFlow(object):
 
     def __init__(self,
+                 cfg,
                  path_train_data,
                  size_training_dataset,
                  size_validation_dataset,
@@ -190,6 +191,7 @@ class TrainFlow(object):
                         f"batch size: {self.batch_size}"
             )
             self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset(
+                cfg=cfg,
                 path_train_data=path_train_data,
                 selected_scaler=selected_scaler
             )
@@ -258,9 +260,10 @@ class TrainFlow(object):
             if not os.path.exists(self.path_save_nn):
                 os.mkdir(self.path_save_nn)
 
-    def init_dataset(self, path_train_data, selected_scaler):
+    def init_dataset(self, cfg, path_train_data, selected_scaler):
         """"""
         training_data, validation_data, test_data = load_data(
+            cfg=cfg,
             path_training_data=path_train_data,
             path_output=self.path_output,
             luminosity_type=self.luminosity_type,

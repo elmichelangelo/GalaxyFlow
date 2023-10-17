@@ -29,6 +29,7 @@ def load_test_data(path_test_data):
 
 
 def load_data(
+        cfg,
         path_training_data,
         path_output,
         luminosity_type,
@@ -362,21 +363,34 @@ def load_data(
         "power transformer": dict_pt
     }
 
+    
     with open(
             f"{path_output}/df_train_data_{len(dict_training_data[f'data frame training data'])}_run_{run}.pkl",
             "wb") as f:
-        pickle.dump(dict_training_data, f, protocol=2)
+        if cfg["PROTOCOL"] == 2:
+            pickle.dump(dict_training_data, f, protocol=2)
+        else:
+            pickle.dump(dict_training_data, f)
     with open(
             f"{path_output}/df_validation_data_{len(dict_validation_data[f'data frame validation data'])}_run_{run}.pkl",
             "wb") as f:
-        pickle.dump(dict_validation_data, f, protocol=2)
+        if cfg["PROTOCOL"] == 2:
+            pickle.dump(dict_validation_data, f, protocol=2)
+        else:
+            pickle.dump(dict_validation_data, f)
     with open(f"{path_output}/df_test_data_{len(dict_test_data[f'data frame test data'])}_run_{run}.pkl",
               "wb") as f:
-        pickle.dump(dict_test_data, f, protocol=2)
+        if cfg["PROTOCOL"] == 2:
+            pickle.dump(dict_test_data, f, protocol=2)
+        else:
+            pickle.dump(dict_test_data, f)
     with open(
             f"{path_output}/df_complete_data_{len(dict_complete_data[f'data frame complete data'])}.pkl",
             "wb") as f:
-        pickle.dump(dict_complete_data, f)
+        if cfg["PROTOCOL"] == 2:
+            pickle.dump(dict_complete_data, f, protocol=2)
+        else:
+            pickle.dump(dict_complete_data, f)
 
     return dict_training_data, dict_validation_data, dict_test_data
 

@@ -13,6 +13,7 @@ plt.rcParams["figure.figsize"] = (16, 9)
 
 
 def main(
+        cfg,
         path_train_data,
         size_training_dataset,
         size_validation_dataset,
@@ -51,6 +52,7 @@ def main(
     """"""
 
     train_flow = TrainFlow(
+        cfg=cfg,
         path_train_data=path_train_data,
         size_training_dataset=size_training_dataset,
         size_validation_dataset=size_validation_dataset,
@@ -74,13 +76,13 @@ def main(
         valid_batch_size=valid_batch_size,
         selected_scaler=selected_scaler,
         do_loss_plot=True,
-        do_color_color_plot=True,
-        do_residual_plot=True,
-        do_chain_plot=True,
-        do_mean_plot=True,
-        do_std_plot=True,
-        do_flags_plot=True,
-        do_detected_plot=True,
+        do_color_color_plot=False,
+        do_residual_plot=False,
+        do_chain_plot=False,
+        do_mean_plot=False,
+        do_std_plot=False,
+        do_flags_plot=False,
+        do_detected_plot=False,
         run_hyperparameter_tuning=run_hyperparameter_tuning,
         lst_replace_values=lst_replace_values,
         lst_yj_transform_cols=lst_yj_transform_cols,
@@ -207,6 +209,7 @@ if __name__ == '__main__':
     if mode == "hyperparameter_tuning":
         for sc in scaler:
             main(
+                cfg=cfg,
                 path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
                 size_training_dataset=cfg["SIZE_TRAINING_DATA"],
                 size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
@@ -253,6 +256,7 @@ if __name__ == '__main__':
                         for bs in batch_size:
                             for sc in scaler:
                                 main(
+                                    cfg=cfg,
                                     path_train_data=f"{path_data}{cfg['DATA_FILE_NAME']}",
                                     size_training_dataset=cfg["SIZE_TRAINING_DATA"],
                                     size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
