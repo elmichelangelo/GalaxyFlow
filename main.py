@@ -129,18 +129,17 @@ def main(
 
 
 if __name__ == '__main__':
+    sys.path.append(os.path.dirname(__file__))
+    path = os.path.abspath(sys.path[-1])
     if get_os() == "Mac":
         print("load mac config-file")
         config_file_name = "mac.cfg"
-        path = os.path.abspath(sys.path[0])
     elif get_os() == "Windows":
         print("load windows config-file")
         config_file_name = "windows.cfg"
-        path = os.path.abspath(sys.path[1])
     elif get_os() == "Linux":
         print("load linux config-file")
         config_file_name = "linux.cfg"
-        path = os.path.abspath(sys.path[0])
     else:
         print(f"OS Error: {get_os()}")
 
@@ -180,9 +179,9 @@ if __name__ == '__main__':
         mode = args.mode
         cfg["MODE"] = mode
 
-    runs = cfg["RUNS"]
     now = datetime.now()
     run = now.strftime('%Y-%m-%d_%H-%M')
+
     batch_size = cfg["BATCH_SIZE"]
     scaler = cfg["SCALER"]
     number_hidden = cfg["NUMBER_HIDDEN"]
@@ -205,93 +204,50 @@ if __name__ == '__main__':
 
     output_cols = cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE']}"]
     input_cols = cfg[f"INPUT_COLS_{cfg['LUM_TYPE']}"]
+    path_data = cfg["PATH_DATA"]
+    path_output = cfg["PATH_OUTPUT"]
 
-    if mode == "hyperparameter_tuning":
-        for sc in scaler:
-            main(
-                cfg=cfg,
-                path_train_data=f"{path}/Data/{cfg['DATA_FILE_NAME']}",
-                size_training_dataset=cfg["SIZE_TRAINING_DATA"],
-                size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
-                size_test_dataset=cfg["SIZE_TEST_DATA"],
-                luminosity_type=cfg["LUM_TYPE"],
-                path_output=f"{path}/Output",
-                plot_test=cfg["PLOT_TEST"],
-                show_plot=cfg["SHOW_PLOT"],
-                save_plot=cfg["SAVE_PLOT"],
-                save_nn=cfg["SAVE_NN"],
-                learning_rate=learning_rate,
-                weight_decay=weight_decay,
-                number_hidden=number_hidden,
-                number_blocks=number_blocks,
-                epochs=cfg["EPOCHS"],
-                device=cfg["DEVICE"],
-                activation_function=cfg["ACTIVATION_FUNCTION"],
-                batch_size=batch_size,
-                valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
-                selected_scaler=sc,
-                run_hyperparameter_tuning=True,
-                run=run,
-                col_output_flow=output_cols,
-                col_label_flow=input_cols,
-                reproducible=cfg["REPRODUCIBLE"],
-                lst_yj_transform_cols=cfg["TRANSFORM_COLS"],
-                lst_replace_values=cfg["REPLACE_VALUES"],
-                lst_fill_na=cfg["FILL_NA"],
-                apply_fill_na=cfg["APPLY_FILL_NA"],
-                apply_object_cut=cfg["APPLY_OBJECT_CUT"],
-                apply_flag_cut=cfg["APPLY_FLAG_CUT"],
-                apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
-                apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
-                apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"],
-                plot_load_data=cfg["PLOT_LOAD_DATA"]
-            )
-    elif mode == "train_flow":
-        path_data = cfg["PATH_DATA"]
-        path_output = cfg["PATH_OUTPUT"]
-        for lr in learning_rate:
-            for wd in weight_decay:
-                for nh in number_hidden:
-                    for nb in number_blocks:
-                        for bs in batch_size:
-                            for sc in scaler:
-                                main(
-                                    cfg=cfg,
-                                    path_train_data=f"{path_data}{cfg['DATA_FILE_NAME']}",
-                                    size_training_dataset=cfg["SIZE_TRAINING_DATA"],
-                                    size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
-                                    size_test_dataset=cfg["SIZE_TEST_DATA"],
-                                    luminosity_type=cfg["LUM_TYPE"],
-                                    path_output=path_output,
-                                    plot_test=cfg["PLOT_TEST"],
-                                    show_plot=cfg["SHOW_PLOT"],
-                                    save_plot=cfg["SAVE_PLOT"],
-                                    save_nn=cfg["SAVE_NN"],
-                                    learning_rate=lr,
-                                    weight_decay=wd,
-                                    number_hidden=nh,
-                                    number_blocks=nb,
-                                    epochs=cfg["EPOCHS"],
-                                    device=cfg["DEVICE"],
-                                    activation_function=cfg["ACTIVATION_FUNCTION"],
-                                    batch_size=bs,
-                                    valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
-                                    selected_scaler=sc,
-                                    run_hyperparameter_tuning=False,
-                                    run=run,
-                                    col_output_flow=output_cols,
-                                    col_label_flow=input_cols,
-                                    reproducible=cfg["REPRODUCIBLE"],
-                                    lst_yj_transform_cols=cfg["TRANSFORM_COLS"],
-                                    lst_replace_values=cfg["REPLACE_VALUES"],
-                                    lst_fill_na=cfg["FILL_NA"],
-                                    apply_fill_na=cfg["APPLY_FILL_NA"],
-                                    apply_object_cut=cfg["APPLY_OBJECT_CUT"],
-                                    apply_flag_cut=cfg["APPLY_FLAG_CUT"],
-                                    apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
-                                    apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
-                                    apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"],
-                                    plot_load_data=cfg["PLOT_LOAD_DATA"]
-                                )
-    else:
-        raise TypeError("Wrong Mode!")
+    for lr in learning_rate:
+        for wd in weight_decay:
+            for nh in number_hidden:
+                for nb in number_blocks:
+                    for bs in batch_size:
+                        for sc in scaler:
+                            main(
+                                cfg=cfg,
+                                path_train_data=f"{path_data}{cfg['DATA_FILE_NAME']}",
+                                size_training_dataset=cfg["SIZE_TRAINING_DATA"],
+                                size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
+                                size_test_dataset=cfg["SIZE_TEST_DATA"],
+                                luminosity_type=cfg["LUM_TYPE"],
+                                path_output=path_output,
+                                plot_test=cfg["PLOT_TEST"],
+                                show_plot=cfg["SHOW_PLOT"],
+                                save_plot=cfg["SAVE_PLOT"],
+                                save_nn=cfg["SAVE_NN"],
+                                learning_rate=lr,
+                                weight_decay=wd,
+                                number_hidden=nh,
+                                number_blocks=nb,
+                                epochs=cfg["EPOCHS"],
+                                device=cfg["DEVICE"],
+                                activation_function=cfg["ACTIVATION_FUNCTION"],
+                                batch_size=bs,
+                                valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
+                                selected_scaler=sc,
+                                run_hyperparameter_tuning=False,
+                                run=run,
+                                col_output_flow=output_cols,
+                                col_label_flow=input_cols,
+                                reproducible=cfg["REPRODUCIBLE"],
+                                lst_yj_transform_cols=cfg["TRANSFORM_COLS"],
+                                lst_replace_values=cfg["REPLACE_VALUES"],
+                                lst_fill_na=cfg["FILL_NA"],
+                                apply_fill_na=cfg["APPLY_FILL_NA"],
+                                apply_object_cut=cfg["APPLY_OBJECT_CUT"],
+                                apply_flag_cut=cfg["APPLY_FLAG_CUT"],
+                                apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
+                                apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
+                                apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"],
+                                plot_load_data=cfg["PLOT_LOAD_DATA"]
+                            )

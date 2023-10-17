@@ -9,6 +9,8 @@ from chainconsumer import ChainConsumer
 from scipy.stats import gaussian_kde
 from torchvision.transforms import ToTensor
 from io import BytesIO
+import corner
+import time
 
 
 def plot_to_tensor():
@@ -19,6 +21,174 @@ def plot_to_tensor():
     img = plt.imread(buf)  # Lesen Sie das gespeicherte Bild zurück
     img_t = ToTensor()(img)  # Konvertieren Sie das Bild in einen PyTorch Tensor
     return img_t
+
+
+# def plot_corner(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None):
+#     """"""
+#     # Erstelle 2D-Histogramme in der Mitte des Plots
+#     print(time.time())
+#     sns.set(style="ticks")
+#     g = sns.PairGrid(data_frame[columns])  # diag_sharey=False
+#     # Histogramm auf der Diagonalen zeichnen
+#     g.map_diag(sns.histplot, color='k', bins=300)  # Du kannst die Anzahl der Bins anpassen
+#
+#     # KDE-Linie zur Diagonalen hinzufügen
+#     # g.map_diag(lambda x, **kwargs: sns.kdeplot(x, color='r', lw=2, n_levels=5, bw_method=1, **kwargs))
+#
+#     # 2D KDE-Plots in der oberen Dreiecksregion hinzufügen
+#     g.map_lower(sns.kdeplot, cmap='Blues', cbar=False, n_levels=3, bw_method=0.2)
+#
+#     # Füge 2D Scatterplots in die untere Dreiecksregion hinzu
+#     # g.map_upper(sns.scatterplot, alpha=0.5)
+#
+#     # Anpassungen und Anzeigen des Plots
+#     g.fig.suptitle('Corner Plot', fontsize=16)
+#     plt.show()
+#     print(time.time())
+#     print("Corner plot created")
+
+def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_plot=False, save_name=None):
+    """"""
+    data = data_frame[columns].values
+    ndim = data.shape[1]
+
+    fig, axes = plt.subplots(ndim, ndim, figsize=(18, 10))
+
+    corner.corner(
+        data,
+        fig=fig,
+        bins=20,
+        range=ranges,
+        color='#2a8dd4',
+        smooth=True,
+        smooth1d=True,
+        # labels=labels,
+        show_titles=True,
+        title_fmt=".2f",
+        title_kwargs={"fontsize": 12},
+        scale_hist=False,
+        quantiles=[0.16, 0.5, 0.84],
+        density=True,
+        plot_datapoints=True,
+        plot_density=False,
+        plot_contours=True,
+        fill_contours=True
+    )
+
+    for i in range(ndim):
+        # for j in range(ndim):
+        ax = axes[i, 0]
+        ax.xaxis.label.set_rotation(45)
+        ax.yaxis.label.set_rotation(45)
+        # ax.xaxis.labelpad = 10
+        # ax.yaxis.labelpad = 10
+        ax.xaxis.label.set_text(labels[0])  # Hier setzen Sie die Beschriftung manuell
+        ax.yaxis.label.set_text(labels[i])  # Hier setzen Sie die Beschriftung manuell
+
+    # Adjust labels and titles
+    for i in range(ndim):
+        ax = axes[i, i]
+
+        ax.xaxis.label.set_rotation(90)
+        ax.yaxis.label.set_rotation(90)
+
+        # Positionieren Sie die Achsen-Labels
+        ax.xaxis.labelpad = 10  # Optional: Passen Sie den Abstand nach Bedarf an
+        ax.yaxis.labelpad = 10  # Optional: Passen Sie den Abstand nach Bedarf an
+
+        ax.set_xticklabels(ax.get_xticks(), rotation=45)
+        ax.set_yticklabels(ax.get_yticks(), rotation=45)
+
+        title = f"{labels[i]} = {np.median(data[:, i]):.2f}"
+        ax.set_title(title, fontsize=12, rotation=45, y=1.04)
+
+    # Manually adding a legend using Line2D
+    from matplotlib.lines import Line2D
+    legend_elements = [Line2D([0], [0], color='#2a8dd4', lw=4, label='Dataset 1')]
+    fig.legend(handles=legend_elements, loc='upper right', fontsize='x-large')
+
+    fig.suptitle('Corner Plot', fontsize=16)
+
+    img_tensor = plot_to_tensor()
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    return img_tensor
+
+
+def plot_compare_corner(data_frame_1, data_frame_2, columns, labels, ranges=None, show_plot=False, save_plot=False,
+                        save_name=None):
+    data_1 = data_frame_1[columns].values
+    data_2 = data_frame_2[columns].values
+
+    ndim = data_1.shape[1]
+
+    fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
+
+    # Plot data_1
+    corner.corner(
+        data_1,
+        fig=fig,
+        bins=20,
+        range=ranges,
+        color='#2a8dd4',
+        smooth=True,
+        smooth1d=True,
+        labels=labels,
+        show_titles=True,
+        title_fmt=".2f",
+        title_kwargs={"fontsize": 12},
+        scale_hist=False,
+        quantiles=[0.16, 0.5, 0.84],
+        density=True,
+        plot_datapoints=True,
+        plot_density=False,
+        plot_contours=True,
+        fill_contours=True,
+        label="Dataset 1"
+    )
+
+    # Plot data_2
+    corner.corner(
+        data_2,
+        fig=fig,
+        bins=20,
+        range=ranges,
+        color='#a3e87e',
+        smooth=True,
+        smooth1d=True,
+        labels=labels,
+        show_titles=True,
+        title_fmt=".2f",
+        title_kwargs={"fontsize": 12},
+        scale_hist=False,
+        quantiles=[0.16, 0.5, 0.84],
+        density=True,
+        plot_datapoints=True,
+        plot_density=False,
+        plot_contours=True,
+        fill_contours=True,
+        label="Dataset 2"
+    )
+
+    for i in range(ndim):
+        ax = axes[i, i]
+        ax.set_xticklabels(ax.get_xticks(), rotation=45)
+        ax.set_yticklabels(ax.get_yticks(), rotation=45)
+
+        # Titel mit Quantilen manuell hinzufügen
+        ax.set_title(f"{labels[i]} = {np.median(data_1[:, i]):.2f}, {np.median(data_2[:, i]):.2f}", fontsize=12)
+
+    fig.legend(loc="upper right")
+    fig.suptitle('Compare corner plot', fontsize=16)
+
+    img_tensor = plot_to_tensor()
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    return img_tensor
 
 
 def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,

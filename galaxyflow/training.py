@@ -72,6 +72,7 @@ class TrainFlow(object):
                  plot_load_data
                  ):
         super().__init__()
+        self.cfg = cfg
         self.size_training_dataset = size_training_dataset
         self.size_validation_dataset = size_validation_dataset
         self.size_test_dataset = size_test_dataset
@@ -264,16 +265,7 @@ class TrainFlow(object):
         """"""
         training_data, validation_data, test_data = load_data(
             cfg=cfg,
-            path_training_data=path_train_data,
-            path_output=self.path_output,
             luminosity_type=self.luminosity_type,
-            selected_scaler=selected_scaler,
-            size_training_dataset=self.size_training_dataset,
-            size_validation_dataset=self.size_validation_dataset,
-            size_test_dataset=self.size_test_dataset,
-            reproducible=self.reproducible,
-            run=self.run,
-            lst_yj_transform_cols=self.lst_yj_transform_cols,
             apply_object_cut=self.apply_object_cut,
             apply_flag_cut=self.apply_flag_cut,
             apply_airmass_cut=self.apply_airmass_cut,

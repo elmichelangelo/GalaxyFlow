@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
 from Handler.helper_functions import yj_transform_data
-from Handler.plot_functions import plot_chain
+from Handler.plot_functions import plot_chain, plot_corner, plot_compare_corner
 from Handler.cut_functions import *
 import numpy as np
 import pandas as pd
@@ -30,31 +30,22 @@ def load_test_data(path_test_data):
 
 def load_data(
         cfg,
-        path_training_data,
-        path_output,
         luminosity_type,
-        size_training_dataset,
-        size_validation_dataset,
-        size_test_dataset,
         apply_object_cut,
         apply_flag_cut,
         apply_airmass_cut,
         apply_unsheared_mag_cut,
         apply_unsheared_shear_cut,
-        selected_scaler,
         writer,
-        lst_yj_transform_cols=None,
-        reproducible=True,
-        run=None,
         plot_data=False
 ):
     """"""
 
-    if size_training_dataset + size_validation_dataset + size_test_dataset > 1.0:
-        raise f"{size_training_dataset}+{size_validation_dataset}+{size_test_dataset} > 1"
+    if cfg['SIZE_TRAINING_DATA'] + cfg['SIZE_VALIDATION_DATA'] + cfg['SIZE_TEST_DATA'] > 1.0:
+        raise f"{cfg['SIZE_TRAINING_DATA']}+{cfg['SIZE_VALIDATION_DATA']}+{cfg['SIZE_TEST_DATA']} > 1"
 
     # open file
-    infile = open(path_training_data, 'rb')  # filename
+    infile = open(cfg['PATH_DATA']+cfg['DATA_FILE_NAME'], 'rb')
 
     # load pickle as pandas dataframe
     df_training_data = pd.DataFrame(pickle.load(infile, encoding='latin1'))
@@ -79,19 +70,26 @@ def load_data(
 
     df_training_data, dict_pt = yj_transform_data(
         data_frame=df_training_data,
-        columns=lst_yj_transform_cols
+        columns=cfg['TRANSFORM_COLS'],
     )
 
-    if reproducible is True:
+    if cfg['REPRODUCIBLE'] is True:
         df_training_data = df_training_data.sample(frac=1, random_state=42)
 
     else:
         df_training_data = df_training_data.sample(frac=1)
 
-    if plot_data is True:
-        img_grid = plot_chain(
+    if cfg['PLOT_LOAD_DATA'] is True:
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name=f"unsheared_{luminosity_type.lower()}",
+            labels=[
+                f"{luminosity_type.lower()}_r",
+                f"{luminosity_type.lower()}_i",
+                f"{luminosity_type.lower()}_z",
+                "snr",
+                "size_ratio",
+                "T"
+            ],
             columns=[
                 f"unsheared/{luminosity_type.lower()}_r",
                 f"unsheared/{luminosity_type.lower()}_i",
@@ -100,22 +98,20 @@ def load_data(
                 "unsheared/size_ratio",
                 "unsheared/T"
             ],
-            parameter=[
-                    f"{luminosity_type.lower()} r",
-                    f"{luminosity_type.lower()} i",
-                    f"{luminosity_type.lower()} z",
-                    "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
-                    "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-                    "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
-                ],
-            extends=None,
-            show_plot=False
+            ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("unsheared chain plot", img_grid)
-
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name=f"unsheared_{luminosity_type.lower()}",
+            labels=[
+                f"{luminosity_type.lower()}_err_r",
+                f"{luminosity_type.lower()}_err_i",
+                f"{luminosity_type.lower()}_err_z",
+                "snr",
+                "size_ratio",
+                "T"
+            ],
             columns=[
                 f"unsheared/{luminosity_type.lower()}_err_r",
                 f"unsheared/{luminosity_type.lower()}_err_i",
@@ -124,22 +120,22 @@ def load_data(
                 "unsheared/size_ratio",
                 "unsheared/T"
             ],
-            parameter=[
-                f"{luminosity_type.lower()} err r",
-                f"{luminosity_type.lower()} err i",
-                f"{luminosity_type.lower()} err z",
-                "snr",  # signal-noise      Range: min=0.3795, max=38924.4662
-                "size ratio",  # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-                "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
-            ],
-            extends=None,
-            show_plot=False
+            ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("unsheared error chain plot", img_grid)
-
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name=f"BDF_{luminosity_type.upper()}",
+            labels=[
+                f"BDF {luminosity_type.upper()} U",
+                f"BDF {luminosity_type.upper()} G",
+                f"BDF {luminosity_type.upper()} R",
+                f"BDF {luminosity_type.upper()} I",
+                f"BDF {luminosity_type.upper()} Z",
+                f"BDF {luminosity_type.upper()} J",
+                f"BDF {luminosity_type.upper()} H",
+                f"BDF {luminosity_type.upper()} K",
+            ],
             columns=[
                 f"BDF_{luminosity_type.upper()}_DERED_CALIB_U",
                 f"BDF_{luminosity_type.upper()}_DERED_CALIB_G",
@@ -150,24 +146,22 @@ def load_data(
                 f"BDF_{luminosity_type.upper()}_DERED_CALIB_H",
                 f"BDF_{luminosity_type.upper()}_DERED_CALIB_K",
             ],
-            parameter=[
-                f"BDF {luminosity_type.upper()} U",
-                f"BDF {luminosity_type.upper()} G",
-                f"BDF {luminosity_type.upper()} R",
-                f"BDF {luminosity_type.upper()} I",
-                f"BDF {luminosity_type.upper()} Z",
-                f"BDF {luminosity_type.upper()} J",
-                f"BDF {luminosity_type.upper()} H",
-                f"BDF {luminosity_type.upper()} K",
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("BDF chain plot", img_grid)
-
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name=f"BDF_{luminosity_type.upper()}",
+            labels=[
+                f"BDF {luminosity_type.upper()} ERR U",
+                f"BDF {luminosity_type.upper()} ERR G",
+                f"BDF {luminosity_type.upper()} ERR R",
+                f"BDF {luminosity_type.upper()} ERR I",
+                f"BDF {luminosity_type.upper()} ERR Z",
+                f"BDF {luminosity_type.upper()} ERR J",
+                f"BDF {luminosity_type.upper()} ERR H",
+                f"BDF {luminosity_type.upper()} ERR K",
+            ],
             columns=[
                 f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_U",
                 f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_G",
@@ -178,24 +172,21 @@ def load_data(
                 f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_H",
                 f"BDF_{luminosity_type.upper()}_ERR_DERED_CALIB_K",
             ],
-            parameter=[
-                f"BDF {luminosity_type.upper()} ERR U",
-                f"BDF {luminosity_type.upper()} ERR G",
-                f"BDF {luminosity_type.upper()} ERR R",
-                f"BDF {luminosity_type.upper()} ERR I",
-                f"BDF {luminosity_type.upper()} ERR Z",
-                f"BDF {luminosity_type.upper()} ERR J",
-                f"BDF {luminosity_type.upper()} ERR H",
-                f"BDF {luminosity_type.upper()} ERR K",
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("BDF error chain plot", img_grid)
-
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name=f"BDF_COLOR_{luminosity_type.upper()}",
+            labels=[
+                f"{luminosity_type.upper()} U-G",
+                f"{luminosity_type.upper()} G-R",
+                f"{luminosity_type.upper()} R-I",
+                f"{luminosity_type.upper()} I-Z",
+                f"{luminosity_type.upper()} Z-J",
+                f"{luminosity_type.upper()} J-H",
+                f"{luminosity_type.upper()} H-K",
+            ],
             columns=[
                 f"Color BDF {luminosity_type.upper()} U-G",
                 f"Color BDF {luminosity_type.upper()} G-R",
@@ -205,92 +196,78 @@ def load_data(
                 f"Color BDF {luminosity_type.upper()} J-H",
                 f"Color BDF {luminosity_type.upper()} H-K",
             ],
-            parameter=[
-                f"{luminosity_type.upper()} U-G",
-                f"{luminosity_type.upper()} G-R",
-                f"{luminosity_type.upper()} R-I",
-                f"{luminosity_type.upper()} I-Z",
-                f"{luminosity_type.upper()} Z-J",
-                f"{luminosity_type.upper()} J-H",
-                f"{luminosity_type.upper()} H-K",
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("COLOR BDF chain plot", img_grid)
-
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name="AIRMASS",
+            labels=[
+                "AIRMASS R",
+                "AIRMASS I",
+                "AIRMASS Z"
+            ],
             columns=[
                 "AIRMASS_WMEAN_R",
                 "AIRMASS_WMEAN_I",
                 "AIRMASS_WMEAN_Z"
             ],
-            parameter=[
-                "AIRMASS R",
-                "AIRMASS I",
-                "AIRMASS Z"
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("AIRMASS chain plot", img_grid)
 
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name="FWHM",
+            labels=[
+                "FWHM R",
+                "FWHM I",
+                "FWHM Z"
+            ],
             columns=[
                 "FWHM_WMEAN_R",
                 "FWHM_WMEAN_I",
                 "FWHM_WMEAN_Z"
             ],
-            parameter=[
-                "FWHM R",
-                "FWHM I",
-                "FWHM Z"
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("FWHM chain plot", img_grid)
 
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name="MAGLIM",
+            labels=[
+                "MAGLIM R",
+                "MAGLIM I",
+                "MAGLIM Z"
+            ],
             columns=[
                 "MAGLIM_R",
                 "MAGLIM_I",
                 "MAGLIM_Z"
             ],
-            parameter=[
-                "MAGLIM R",
-                "MAGLIM I",
-                "MAGLIM Z"
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("MAGLIM chain plot", img_grid)
 
-        img_grid = plot_chain(
+        img_grid = plot_corner(
             data_frame=df_training_data,
-            plot_name="OBS",
+            labels=[
+                "BDF T",
+                "BDF G",
+                "EBV_SFD98"
+            ],
             columns=[
                 "BDF_T",
                 "BDF_G",
                 "EBV_SFD98"
             ],
-            parameter=[
-                "BDF T",
-                "BDF G",
-                "EBV_SFD98"
-            ],
-            extends=None,
-            show_plot=False
+            # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
+            show_plot=cfg["SHOW_LOAD_DATA"]
         )
         writer.add_image("GALAXY chain plot", img_grid)
-
+    exit()
     scaler = None
     if selected_scaler == "MinMaxScaler":
         scaler = MinMaxScaler()
