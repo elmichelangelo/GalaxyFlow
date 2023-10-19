@@ -1,7 +1,7 @@
 
 from datetime import datetime
 import torch.cuda
-from Handler.helper_functions import get_os
+from Handler.helper_functions import get_os, string_to_tuple
 from galaxyflow.training import TrainFlow
 import argparse
 import matplotlib.pyplot as plt
@@ -14,118 +14,22 @@ plt.rcParams["figure.figsize"] = (16, 9)
 
 def main(
         cfg,
-        path_train_data,
-        size_training_dataset,
-        size_validation_dataset,
-        size_test_dataset,
-        luminosity_type,
-        path_output,
-        plot_test,
-        show_plot,
-        save_plot,
-        save_nn,
         learning_rate,
         weight_decay,
         number_hidden,
         number_blocks,
-        epochs,
-        device,
-        activation_function,
-        batch_size,
-        valid_batch_size,
-        selected_scaler,
-        reproducible,
-        col_output_flow,
-        col_label_flow,
-        lst_replace_values,
-        lst_yj_transform_cols,
-        lst_fill_na,
-        apply_fill_na,
-        apply_object_cut,
-        apply_flag_cut,
-        apply_airmass_cut,
-        apply_unsheared_mag_cut,
-        apply_unsheared_shear_cut,
-        plot_load_data,
-        run_hyperparameter_tuning=True,
-        run=None):
+        batch_size):
     """"""
 
     train_flow = TrainFlow(
         cfg=cfg,
-        path_train_data=path_train_data,
-        size_training_dataset=size_training_dataset,
-        size_validation_dataset=size_validation_dataset,
-        size_test_dataset=size_test_dataset,
-        luminosity_type=luminosity_type,
-        path_output=path_output,
-        col_output_flow=col_output_flow,
-        col_label_flow=col_label_flow,
-        plot_test=plot_test,
-        show_plot=show_plot,
-        save_plot=save_plot,
-        save_nn=save_nn,
         learning_rate=learning_rate,
         weight_decay=weight_decay,
         number_hidden=number_hidden,
         number_blocks=number_blocks,
-        epochs=epochs,
-        device=device,
-        activation_function=activation_function,
-        batch_size=batch_size,
-        valid_batch_size=valid_batch_size,
-        selected_scaler=selected_scaler,
-        do_loss_plot=True,
-        do_color_color_plot=False,
-        do_residual_plot=False,
-        do_chain_plot=False,
-        do_mean_plot=False,
-        do_std_plot=False,
-        do_flags_plot=False,
-        do_detected_plot=False,
-        run_hyperparameter_tuning=run_hyperparameter_tuning,
-        lst_replace_values=lst_replace_values,
-        lst_yj_transform_cols=lst_yj_transform_cols,
-        lst_fill_na=lst_fill_na,
-        run=run,
-        reproducible=reproducible,
-        apply_fill_na=apply_fill_na,
-        apply_object_cut=apply_object_cut,
-        apply_flag_cut=apply_flag_cut,
-        apply_airmass_cut=apply_airmass_cut,
-        apply_unsheared_mag_cut=apply_unsheared_mag_cut,
-        apply_unsheared_shear_cut=apply_unsheared_shear_cut,
-        plot_load_data=plot_load_data
+        batch_size=batch_size
     )
-
-    if run_hyperparameter_tuning is True:
-        import ray
-        from ray import tune
-        from ray import air
-        from ray.tune import CLIReporter
-        from ray.tune.schedulers import ASHAScheduler
-        ray.init()
-        search_space = {
-            "learning_rate": tune.grid_search(learning_rate),
-            "number_hidden": tune.grid_search(number_hidden),
-            "number_blocks": tune.grid_search(number_blocks),
-            "batch_size": tune.grid_search(batch_size),
-            "weight_decay": tune.grid_search(weight_decay),
-        }
-        trainable_with_resources = tune.with_resources(train_flow.hyperparameter_tuning, {"cpu": 2})
-        tuner = tune.Tuner(
-            trainable_with_resources,
-            run_config=air.RunConfig(local_dir=path_output, name="run_1"),
-            tune_config=tune.TuneConfig(scheduler=ASHAScheduler(metric="loss", mode="min")),
-            param_space=search_space
-        )
-        results = tuner.fit()
-        best_result = results.get_best_result()
-        print("Best result config: {}".format(best_result.config))
-        print("Best result metrics: {}".format(best_result.metrics))
-        ray.shutdown()
-    else:
-        train_flow.run_training()
+    train_flow.run_training()
 
 
 if __name__ == '__main__':
@@ -170,7 +74,7 @@ if __name__ == '__main__':
         args.config_filename = args.config_filename[0]
 
     with open(f"{path}/files/conf/{args.config_filename}", 'r') as fp:
-        cfg = yaml.load(fp, Loader=yaml.Loader)
+        cfg = yaml.safe_load(fp)
 
     if args.mode is None:
         args.mode = cfg["MODE"]
@@ -180,7 +84,11 @@ if __name__ == '__main__':
         cfg["MODE"] = mode
 
     now = datetime.now()
-    run = now.strftime('%Y-%m-%d_%H-%M')
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    path_output = f"{cfg['PATH_OUTPUT']}/run_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT'] = path_output
+    if not os.path.exists(cfg['PATH_OUTPUT']):
+        os.mkdir(cfg['PATH_OUTPUT'])
 
     batch_size = cfg["BATCH_SIZE"]
     scaler = cfg["SCALER"]
@@ -213,41 +121,12 @@ if __name__ == '__main__':
                 for nb in number_blocks:
                     for bs in batch_size:
                         for sc in scaler:
+
                             main(
                                 cfg=cfg,
-                                path_train_data=f"{path_data}{cfg['DATA_FILE_NAME']}",
-                                size_training_dataset=cfg["SIZE_TRAINING_DATA"],
-                                size_validation_dataset=cfg["SIZE_VALIDATION_DATA"],
-                                size_test_dataset=cfg["SIZE_TEST_DATA"],
-                                luminosity_type=cfg["LUM_TYPE"],
-                                path_output=path_output,
-                                plot_test=cfg["PLOT_TEST"],
-                                show_plot=cfg["SHOW_PLOT"],
-                                save_plot=cfg["SAVE_PLOT"],
-                                save_nn=cfg["SAVE_NN"],
                                 learning_rate=lr,
                                 weight_decay=wd,
                                 number_hidden=nh,
                                 number_blocks=nb,
-                                epochs=cfg["EPOCHS"],
-                                device=cfg["DEVICE"],
-                                activation_function=cfg["ACTIVATION_FUNCTION"],
-                                batch_size=bs,
-                                valid_batch_size=cfg["VALIDATION_BATCH_SIZE"],
-                                selected_scaler=sc,
-                                run_hyperparameter_tuning=False,
-                                run=run,
-                                col_output_flow=output_cols,
-                                col_label_flow=input_cols,
-                                reproducible=cfg["REPRODUCIBLE"],
-                                lst_yj_transform_cols=cfg["TRANSFORM_COLS"],
-                                lst_replace_values=cfg["REPLACE_VALUES"],
-                                lst_fill_na=cfg["FILL_NA"],
-                                apply_fill_na=cfg["APPLY_FILL_NA"],
-                                apply_object_cut=cfg["APPLY_OBJECT_CUT"],
-                                apply_flag_cut=cfg["APPLY_FLAG_CUT"],
-                                apply_airmass_cut=cfg["APPLY_AIRMASS_CUT"],
-                                apply_unsheared_mag_cut=cfg["APPLY_UNSHEARED_MAG_CUT"],
-                                apply_unsheared_shear_cut=cfg["APPLY_UNSHEARED_SHEAR_CUT"],
-                                plot_load_data=cfg["PLOT_LOAD_DATA"]
+                                batch_size=bs
                             )

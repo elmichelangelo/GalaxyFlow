@@ -171,7 +171,7 @@ def match_skybrite_2_footprint(path2footprint, path2skybrite, hp_show=False,
                                partial_footprint=False, partial_skybrite=True, field_footprint=None,
                                field_skybrite=None):
     """
-    Main function to run
+    Main function to run_date
     Returns:
 
     """

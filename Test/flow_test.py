@@ -26,16 +26,16 @@ class TestFlow(unittest.TestCase):
                         'BatchNorm Det is not zero.')
         self.assertTrue((x - z).abs().max() < EPS, 'BatchNorm is wrong.')
 
-        # Second run.
+        # Second run_date.
         x = torch.randn(BATCH_SIZE, NUM_INPUTS)
 
         y, logdets = m1(x)
         z, inv_logdets = m1(y, mode='inverse')
 
         self.assertTrue((logdets + inv_logdets).abs().max() < EPS,
-                        'BatchNorm Det is not zero for the second run.')
+                        'BatchNorm Det is not zero for the second run_date.')
         self.assertTrue((x - z).abs().max() < EPS,
-                        'BatchNorm is wrong for the second run.')
+                        'BatchNorm is wrong for the second run_date.')
 
         m1.eval()
         m1 = fnn.FlowSequential(fnn.BatchNormFlow(NUM_INPUTS))

@@ -559,7 +559,7 @@ if __name__ == '__main__':
         ("r", "i"),
         ("i", "z")
     ]
-    # for run in range(10):
+    # for run_date in range(10):
     run = None
 
     with open(f"{path}/../files/conf/mac.cfg", 'r') as fp:

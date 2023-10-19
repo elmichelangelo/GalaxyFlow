@@ -1,9 +1,18 @@
 from sklearn.preprocessing import PowerTransformer
 import numpy as np
 import os
+import re
 """import warnings
 
 warnings.filterwarnings("error")"""
+
+
+def calc_color(data_frame, colors, column_name):
+    """"""
+    for color in string_to_tuple(str(colors)):
+        data_frame[f"{color[0]}-{color[1]}"] = \
+            np.array(data_frame[f"{column_name}_{color[0]}"]) - np.array(data_frame[f"{column_name}_{color[1]}"])
+    return data_frame
 
 
 def change_mean_std_of_dist(dist1, dist2=None, dist3=None):
@@ -47,7 +56,7 @@ def concatenate_lists(data_list):
 def luptize(flux, var, s, zp):
     # s: measurement error (variance) of the flux (with zero pt zp) of an object at the limiting magnitude of the survey
     # a: Pogson's ratio
-    # b: softening parameter that sets the scale of transition between linear and log behavior of the luptitudes
+    # b: softening labels that sets the scale of transition between linear and log behavior of the luptitudes
     a = 2.5 * np.log10(np.exp(1))
     b = a**(1./2) * s
     mu0 = zp -2.5 * np.log10(b)
@@ -62,7 +71,7 @@ def luptize_deep(flux, bins, var=0, zp=22.5):
     """
     The flux must be in the same dimension as the bins.
     The bins must be given as list like ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]
-    the ordering of the softening parameter b
+    the ordering of the softening labels b
     """
     dict_mags = {
         "i": 24.66,
@@ -94,7 +103,7 @@ def luptize_inverse(lupt, lupt_var, s, zp):
     """"""
     # s: measurement error (variance) of the flux (with zero pt zp) of an object at the limiting magnitude of the survey
     # a: Pogson's ratio
-    # b: softening parameter that sets the scale of transition between linear and log behavior of the luptitudes
+    # b: softening labels that sets the scale of transition between linear and log behavior of the luptitudes
     a = 2.5 * np.log10(np.exp(1))
     b = a**(1./2) * s
     mu0 = zp -2.5 * np.log10(b)
@@ -111,7 +120,7 @@ def luptize_inverse_deep(lupt, bins, lupt_var=0, zp=22.5):
     """
         The flux must be in the same dimension as the bins.
         The bins must be given as list like ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]
-        the ordering of the softening parameter b
+        the ordering of the softening labels b
     """
     dict_mags = {
         "i": 24.66,
@@ -238,3 +247,8 @@ def get_os():
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def string_to_tuple(s):
+    matches = re.findall(r'\(([^,]+), ([^)]+)\)', s)
+    return [tuple(map(str.strip, match)) for match in matches]

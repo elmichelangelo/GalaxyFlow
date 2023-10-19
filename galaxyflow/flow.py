@@ -218,7 +218,7 @@ class FlowSequential(nn.Sequential):
         """ Performs a forward or backward pass for flow modules.
         Args:
             inputs: a tuple of inputs and logdets
-            mode: to run direct computation or inverse
+            mode: to run_date direct computation or inverse
         """
         self.num_inputs = inputs.size(-1)
 
@@ -272,7 +272,7 @@ class FlowSequential(nn.Sequential):
     #         validation_context=None,
     #         validation_split=0.0,
     #         epochs=20,
-    #         batch_size=100,
+    #         bs=100,
     #         patience=np.inf,
     #         monitor='val_loss',
     #         shuffle=True,
@@ -305,11 +305,11 @@ class FlowSequential(nn.Sequential):
     #     if validation_data is not None:
     #
     #         if use_context:
-    #             train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
-    #             val_dl = DataLoader(TensorDataset(validation_data, validation_context), batch_size, shuffle)
+    #             train_dl = DataLoader(TensorDataset(data, context), bs, shuffle)
+    #             val_dl = DataLoader(TensorDataset(validation_data, validation_context), bs, shuffle)
     #         else:
-    #             train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
-    #             val_dl = DataLoader(TensorDataset(validation_data), batch_size, shuffle)
+    #             train_dl = DataLoader(TensorDataset(data), bs, shuffle)
+    #             val_dl = DataLoader(TensorDataset(validation_data), bs, shuffle)
     #
     #         validation = True
     #     else:
@@ -319,18 +319,18 @@ class FlowSequential(nn.Sequential):
     #             if use_context:
     #                 data, validation_data = data[:split], data[split:]
     #                 context, validation_context = context[:split], context[split:]
-    #                 train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
-    #                 val_dl = DataLoader(TensorDataset(validation_data, validation_context), batch_size, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data, context), bs, shuffle)
+    #                 val_dl = DataLoader(TensorDataset(validation_data, validation_context), bs, shuffle)
     #             else:
     #                 data, validation_data = data[:split], data[split:]
-    #                 train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
-    #                 val_dl = DataLoader(TensorDataset(validation_data), batch_size, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data), bs, shuffle)
+    #                 val_dl = DataLoader(TensorDataset(validation_data), bs, shuffle)
     #         else:
     #             validation = False
     #             if use_context:
-    #                 train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data, context), bs, shuffle)
     #             else:
-    #                 train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data), bs, shuffle)
     #
     #     history = {}  # Collects per-epoch loss
     #     history['loss'] = []

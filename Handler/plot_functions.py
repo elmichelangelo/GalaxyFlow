@@ -10,6 +10,7 @@ from scipy.stats import gaussian_kde
 from torchvision.transforms import ToTensor
 from io import BytesIO
 import corner
+from Handler.helper_functions import string_to_tuple
 import time
 
 
@@ -21,31 +22,6 @@ def plot_to_tensor():
     img = plt.imread(buf)  # Lesen Sie das gespeicherte Bild zurück
     img_t = ToTensor()(img)  # Konvertieren Sie das Bild in einen PyTorch Tensor
     return img_t
-
-
-# def plot_corner(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None):
-#     """"""
-#     # Erstelle 2D-Histogramme in der Mitte des Plots
-#     print(time.time())
-#     sns.set(style="ticks")
-#     g = sns.PairGrid(data_frame[columns])  # diag_sharey=False
-#     # Histogramm auf der Diagonalen zeichnen
-#     g.map_diag(sns.histplot, color='k', bins=300)  # Du kannst die Anzahl der Bins anpassen
-#
-#     # KDE-Linie zur Diagonalen hinzufügen
-#     # g.map_diag(lambda x, **kwargs: sns.kdeplot(x, color='r', lw=2, n_levels=5, bw_method=1, **kwargs))
-#
-#     # 2D KDE-Plots in der oberen Dreiecksregion hinzufügen
-#     g.map_lower(sns.kdeplot, cmap='Blues', cbar=False, n_levels=3, bw_method=0.2)
-#
-#     # Füge 2D Scatterplots in die untere Dreiecksregion hinzu
-#     # g.map_upper(sns.scatterplot, alpha=0.5)
-#
-#     # Anpassungen und Anzeigen des Plots
-#     g.fig.suptitle('Corner Plot', fontsize=16)
-#     plt.show()
-#     print(time.time())
-#     print("Corner plot created")
 
 def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_plot=False, save_name=None):
     """"""
@@ -59,10 +35,10 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
         fig=fig,
         bins=20,
         range=ranges,
-        color='#2a8dd4',
+        color='#51a6fb',
         smooth=True,
         smooth1d=True,
-        # labels=labels,
+        labels=labels,
         show_titles=True,
         title_fmt=".2f",
         title_kwargs={"fontsize": 12},
@@ -75,38 +51,22 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
         fill_contours=True
     )
 
-    for i in range(ndim):
-        # for j in range(ndim):
-        ax = axes[i, 0]
-        ax.xaxis.label.set_rotation(45)
-        ax.yaxis.label.set_rotation(45)
-        # ax.xaxis.labelpad = 10
-        # ax.yaxis.labelpad = 10
-        ax.xaxis.label.set_text(labels[0])  # Hier setzen Sie die Beschriftung manuell
-        ax.yaxis.label.set_text(labels[i])  # Hier setzen Sie die Beschriftung manuell
+    # Manually adding a legend using Line2D
+    from matplotlib.lines import Line2D
+    legend_elements = [Line2D([0], [0], color='#51a6fb', lw=4, label='Balrog')]
 
     # Adjust labels and titles
     for i in range(ndim):
         ax = axes[i, i]
 
-        ax.xaxis.label.set_rotation(90)
-        ax.yaxis.label.set_rotation(90)
-
-        # Positionieren Sie die Achsen-Labels
-        ax.xaxis.labelpad = 10  # Optional: Passen Sie den Abstand nach Bedarf an
-        ax.yaxis.labelpad = 10  # Optional: Passen Sie den Abstand nach Bedarf an
-
         ax.set_xticklabels(ax.get_xticks(), rotation=45)
         ax.set_yticklabels(ax.get_yticks(), rotation=45)
 
-        title = f"{labels[i]} = {np.median(data[:, i]):.2f}"
-        ax.set_title(title, fontsize=12, rotation=45, y=1.04)
+        # Titel mit Quantilen manuell hinzufügen
+        legend_elements.append(
+            Line2D([0], [0], color='#51a6fb', lw=0, label=f"mean {labels[i]} = {np.mean(data[:, i]):.2f}"))
 
-    # Manually adding a legend using Line2D
-    from matplotlib.lines import Line2D
-    legend_elements = [Line2D([0], [0], color='#2a8dd4', lw=4, label='Dataset 1')]
     fig.legend(handles=legend_elements, loc='upper right', fontsize='x-large')
-
     fig.suptitle('Corner Plot', fontsize=16)
 
     img_tensor = plot_to_tensor()
@@ -117,22 +77,40 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
     return img_tensor
 
 
-def plot_compare_corner(data_frame_1, data_frame_2, columns, labels, ranges=None, show_plot=False, save_plot=False,
-                        save_name=None):
-    data_1 = data_frame_1[columns].values
-    data_2 = data_frame_2[columns].values
+def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, epoch, dict_delta, ranges=None,
+                        show_plot=False, save_plot=False, save_name=None):
+    if epoch == 1:
+        for label in labels:
+            dict_delta[f"delta mean {label}"] = []
+            dict_delta[f"delta median {label}"] = []
+            dict_delta[f"delta q16 {label}"] = []
+            dict_delta[f"delta q84 {label}"] = []
 
-    ndim = data_1.shape[1]
+    arr_generated = data_frame_generated[columns].values
+    arr_true = data_frame_true[columns].values
 
-    fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
+    # Quantile für gandalf berechnen
+    quantiles_gandalf = np.quantile(arr_generated, q=[0.16, 0.84], axis=0)
 
-    # Plot data_1
+    # Quantile für balrog berechnen
+    quantiles_balrog = np.quantile(arr_true, q=[0.16, 0.84], axis=0)
+
+    delta_names = ["mean", "median", "q16", "q84"]
+
+    ndim = arr_generated.shape[1]
+
+    # fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
+    fig = plt.figure(figsize=(16, 12))
+    gs = fig.add_gridspec(ndim + 5, ndim, hspace=0.05, wspace=0.1)
+    axes = np.array([[fig.add_subplot(gs[i, j]) for j in range(ndim)] for i in range(ndim)])
+
+    # Plot gandalf
     corner.corner(
-        data_1,
+        arr_generated,
         fig=fig,
         bins=20,
         range=ranges,
-        color='#2a8dd4',
+        color='#ff8c00',
         smooth=True,
         smooth1d=True,
         labels=labels,
@@ -145,17 +123,16 @@ def plot_compare_corner(data_frame_1, data_frame_2, columns, labels, ranges=None
         plot_datapoints=True,
         plot_density=False,
         plot_contours=True,
-        fill_contours=True,
-        label="Dataset 1"
+        fill_contours=True
     )
 
-    # Plot data_2
+    # Plot balrog
     corner.corner(
-        data_2,
+        arr_true,
         fig=fig,
         bins=20,
         range=ranges,
-        color='#a3e87e',
+        color='#51a6fb',
         smooth=True,
         smooth1d=True,
         labels=labels,
@@ -168,109 +145,145 @@ def plot_compare_corner(data_frame_1, data_frame_2, columns, labels, ranges=None
         plot_datapoints=True,
         plot_density=False,
         plot_contours=True,
-        fill_contours=True,
-        label="Dataset 2"
+        fill_contours=True
     )
+
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='#ff8c00', lw=4, label='gaNdalF'),
+        Line2D([0], [0], color='#51a6fb', lw=4, label='Balrog')
+    ]
 
     for i in range(ndim):
         ax = axes[i, i]
-        ax.set_xticklabels(ax.get_xticks(), rotation=45)
+        ax.set_xticks([])
+        ax.set_xticklabels([])
         ax.set_yticklabels(ax.get_yticks(), rotation=45)
 
         # Titel mit Quantilen manuell hinzufügen
-        ax.set_title(f"{labels[i]} = {np.median(data_1[:, i]):.2f}, {np.median(data_2[:, i]):.2f}", fontsize=12)
+        delta_mean = np.mean(arr_generated[:, i]) - np.mean(arr_true[:, i])
+        delta_median = np.median(arr_generated[:, i]) - np.median(arr_true[:, i])
+        delta_q16 = quantiles_gandalf[0, i] - quantiles_balrog[0, i]
+        delta_q84 = quantiles_gandalf[1, i] - quantiles_balrog[1, i]
 
-    fig.legend(loc="upper right")
-    fig.suptitle('Compare corner plot', fontsize=16)
+        dict_delta[f"delta mean {labels[i]}"].append(delta_mean)
+        dict_delta[f"delta median {labels[i]}"].append(delta_median)
+        dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
+        dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
 
+    # fig.legend(handles=legend_elements, loc='upper right', fontsize=12)
+    fig.suptitle(f'Epoch {epoch}', fontsize=16)
+
+    delta_legend_elements = []
+    epochs = list(range(1, epoch + 1))
+    for idx, delta_name in enumerate(delta_names):
+        delta_ax = fig.add_subplot(gs[ndim + 1 + idx, :])
+        for i, label in enumerate(labels):
+            line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o',
+                                  label=f"delta {label}")
+            if idx == 0:
+                delta_legend_elements.append(line)
+
+        delta_ax.axhline(y=0, color='gray', linestyle='--')
+        delta_ax.set_ylim(-1, 1)
+
+        # x-Achsenbeschriftungen und -Werte nur für das unterste delta_ax anzeigen
+        if idx == len(delta_names) - 1:
+            delta_ax.set_xlabel('Epoch')
+        else:
+            delta_ax.set_xticklabels([])
+
+        delta_ax.set_ylabel(f'Delta {delta_name}')
+
+    fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
     img_tensor = plot_to_tensor()
     if show_plot is True:
         plt.show()
     if save_plot is True:
         plt.savefig(save_name, dpi=200)
-    return img_tensor
+    return img_tensor, dict_delta
 
 
-def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
-               parameter=None, extends=None, show_plot=False):
-    """
-
-    :param extends: extents={
-                "mag r": (17.5, 26),
-                "mag i": (17.5, 26),
-                "mag z": (17.5, 26),
-                "snr": (-11, 55),
-                "size ratio": (-1.5, 4),
-                "T": (-1, 2.5)
-            }
-    :param label_font_size:
-    :param tick_font_size:
-    :param shade_alpha:
-    :param max_ticks:
-    :param plot_name: "generated observed properties: chat*"
-    :param data_frame:
-    :param columns: Mutable list, default values are columns = [
-            "unsheared/mag_r",
-            "unsheared/mag_i",
-            "unsheared/mag_z",
-            "unsheared/snr",
-            "unsheared/size_ratio",
-            "unsheared/T"
-        ]
-    :param parameter: Mutable list, default values are parameter = [
-                "mag r",
-                "mag i",
-                "mag z",
-                "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
-                "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-                "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
-            ]
-    :return:
-    """
-    df_plot = pd.DataFrame({})
-
-    if columns is None:
-        columns = [
-            "unsheared/mag_r",
-            "unsheared/mag_i",
-            "unsheared/mag_z",
-            "unsheared/snr",
-            "unsheared/size_ratio",
-            "unsheared/T"
-        ]
-
-    if parameter is None:
-        parameter = [
-                "mag r",
-                "mag i",
-                "mag z",
-                "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
-                "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-                "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
-            ]
-
-    for col in columns:
-        df_plot[col] = np.array(data_frame[col])
-
-    chain = ChainConsumer()
-    chain.add_chain(df_plot.to_numpy(), parameters=parameter, name=plot_name)
-    chain.configure(
-        max_ticks=max_ticks,
-        shade_alpha=shade_alpha,
-        tick_font_size=tick_font_size,
-        label_font_size=label_font_size
-    )
-    # if extends is not None:
-    chain.plotter.plot(
-        figsize="page",
-        extents=extends
-    )
-    img_tensor = plot_to_tensor()
-    if show_plot is True:
-        plt.show()
-    plt.clf()
-    plt.close()
-    return img_tensor
+# def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
+#                parameter=None, extends=None, show_plot=False):
+#     """
+#
+#     :param extends: extents={
+#                 "mag r": (17.5, 26),
+#                 "mag i": (17.5, 26),
+#                 "mag z": (17.5, 26),
+#                 "snr": (-11, 55),
+#                 "size ratio": (-1.5, 4),
+#                 "T": (-1, 2.5)
+#             }
+#     :param label_font_size:
+#     :param tick_font_size:
+#     :param shade_alpha:
+#     :param max_ticks:
+#     :param plot_name: "generated observed properties: chat*"
+#     :param data_frame:
+#     :param columns: Mutable list, default values are columns = [
+#             "unsheared/mag_r",
+#             "unsheared/mag_i",
+#             "unsheared/mag_z",
+#             "unsheared/snr",
+#             "unsheared/size_ratio",
+#             "unsheared/T"
+#         ]
+#     :param parameter: Mutable list, default values are labels = [
+#                 "mag r",
+#                 "mag i",
+#                 "mag z",
+#                 "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
+#                 "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
+#                 "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
+#             ]
+#     :return:
+#     """
+#     df_plot = pd.DataFrame({})
+#
+#     if columns is None:
+#         columns = [
+#             "unsheared/mag_r",
+#             "unsheared/mag_i",
+#             "unsheared/mag_z",
+#             "unsheared/snr",
+#             "unsheared/size_ratio",
+#             "unsheared/T"
+#         ]
+#
+#     if parameter is None:
+#         parameter = [
+#                 "mag r",
+#                 "mag i",
+#                 "mag z",
+#                 "snr",              # signal-noise      Range: min=0.3795, max=38924.4662
+#                 "size ratio",       # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
+#                 "T"                 # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
+#             ]
+#
+#     for col in columns:
+#         df_plot[col] = np.array(data_frame[col])
+#
+#     chain = ChainConsumer()
+#     chain.add_chain(df_plot.to_numpy(), parameters=parameter, name=plot_name)
+#     chain.configure(
+#         max_ticks=max_ticks,
+#         shade_alpha=shade_alpha,
+#         tick_font_size=tick_font_size,
+#         label_font_size=label_font_size
+#     )
+#     # if extends is not None:
+#     chain.plotter.plot(
+#         figsize="page",
+#         extents=extends
+#     )
+#     img_tensor = plot_to_tensor()
+#     if show_plot is True:
+#         plt.show()
+#     plt.clf()
+#     plt.close()
+#     return img_tensor
 
 
 def loss_plot(
@@ -363,40 +376,118 @@ def loss_plot(
     return img_tensor
 
 
-def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, extents=None):
-    """"""
-    df_generated_measured = pd.DataFrame({})
-    df_true_measured = pd.DataFrame({})
-    for color in colors:
-        df_generated_measured[f"{color[0]}-{color[1]}"] = \
-            np.array(data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
-                data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
-        df_true_measured[f"{color[0]}-{color[1]}"] = \
-            np.array(data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
-                data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
+# def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, extents=None):
+#     """"""
+#     df_generated_measured = pd.DataFrame({})
+#     df_true_measured = pd.DataFrame({})
+#     for color in colors:
+#         df_generated_measured[f"{color[0]}-{color[1]}"] = \
+#             np.array(data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
+#                 data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
+#         df_true_measured[f"{color[0]}-{color[1]}"] = \
+#             np.array(data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
+#                 data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
+#
+#     arr_true = df_true_measured.to_numpy()
+#     arr_generated = df_generated_measured.to_numpy()
+#     labels = [
+#         f"unsheared/{luminosity_type.lower()} r-i",
+#         f"unsheared/{luminosity_type.lower()} i-z"
+#     ]
+#     chainchat = ChainConsumer()
+#     chainchat.add_chain(arr_true, parameters=labels, name="true observed properties: chat")
+#     chainchat.add_chain(arr_generated, parameters=labels,
+#                         name="generated observed properties: chat*")
+#     chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
+#     chainchat.plotter.plot(
+#         filename=save_name,
+#         figsize="page",
+#         extents=extents
+#     )
+#     if show_plot is True:
+#         plt.show()
+#     img_tensor = plot_to_tensor()
+#     plt.clf()
+#     plt.close()
+#     return img_tensor
 
-    arr_true = df_true_measured.to_numpy()
-    arr_generated = df_generated_measured.to_numpy()
-    parameter = [
-        f"unsheared/{luminosity_type.lower()} r-i",
-        f"unsheared/{luminosity_type.lower()} i-z"
-    ]
-    chainchat = ChainConsumer()
-    chainchat.add_chain(arr_true, parameters=parameter, name="true observed properties: chat")
-    chainchat.add_chain(arr_generated, parameters=parameter,
-                        name="generated observed properties: chat*")
-    chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
-    chainchat.plotter.plot(
-        filename=save_name,
-        figsize="page",
-        extents=extents
-    )
-    if show_plot is True:
-        plt.show()
-    img_tensor = plot_to_tensor()
-    plt.clf()
-    plt.close()
-    return img_tensor
+
+# def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, save_plot, extents=None):
+#     """"""
+#     df_generated_measured = pd.DataFrame({})
+#     df_true_measured = pd.DataFrame({})
+#     for color in string_to_tuple(str(colors)):
+#         df_generated_measured[f"{color[0]}-{color[1]}"] = \
+#             np.array(data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
+#                 data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
+#         df_true_measured[f"{color[0]}-{color[1]}"] = \
+#             np.array(data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
+#                 data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
+#
+#     arr_true = df_true_measured.to_numpy()
+#     arr_generated = df_generated_measured.to_numpy()
+#     labels = [
+#         f"unsheared/{luminosity_type.lower()} r-i",
+#         f"unsheared/{luminosity_type.lower()} i-z"
+#     ]
+#     ranges = None
+#     ndim = arr_generated.shape[1]
+#
+#     fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
+#
+#     # Plot data_1
+#     corner.corner(
+#         arr_generated,
+#         fig=fig,
+#         bins=20,
+#         range=ranges,
+#         color='#ff8c00',
+#         smooth=True,
+#         smooth1d=True,
+#         labels=labels,
+#         show_titles=True,
+#         title_fmt=".2f",
+#         title_kwargs={"fontsize": 12},
+#         scale_hist=False,
+#         quantiles=[0.16, 0.5, 0.84],
+#         density=True,
+#         plot_datapoints=True,
+#         plot_density=False,
+#         plot_contours=True,
+#         fill_contours=True,
+#         label="gaNdalF"
+#     )
+#
+#     # Plot data_2
+#     corner.corner(
+#         arr_true,
+#         fig=fig,
+#         bins=20,
+#         range=ranges,
+#         color='#51a6fb',
+#         smooth=True,
+#         smooth1d=True,
+#         labels=labels,
+#         show_titles=True,
+#         title_fmt=".2f",
+#         title_kwargs={"fontsize": 12},
+#         scale_hist=False,
+#         quantiles=[0.16, 0.5, 0.84],
+#         density=True,
+#         plot_datapoints=True,
+#         plot_density=False,
+#         plot_contours=True,
+#         fill_contours=True,
+#         label="Balrog"
+#     )
+#     if show_plot is True:
+#         plt.show()
+#     if save_plot is True:
+#         plt.savefig(save_name, dpi=200)
+#     img_tensor = plot_to_tensor()
+#     plt.clf()
+#     plt.close()
+#     return img_tensor
 
 
 def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands, plot_title, show_plot, save_plot, save_name):
@@ -486,55 +577,55 @@ def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands,
     return img_tensor
 
 
-def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, save_name, columns=None, parameter=None,
-                       extends=None, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12):
-    """"""
-    if columns is None:
-        columns = [
-            "unsheared/mag_r",
-            "unsheared/mag_i",
-            "unsheared/mag_z",
-            "unsheared/snr",
-            "unsheared/size_ratio",
-            "unsheared/T"
-        ]
-
-    if parameter is None:
-        parameter = [
-            "mag r",
-            "mag i",
-            "mag z",
-            "snr",  # signal-noise      Range: min=0.3795, max=38924.4662
-            "size ratio",  # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
-            "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
-        ]
-
-    df_plot_generated = data_frame_generated[columns]
-    df_plot_true = data_frame_true[columns]
-
-    chainchat = ChainConsumer()
-    chainchat.add_chain(df_plot_true.to_numpy(), parameters=parameter, name="balrog observed properties: chat")
-    chainchat.add_chain(df_plot_generated.to_numpy(), parameters=parameter, name="generated observed properties: chat*")
-    chainchat.configure(
-        max_ticks=max_ticks,
-        shade_alpha=shade_alpha,
-        tick_font_size=tick_font_size,
-        label_font_size=label_font_size
-    )
-    try:
-        chainchat.plotter.plot(
-            filename=save_name,
-            figsize="page",
-            extents=extends
-        )
-    except:
-        print("chain error at epoch", epoch + 1)
-    if show_plot is True:
-        plt.show()
-    img_tensor = plot_to_tensor()
-    plt.clf()
-    plt.close()
-    return img_tensor
+# def plot_chain_compare(data_frame_generated, data_frame_true, epoch, show_plot, save_name, columns=None, labels=None,
+#                        extends=None, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12):
+#     """"""
+#     if columns is None:
+#         columns = [
+#             "unsheared/mag_r",
+#             "unsheared/mag_i",
+#             "unsheared/mag_z",
+#             "unsheared/snr",
+#             "unsheared/size_ratio",
+#             "unsheared/T"
+#         ]
+#
+#     if labels is None:
+#         labels = [
+#             "mag r",
+#             "mag i",
+#             "mag z",
+#             "snr",  # signal-noise      Range: min=0.3795, max=38924.4662
+#             "size ratio",  # T/psfrec_T        Range: min=-0.8636, max=4346136.5645
+#             "T"  # T=<x^2>+<y^2>     Range: min=-0.6693, max=1430981.5103
+#         ]
+#
+#     df_plot_generated = data_frame_generated[columns]
+#     df_plot_true = data_frame_true[columns]
+#
+#     chainchat = ChainConsumer()
+#     chainchat.add_chain(df_plot_true.to_numpy(), parameters=labels, name="balrog observed properties: chat")
+#     chainchat.add_chain(df_plot_generated.to_numpy(), parameters=labels, name="generated observed properties: chat*")
+#     chainchat.configure(
+#         max_ticks=max_ticks,
+#         shade_alpha=shade_alpha,
+#         tick_font_size=tick_font_size,
+#         label_font_size=label_font_size
+#     )
+#     try:
+#         chainchat.plotter.plot(
+#             filename=save_name,
+#             figsize="page",
+#             extents=extends
+#         )
+#     except:
+#         print("chain error at epoch", epoch + 1)
+#     if show_plot is True:
+#         plt.show()
+#     img_tensor = plot_to_tensor()
+#     plt.clf()
+#     plt.close()
+#     return img_tensor
 
 
 def plot_mean_or_std(data_frame_generated, data_frame_true, lists_to_plot, list_epochs, columns, lst_labels, lst_marker,
