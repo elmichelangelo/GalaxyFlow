@@ -378,9 +378,8 @@ class TrainFlow(object):
         df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
 
         if self.cfg['APPLY_FILL_NA'] is True:
-            for na in self.cfg['FILL_NA']:
-                na_tuple = eval(na)
-                df_generated[na_tuple[0]] = df_generated[na_tuple[0]].fillna(na_tuple[1])
+            for col in in self.cfg['FILL_NA'].keys():
+                df_generated[col] = df_generated[col].fillna(self.cfg['FILL_NA'][col])
 
         for b in self.cfg['BANDS']:
             df_generated[f"meas {b} - true {b}"] = df_generated[f"unsheared/{self.cfg['LUM_TYPE'].lower()}_{b}"] - df_generated[f"BDF_{self.cfg['LUM_TYPE'].upper()}_DERED_CALIB_{b.upper()}"]
