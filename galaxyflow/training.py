@@ -82,6 +82,7 @@ class TrainFlow(object):
         self.nb = number_blocks
 
         cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
         cfg['PATH_WRITER'] = (f"{cfg['PATH_OUTPUT']}/{cfg['PATH_WRITER']}/"
                               f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
         cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['PATH_PLOTS']}"
@@ -128,6 +129,8 @@ class TrainFlow(object):
         """"""
         if not os.path.exists(self.cfg['PATH_OUTPUT']):
             os.mkdir(self.cfg['PATH_OUTPUT'])
+        if not os.path.exists(self.cfg['PATH_OUTPUT_CATALOGS']):
+            os.mkdir(self.cfg['PATH_OUTPUT_CATALOGS'])
         if self.cfg['PLOT_TEST'] is True:
             if not os.path.exists(self.cfg['PATH_PLOTS']):
                 os.mkdir(self.cfg['PATH_PLOTS'])
@@ -378,7 +381,7 @@ class TrainFlow(object):
         df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
 
         if self.cfg['APPLY_FILL_NA'] is True:
-            for col in in self.cfg['FILL_NA'].keys():
+            for col in self.cfg['FILL_NA'].keys():
                 df_generated[col] = df_generated[col].fillna(self.cfg['FILL_NA'][col])
 
         for b in self.cfg['BANDS']:

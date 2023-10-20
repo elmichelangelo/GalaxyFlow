@@ -85,10 +85,12 @@ if __name__ == '__main__':
 
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    path_output = f"{cfg['PATH_OUTPUT']}/run_{cfg['RUN_DATE']}"
-    cfg['PATH_OUTPUT'] = path_output
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/run_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/run_{cfg['RUN_DATE']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
+    if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):
+        os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
 
     batch_size = cfg["BATCH_SIZE"]
     scaler = cfg["SCALER"]
@@ -109,11 +111,6 @@ if __name__ == '__main__':
         learning_rate = [learning_rate]
     if not isinstance(weight_decay, list):
         weight_decay = [weight_decay]
-
-    output_cols = cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE']}"]
-    input_cols = cfg[f"INPUT_COLS_{cfg['LUM_TYPE']}"]
-    path_data = cfg["PATH_DATA"]
-    path_output = cfg["PATH_OUTPUT"]
 
     for lr in learning_rate:
         for wd in weight_decay:

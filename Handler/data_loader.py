@@ -335,36 +335,37 @@ def load_data(
         "scaler": scaler,
         "power transformer": dict_pt
     }
-    
-    with open(
-            f"{cfg['PATH_OUTPUT']}/df_train_data_{len(dict_training_data[f'data frame training data'])}_{cfg['RUN_DATE']}.pkl",
-            "wb") as f:
-        if cfg["PROTOCOL"] == 2:
-            pickle.dump(dict_training_data, f, protocol=2)
-        else:
-            pickle.dump(dict_training_data, f)
-    with open(
-            f"{cfg['PATH_OUTPUT']}/df_validation_data_{len(dict_validation_data[f'data frame validation data'])}_{cfg['RUN_DATE']}.pkl",
-            "wb") as f:
-        if cfg["PROTOCOL"] == 2:
-            pickle.dump(dict_validation_data, f, protocol=2)
-        else:
-            pickle.dump(dict_validation_data, f)
-    with open(f"{cfg['PATH_OUTPUT']}/df_test_data_{len(dict_test_data[f'data frame test data'])}_{cfg['RUN_DATE']}.pkl",
-              "wb") as f:
-        if cfg["PROTOCOL"] == 2:
-            pickle.dump(dict_test_data, f, protocol=2)
-        else:
-            pickle.dump(dict_test_data, f)
-    with open(
-            f"{cfg['PATH_OUTPUT']}/df_complete_data_{len(dict_complete_data[f'data frame complete data'])}_{cfg['RUN_DATE']}.pkl",
-            "wb") as f:
-        if cfg["PROTOCOL"] == 2:
-            pickle.dump(dict_complete_data, f, protocol=2)
-        else:
-            pickle.dump(dict_complete_data, f)
+    save_training_catalogs(
+        dict_data=dict_training_data,
+        cfg=cfg,
+        save_name=f"df_train_data_{len(dict_training_data[f'data frame training data'])}_{cfg['RUN_DATE']}.pkl"
+    )
+    save_training_catalogs(
+        dict_data=dict_validation_data,
+        cfg=cfg,
+        save_name=f"df_validation_data_{len(dict_validation_data[f'data frame validation data'])}_{cfg['RUN_DATE']}.pkl"
+    )
+    save_training_catalogs(
+        dict_data=dict_test_data,
+        cfg=cfg,
+        save_name=f"df_test_data_{len(dict_test_data[f'data frame test data'])}_{cfg['RUN_DATE']}.pkl"
+    )
+    save_training_catalogs(
+        dict_data=dict_complete_data,
+        cfg=cfg,
+        save_name=f"df_complete_data_{len(dict_complete_data[f'data frame complete data'])}_{cfg['RUN_DATE']}.pkl"
+    )
 
     return dict_training_data, dict_validation_data, dict_test_data
+
+
+def save_training_catalogs(dict_data, cfg, save_name):
+    """"""
+    with open(f"{cfg['PATH_OUTPUT_CATALOGS']}/{save_name}", "wb") as f:
+        if cfg["PROTOCOL"] == 2:
+            pickle.dump(dict_data, f, protocol=2)
+        else:
+            pickle.dump(dict_data, f)
 
 
 if __name__ == "__main__":

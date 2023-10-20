@@ -171,7 +171,6 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
         dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
 
-    # fig.legend(handles=legend_elements, loc='upper right', fontsize=12)
     fig.suptitle(f'Epoch {epoch}', fontsize=16)
 
     delta_legend_elements = []
@@ -185,9 +184,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
                 delta_legend_elements.append(line)
 
         delta_ax.axhline(y=0, color='gray', linestyle='--')
-        delta_ax.set_ylim(-1, 1)
+        delta_ax.set_ylim(-0.4, 0.4)
 
-        # x-Achsenbeschriftungen und -Werte nur für das unterste delta_ax anzeigen
         if idx == len(delta_names) - 1:
             delta_ax.set_xlabel('Epoch')
         else:
