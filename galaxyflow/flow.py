@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+torch.set_default_dtype(torch.float64)
 
 
 def get_mask(in_features, out_features, in_flow_features, mask_type=None):
@@ -22,7 +23,7 @@ def get_mask(in_features, out_features, in_flow_features, mask_type=None):
     else:
         out_degrees = torch.arange(out_features) % (in_flow_features - 1)
 
-    return (out_degrees.unsqueeze(-1) >= in_degrees.unsqueeze(0)).float()
+    return (out_degrees.unsqueeze(-1) >= in_degrees.unsqueeze(0)).double()
 
 
 class MaskedLinear(nn.Module):
@@ -35,17 +36,19 @@ class MaskedLinear(nn.Module):
         super(MaskedLinear, self).__init__()
         self.linear = nn.Linear(in_features, out_features)
         if cond_in_features is not None:
-            self.cond_linear = nn.Linear(
-                cond_in_features, out_features, bias=False)
+            self.cond_linear = nn.Linear(cond_in_features, out_features, bias=False)
+            self.cond_linear.weight.data = self.cond_linear.weight.data.to(dtype=torch.float64)
 
-        self.register_buffer('mask', mask)
-        torch.set_default_dtype(torch.float32)
+        self.register_buffer('mask', mask.to(dtype=torch.float64))
+        torch.set_default_dtype(torch.float64)
 
     def forward(self, inputs, cond_inputs=None):
-        if inputs.dtype is torch.float64:
-            inputs = inputs.float()
+        # if inputs.dtype is torch.float64:
+        #     inputs = inputs.float()
+        inputs = inputs.to(dtype=torch.float64)
         output = F.linear(inputs, self.linear.weight * self.mask, self.linear.bias)
         if cond_inputs is not None:
+            cond_inputs = cond_inputs.to(dtype=torch.float64)
             output += self.cond_linear(cond_inputs)
         return output
 
@@ -140,13 +143,13 @@ class BatchNormFlow(nn.Module):
     def __init__(self, num_inputs, momentum=0.0, eps=1e-5):
         super(BatchNormFlow, self).__init__()
 
-        self.log_gamma = nn.Parameter(torch.zeros(num_inputs))
-        self.beta = nn.Parameter(torch.zeros(num_inputs))
+        self.log_gamma = nn.Parameter(torch.zeros(num_inputs, dtype=torch.float64))
+        self.beta = nn.Parameter(torch.zeros(num_inputs, dtype=torch.float64))
         self.momentum = momentum
         self.eps = eps
 
-        self.register_buffer('running_mean', torch.zeros(num_inputs))
-        self.register_buffer('running_var', torch.ones(num_inputs))
+        self.register_buffer('running_mean', torch.zeros(num_inputs, dtype=torch.float64))
+        self.register_buffer('running_var', torch.ones(num_inputs, dtype=torch.float64))
 
     def forward(self, inputs, cond_inputs=None, mode='direct'):
         if mode == 'direct':
@@ -248,11 +251,11 @@ class FlowSequential(nn.Sequential):
 
     def sample(self, num_samples=None, noise=None, cond_inputs=None):
         if noise is None:
-            noise = torch.Tensor(num_samples, self.num_inputs).normal_()
+            noise = torch.Tensor(num_samples, self.num_inputs).normal_().to(dtype=torch.float64)
         device = next(self.parameters()).device
         noise = noise.to(device)
         if cond_inputs is not None:
-            cond_inputs = cond_inputs.to(device)
+            cond_inputs = cond_inputs.to(device).to(dtype=torch.float64)
         samples = self.forward(noise, cond_inputs, mode='inverse')[0]
         return samples
 

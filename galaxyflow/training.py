@@ -23,6 +23,7 @@ from Handler.cut_functions import *
 from Handler.plot_functions import *
 from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
+torch.set_default_dtype(torch.float64)
 
 
 class TrainFlow(object):
@@ -109,8 +110,8 @@ class TrainFlow(object):
         )
         with torch.no_grad():
             for batch_idx, data in enumerate(self.train_loader):
-                input_data = data[0].float()
-                output_data = data[1].float()
+                input_data = data[0].double()
+                output_data = data[1].double()
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
                 self.writer.add_graph(self.model, (output_data, input_data))
@@ -305,8 +306,8 @@ class TrainFlow(object):
         train_loss = 0.0
         pbar = tqdm(total=len(self.train_loader.dataset))
         for batch_idx, data in enumerate(self.train_loader):
-            input_data = data[0].float()
-            output_data = data[1].float()
+            input_data = data[0].double()
+            output_data = data[1].double()
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
             self.optimizer.zero_grad()
@@ -337,8 +338,8 @@ class TrainFlow(object):
 
         with torch.no_grad():
             self.model(
-                inputs=self.train_loader.dataset[:][1].to(output_data.device).float(),
-                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device).float()
+                inputs=self.train_loader.dataset[:][1].to(output_data.device).double(),
+                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device).double()
             )
 
         for module in self.model.modules():
@@ -351,8 +352,8 @@ class TrainFlow(object):
         val_loss = 0
         pbar = tqdm(total=len(self.valid_loader.dataset))
         for batch_idx, data in enumerate(self.valid_loader):
-            input_data = data[0].float()
-            output_data = data[1].float()
+            input_data = data[0].double()
+            output_data = data[1].double()
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
             with torch.no_grad():
@@ -377,9 +378,8 @@ class TrainFlow(object):
         sns.set_theme()
         self.model.eval()
 
-        # cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        input_data = self.galaxies.test_dataset[:][0].float()
-        output_data_true = self.galaxies.test_dataset[:][1].float()
+        input_data = self.galaxies.test_dataset[:][0].double()
+        output_data_true = self.galaxies.test_dataset[:][1].double()
         input_data = input_data.to(self.device)
         output_data_true = output_data_true.to(self.device)
         with torch.no_grad():
@@ -425,7 +425,8 @@ class TrainFlow(object):
         #
         # true = self.scaler.inverse_transform(df_true_scaled)
         # df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
-
+        if self.cfg['DROP_NA'] is True:
+            df_gandalf = df_gandalf.dropna()
         if self.cfg['APPLY_FILL_NA'] is True:
             for col in self.cfg['FILL_NA'].keys():
                 df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA'][col])
@@ -587,7 +588,7 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
-                    ranges=[(15, 30), (15, 30), (15, 30), (-2, 4), (-3.5, 4), (-1.5, 2)]
+                    ranges=[(15, 30), (15, 30), (15, 30), (-15, 75), (-1.5, 4), (-1.5, 2)]
                 )
                 self.writer.add_image("chain plot", img_grid, epoch + 1)
             except Exception as e:
@@ -619,7 +620,7 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
-                    ranges=[(15, 30), (15, 30), (15, 30), (-75, 425), (-1.5, 6), (-1, 4)]
+                    ranges=[(15, 30), (15, 30), (15, 30), (-75, 200), (-1.5, 6), (-1, 4)]
                 )
                 self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
             except Exception as e:
@@ -636,22 +637,16 @@ class TrainFlow(object):
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png",
                     columns=[
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_R",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_I",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_Z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
                     labels=[
-                        # "true r",
-                        # "true i",
-                        # "true z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
-                    ranges=[(-4, 4), (-4, 4), (-4, 4)]  # (18, 30), (18, 30), (18, 30),
+                    ranges=[(-4, 4), (-4, 4), (-4, 4)]
                 )
                 self.writer.add_image("color diff plot", img_grid, epoch + 1)
             except Exception as e:
@@ -668,22 +663,16 @@ class TrainFlow(object):
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png",
                     columns=[
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_R",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_I",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_Z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
                     labels=[
-                        # "true r",
-                        # "true i",
-                        # "true z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
-                    ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]  # (18, 30), (18, 30), (18, 30),
+                    ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]
                 )
                 self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:

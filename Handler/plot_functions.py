@@ -13,7 +13,7 @@ import corner
 from Handler.helper_functions import string_to_tuple
 import time
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 
 
 def plot_to_tensor():
@@ -160,6 +160,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
     for i in range(ndim):
         ax = axes[i, i]
+        sns.histplot(arr_generated[:, i], ax=ax, color='#ff8c00', stat='density', bins=20, alpha=0.5)
+        sns.histplot(arr_true[:, i], ax=ax, color='#51a6fb', stat='density', bins=20, alpha=0.5)
         sns.kdeplot(arr_generated[:, i], ax=ax, color='#ff8c00', fill=True, levels=[0.16, 0.5, 0.84])
         sns.kdeplot(arr_true[:, i], ax=ax, color='#51a6fb', fill=True, levels=[0.16, 0.5, 0.84])
         # ax.set_xlim(ranges[i])  # Setzen Sie die Achsenlimits entsprechend Ihren ranges
