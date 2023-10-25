@@ -6,6 +6,8 @@ import numpy as np
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+from galaxyflow import GalaxyDataset
+from torch.utils.data import DataLoader
 from Handler.data_loader import load_data
 from torch import nn
 from torch.utils.data import Dataset
@@ -13,149 +15,77 @@ from torch.utils.data import Dataset
 
 class TrainDet(object):
     def __init__(self,
-                 path_train_data,
-                 path_output,
-                 path_loss_txt_output,
-                 selected_scaler,
-                 reproducible,
+                 cfg,
                  lr,
-                 run,
-                 size_training_dataset,
-                 size_validation_dataset,
-                 size_test_dataset,
-                 batch_size,
-                 valid_batch_size
+                 bs
                  ):
         super().__init__()
-        self.path_train_data = path_train_data
-        self.path_output = path_output
-        self.path_loss_txt_output = path_loss_txt_output
-        self.run = run
-        self.size_training_dataset = size_training_dataset
-        self.size_validation_dataset = size_validation_dataset
-        self.size_test_dataset = size_test_dataset
-        self.batch_size = batch_size
-        self.valid_batch_size = valid_batch_size
-        self.test_batch_size = batch_size
+        self.cfg = cfg
+        self.bs = bs
         self.best_loss = float('inf')
         self.best_acc = 0.0
         self.best_epoch = 0
         self.lr = lr
-        self.bs = bs
 
-        self.col_label_det = [
-            "BDF_MAG_DERED_CALIB_U",
-            "BDF_MAG_DERED_CALIB_G",
-            "BDF_MAG_DERED_CALIB_R",
-            "BDF_MAG_DERED_CALIB_I",
-            "BDF_MAG_DERED_CALIB_Z",
-            "BDF_MAG_DERED_CALIB_J",
-            "BDF_MAG_DERED_CALIB_H",
-            "BDF_MAG_DERED_CALIB_K",
-            "BDF_MAG_ERR_DERED_CALIB_U",
-            "BDF_MAG_ERR_DERED_CALIB_G",
-            "BDF_MAG_ERR_DERED_CALIB_R",
-            "BDF_MAG_ERR_DERED_CALIB_I",
-            "BDF_MAG_ERR_DERED_CALIB_Z",
-            "BDF_MAG_ERR_DERED_CALIB_J",
-            "BDF_MAG_ERR_DERED_CALIB_H",
-            "BDF_MAG_ERR_DERED_CALIB_K",
-            "Color Mag U-G",
-            "Color Mag G-R",
-            "Color Mag R-I",
-            "Color Mag I-Z",
-            "Color Mag Z-J",
-            "Color Mag J-H",
-            "Color Mag H-K",
-            "BDF_T",
-            "BDF_G",
-            "FWHM_WMEAN_R",
-            "FWHM_WMEAN_I",
-            "FWHM_WMEAN_Z",
-            "AIRMASS_WMEAN_R",
-            "AIRMASS_WMEAN_I",
-            "AIRMASS_WMEAN_Z",
-            "MAGLIM_R",
-            "MAGLIM_I",
-            "MAGLIM_Z",
-            "EBV_SFD98"
-        ]
+        self.train_loader, self.valid_loader, self.df_test, self.galaxies = self.init_dataset()
 
-        self.col_output_det = ["detected"]
+        cfg['PATH_OUTPUT_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{self.lr}_bs_{self.bs}"
+        cfg['PATH_WRITER_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/{cfg['PATH_WRITER_CLASSF']}"
+        cfg['PATH_PLOTS_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/{cfg['PATH_PLOTS_CLASSF']}"
+        cfg['PATH_SAVE_NN_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/{cfg['PATH_SAVE_NN_CLASSF']}"
 
-        self.train_loader, self.valid_loader, self.test_loader, self.scaler = self.init_dataset(
-            selected_scaler=selected_scaler,
-            reproducible=reproducible
-        )
+        for plot in cfg['PLOTS_CLASSF']:
+            cfg[f'PATH_PLOTS_FOLDER_CLASSF'][plot.upper()] = f"{cfg['PATH_PLOTS_CLASSF']}/{plot}"
 
-        self.model = BinaryClassifier(num_features=len(self.col_label_det), learning_rate=lr)
+        self.make_dirs()
+
+        self.model = BinaryClassifier(num_features=len(self.cfg['INPUT_COLS_MAG_CLASSF']), learning_rate=lr)
         self.best_validation_loss = float('inf')
         self.best_validation_acc = 0.0
         self.best_validation_epoch = 0
         self.best_model = self.model
 
-    def init_dataset(self, selected_scaler, reproducible):
+    def make_dirs(self):
         """"""
-        training_data, validation_data, test_data, all_data = load_data(
-            path_training_data=self.path_train_data,
-            path_output=self.path_output,
-            input_flow=self.col_label_det,
-            output_flow=self.col_output_det,
-            selected_scaler=selected_scaler,
-            size_training_dataset=self.size_training_dataset,
-            size_validation_dataset=self.size_validation_dataset,
-            size_test_dataset=self.size_test_dataset,
-            reproducible=reproducible,
-            run=self.run
+        if not os.path.exists(self.cfg['PATH_OUTPUT_CLASSF']):
+            os.mkdir(self.cfg['PATH_OUTPUT_CLASSF'])
+        if self.cfg['PLOT_TEST_CLASSF'] is True:
+            if not os.path.exists(self.cfg['PATH_PLOTS_CLASSF']):
+                os.mkdir(self.cfg['PATH_PLOTS_CLASSF'])
+            for path_plot in self.cfg['PATH_PLOTS_FOLDER_CLASSF'].values():
+                if not os.path.exists(path_plot):
+                    os.mkdir(path_plot)
+
+        if self.cfg['SAVE_NN_CLASSF'] is True:
+            if not os.path.exists(self.cfg["PATH_SAVE_NN_CLASSF"]):
+                os.mkdir(self.cfg["PATH_SAVE_NN_CLASSF"])
+
+    def init_dataset(self):
+        """"""
+        galaxies = GalaxyDataset(
+            cfg=self.cfg,
+            kind="classifier_training",
+            lst_split=[
+                self.cfg['SIZE_TRAINING_DATA_CLASSF'],
+                self.cfg['SIZE_VALIDATION_DATA_CLASSF'],
+                self.cfg['SIZE_TEST_DATA_CLASSF']
+            ]
         )
 
-        train_tensor = torch.from_numpy(training_data[f"output flow in order {self.col_output_det}"])
-        train_labels = torch.from_numpy(training_data[f"label flow in order {self.col_label_det}"])
-        train_dataset = torch.utils.data.TensorDataset(train_labels, train_tensor)
+        # Create DataLoaders for training, validation, and testing
+        train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=True, num_workers=0)
+        valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
+        test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
 
-        valid_tensors = torch.from_numpy(validation_data[f"output flow in order {self.col_output_det}"])
-        valid_labels = torch.from_numpy(validation_data[f"label flow in order {self.col_label_det}"])
-        valid_dataset = torch.utils.data.TensorDataset(valid_labels, valid_tensors)
-        if self.valid_batch_size == -1:
-            self.valid_batch_size = len(validation_data[f"output flow in order {self.col_output_det}"])
+        return train_loader, valid_loader, test_loader, galaxies
 
-        test_tensor = torch.from_numpy(test_data[f"output flow in order {self.col_output_det}"])
-        test_labels = torch.from_numpy(test_data[f"label flow in order {self.col_label_det}"])
-        test_dataset = torch.utils.data.TensorDataset(test_labels, test_tensor)
-        self.test_batch_size = len(test_data[f"output flow in order {self.col_output_det}"])
-
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            # **kwargs
-        )
-
-        valid_loader = torch.utils.data.DataLoader(
-            valid_dataset,
-            batch_size=self.valid_batch_size,
-            shuffle=False,
-            drop_last=False,
-            # **kwargs
-        )
-
-        test_loader = torch.utils.data.DataLoader(
-            test_dataset,
-            batch_size=self.test_batch_size,
-            shuffle=False,
-            drop_last=False,
-            # **kwargs
-        )
-
-        return train_loader, valid_loader, test_loader, test_data[f"scaler"]
-
-    def run_training(self, epochs):
+    def run_training(self):
         """"""
         # Training
         lst_loss = []
         lst_acc = []
         lst_acc_val = []
-        for e in range(1, epochs + 1):
+        for e in range(1, self.cfg['EPOCHS_CLASSF'] + 1):
             self.model.train()
             epoch_loss = 0
             epoch_acc = 0
@@ -211,7 +141,7 @@ class TrainDet(object):
             if e - self.best_validation_epoch >= 30:
                 break
 
-        with open(f"{self.path_loss_txt_output}/loss.txt", "a") as f:
+        with open(f"{self.cfg['PATH_WRITER_CLASSF']}/loss.txt", "a") as f:
             f.write(f"Learning Rate {self.lr} \t|\t "
                     f"Batch Size {self.bs} \t|\t "
                     f"Best training loss {self.best_loss :.5f} \t|\t "
@@ -221,8 +151,8 @@ class TrainDet(object):
                     f"Best validation acc {self.best_validation_acc + 0:03} \t|\t "
                     f"Best validation epoch {self.best_validation_epoch + 0:03}\n")
 
-        torch.save(self.best_model, f"{self.path_loss_txt_output}/best_model_des_epoch_{self.best_validation_epoch + 1}_lr_{self.lr}_bs_{self.bs}.pt")
-        torch.save(self.model, f"{self.path_loss_txt_output}/last_model_des_epoch_{epochs}_lr_{self.lr}_bs_{self.bs}.pt")
+        torch.save(self.best_model, f"{self.cfg['PATH_SAVE_NN_CLASSF']}/best_model_des_epoch_{self.best_validation_epoch + 1}_lr_{self.lr}_bs_{self.bs}.pt")
+        torch.save(self.model, f"{self.cfg['PATH_SAVE_NN_CLASSF']}/last_model_des_epoch_{self.cfg['EPOCHS_CLASSF']}_lr_{self.lr}_bs_{self.bs}.pt")
 
     def validate_network(self, e, lst_loss, lst_acc, lst_acc_val):
         lst_loss_valid = []
@@ -255,22 +185,22 @@ class TrainDet(object):
             })
 
             sns.histplot(data=df_y, x="detected", hue="type")
-            plt.savefig(f"{self.path_output}/y_pred/y_pred_{e}.png")
+            plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['Y_PRED']}/y_pred_{e}.png")
             plt.clf()
             break
 
         df_loss = pd.DataFrame(lst_loss, columns=["loss"])
         df_acc = pd.DataFrame(lst_acc, columns=["acc"])
         df_acc_valid = pd.DataFrame(lst_acc_val, columns=["acc validation"])
-        self.plot_data(df_acc_valid["acc validation"], f"/acc_validation/acc_val_{e}")
-        self.plot_data(df_loss["loss"], f"/loss/loss_{e}")
-        self.plot_data(df_acc["acc"], f"/acc/acc_{e}")
+        self.plot_data(df_acc_valid["acc validation"], f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ACC_VALIDATION']}/acc_val_{e}.png")
+        self.plot_data(df_loss["loss"], f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['LOSS']}/loss_{e}.png")
+        self.plot_data(df_acc["acc"], f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ACC']}/acc_{e}.png")
         return lst_acc_val, np.mean(lst_loss_valid), np.mean(lst_acc_valid)
 
     def plot_data(self, data, save_name):
         """"""
         sns.scatterplot(data)
-        plt.savefig(f"{self.path_output}/{save_name}.png")
+        plt.savefig(save_name)
         plt.clf()
 
 
@@ -320,7 +250,6 @@ class BinaryClassifier(nn.Module):
 def binary_acc(y_pred, y_test):
     # y_pred_tag = torch.round(y_pred)
     plt.hist(y_pred.detach().numpy())
-    exit()
     y_pred_tag = torch.where(y_pred <= 0.2, torch.zeros_like(y_pred), y_pred)
     y_pred_tag = torch.where(y_pred_tag >= 0.8, torch.ones_like(y_pred_tag), y_pred_tag)
 
@@ -331,67 +260,5 @@ def binary_acc(y_pred, y_test):
     return acc
 
 
-def main(
-        path_train_data,
-        path_output,
-        path_loss_txt_output,
-        selected_scaler,
-        reproducible,
-        run,
-        epochs,
-        size_training_dataset,
-        size_validation_dataset,
-        batch_size,
-        valid_batch_size,
-        lr,
-        size_test_dataset):
-    """"""
-
-    train_detector = TrainDet(
-        path_train_data=path_train_data,
-        size_training_dataset=size_training_dataset,
-        size_validation_dataset=size_validation_dataset,
-        size_test_dataset=size_test_dataset,
-        path_output=path_output,
-        path_loss_txt_output=path_loss_txt_output,
-        batch_size=batch_size,
-        valid_batch_size=valid_batch_size,
-        selected_scaler=selected_scaler,
-        run=run,
-        lr=lr,
-        reproducible=reproducible
-    )
-
-    train_detector.run_training(epochs)
-
-
 if __name__ == '__main__':
-    i = 0
-    path = os.path.abspath(sys.path[i])
-
-    while not os.path.exists(f"{path}/Data/balrog_all_w_undetected_3000000.pkl"):
-        i += 1
-        path = os.path.abspath(sys.path[i])
-    for lr in [0.001, 0.0001, 0.00001, 0.000001]:
-        for bs in [8, 16, 32, 64]:
-            if not os.path.exists(f"{path}/Output/plots/lr_{lr}_bs_{bs}"):
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/loss")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/acc")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/acc_validation")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/y_pred")
-            main(
-                path_train_data=f"{path}/Data/balrog_all_w_undetected_3000000.pkl",
-                size_training_dataset=.6,
-                size_validation_dataset=.2,
-                size_test_dataset=.2,
-                epochs=150,
-                path_output=f"{path}/Output/plots/lr_{lr}_bs_{bs}",
-                path_loss_txt_output=f"{path}/Output/plots",
-                selected_scaler="MaxAbsScaler",
-                run=1,
-                batch_size=bs,
-                valid_batch_size=-1,
-                lr=lr,
-                reproducible=False
-            )
+    pass

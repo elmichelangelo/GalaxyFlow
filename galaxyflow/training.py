@@ -149,6 +149,7 @@ class TrainFlow(object):
         """"""
         galaxies = GalaxyDataset(
             cfg=self.cfg,
+            kind="flow_training",
             lst_split=[self.cfg['SIZE_TRAINING_DATA'], self.cfg['SIZE_VALIDATION_DATA'], self.cfg['SIZE_TEST_DATA']]
         )
 
@@ -157,42 +158,7 @@ class TrainFlow(object):
         valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
 
-        # training_data, validation_data, test_data = load_data(
-        #     cfg=self.cfg,
-        #     writer=self.writer
-        # )
-        #
-        # train_output = torch.from_numpy(
-        #     training_data[f"data frame training data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # train_input = torch.from_numpy(
-        #     training_data[f"data frame training data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # train_dataset = torch.utils.data.TensorDataset(train_output, train_input)
-        #
-        # valid_output = torch.from_numpy(
-        #     validation_data[f"data frame validation data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # valid_input = torch.from_numpy(
-        #     validation_data[f"data frame validation data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # valid_dataset = torch.utils.data.TensorDataset(valid_output, valid_input)
-        #
-        # if self.cfg['VALIDATION_BATCH_SIZE'] == -1:
-        #     self.cfg['VALIDATION_BATCH_SIZE'] = len(validation_data[f"data frame validation data"])
-        #
-        # train_loader = torch.utils.data.DataLoader(
-        #     train_dataset,
-        #     batch_size=self.bs,
-        #     shuffle=False,
-        #     # **kwargs
-        # )
-        #
-        # valid_loader = torch.utils.data.DataLoader(
-        #     valid_dataset,
-        #     batch_size=self.cfg['VALIDATION_BATCH_SIZE'],
-        #     shuffle=False,
-        #     drop_last=False,
-        #     # **kwargs
-        # )
-
-        return train_loader, valid_loader, test_loader, galaxies  # test_data, test_data[f"scaler"]
+        return train_loader, valid_loader, test_loader, galaxies
 
     def init_network(self, num_outputs, num_input):
         modules = []
