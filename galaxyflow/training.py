@@ -7,12 +7,14 @@ import pickle
 import torch
 import torch.optim as optim
 import torch.utils.data
+from torch.utils.data import DataLoader, random_split
 import torch.nn
 import torchvision.utils
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.plugins.hparams import api as hp
 import galaxyflow.flow as fnn
+from galaxyflow import GalaxyDataset
 import pandas as pd
 from Handler.data_loader import load_data
 from chainconsumer import ChainConsumer
@@ -99,7 +101,7 @@ class TrainFlow(object):
                     f"number blocks: {self.nb}_"
                     f"batch size: {self.bs}"
         )
-        self.train_loader, self.valid_loader, self.df_test, self.scaler = self.init_dataset()
+        self.train_loader, self.valid_loader, self.df_test, self.galaxies = self.init_dataset()
 
         self.model, self.optimizer = self.init_network(
             num_outputs=len(cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE']}"]),
@@ -107,11 +109,11 @@ class TrainFlow(object):
         )
         with torch.no_grad():
             for batch_idx, data in enumerate(self.train_loader):
-                cond_data = data[1].float()
-                data = data[0]
-                cond_data = cond_data.to(self.device)
-                data = data.to(self.device)
-                self.writer.add_graph(self.model, (data, cond_data))
+                input_data = data[0].float()
+                output_data = data[1].float()
+                input_data = input_data.to(self.device)
+                output_data = output_data.to(self.device)
+                self.writer.add_graph(self.model, (output_data, input_data))
                 self.writer.close()
                 break
 
@@ -144,42 +146,52 @@ class TrainFlow(object):
 
     def init_dataset(self):
         """"""
-        training_data, validation_data, test_data = load_data(
+        galaxies = GalaxyDataset(
             cfg=self.cfg,
-            writer=self.writer
+            lst_split=[self.cfg['SIZE_TRAINING_DATA'], self.cfg['SIZE_VALIDATION_DATA'], self.cfg['SIZE_TEST_DATA']]
         )
 
-        train_output = torch.from_numpy(
-            training_data[f"data frame training data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        train_input = torch.from_numpy(
-            training_data[f"data frame training data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        train_dataset = torch.utils.data.TensorDataset(train_output, train_input)
+        # Create DataLoaders for training, validation, and testing
+        train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=True, num_workers=0)
+        valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
+        test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
 
-        valid_output = torch.from_numpy(
-            validation_data[f"data frame validation data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        valid_input = torch.from_numpy(
-            validation_data[f"data frame validation data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        valid_dataset = torch.utils.data.TensorDataset(valid_output, valid_input)
+        # training_data, validation_data, test_data = load_data(
+        #     cfg=self.cfg,
+        #     writer=self.writer
+        # )
+        #
+        # train_output = torch.from_numpy(
+        #     training_data[f"data frame training data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
+        # train_input = torch.from_numpy(
+        #     training_data[f"data frame training data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
+        # train_dataset = torch.utils.data.TensorDataset(train_output, train_input)
+        #
+        # valid_output = torch.from_numpy(
+        #     validation_data[f"data frame validation data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
+        # valid_input = torch.from_numpy(
+        #     validation_data[f"data frame validation data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
+        # valid_dataset = torch.utils.data.TensorDataset(valid_output, valid_input)
+        #
+        # if self.cfg['VALIDATION_BATCH_SIZE'] == -1:
+        #     self.cfg['VALIDATION_BATCH_SIZE'] = len(validation_data[f"data frame validation data"])
+        #
+        # train_loader = torch.utils.data.DataLoader(
+        #     train_dataset,
+        #     batch_size=self.bs,
+        #     shuffle=False,
+        #     # **kwargs
+        # )
+        #
+        # valid_loader = torch.utils.data.DataLoader(
+        #     valid_dataset,
+        #     batch_size=self.cfg['VALIDATION_BATCH_SIZE'],
+        #     shuffle=False,
+        #     drop_last=False,
+        #     # **kwargs
+        # )
 
-        if self.cfg['VALIDATION_BATCH_SIZE'] == -1:
-            self.cfg['VALIDATION_BATCH_SIZE'] = len(validation_data[f"data frame validation data"])
-
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=self.bs,
-            shuffle=False,
-            # **kwargs
-        )
-
-        valid_loader = torch.utils.data.DataLoader(
-            valid_dataset,
-            batch_size=self.cfg['VALIDATION_BATCH_SIZE'],
-            shuffle=False,
-            drop_last=False,
-            # **kwargs
-        )
-
-        return train_loader, valid_loader, test_data, test_data[f"scaler"]
+        return train_loader, valid_loader, test_loader, galaxies  # test_data, test_data[f"scaler"]
 
     def init_network(self, num_outputs, num_input):
         modules = []
@@ -293,17 +305,17 @@ class TrainFlow(object):
         train_loss = 0.0
         pbar = tqdm(total=len(self.train_loader.dataset))
         for batch_idx, data in enumerate(self.train_loader):
-            cond_data = data[1].float()
-            cond_data = cond_data.to(self.device)
-            data = data[0]
-            data = data.to(self.device)
+            input_data = data[0].float()
+            output_data = data[1].float()
+            input_data = input_data.to(self.device)
+            output_data = output_data.to(self.device)
             self.optimizer.zero_grad()
-            loss = -self.model.log_probs(data, cond_data).mean()
+            loss = -self.model.log_probs(output_data, input_data).mean()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
             self.optimizer.step()
-            train_loss += loss.data.item() * data.size(0)
-            pbar.update(data.size(0))
+            train_loss += loss.data.item() * output_data.size(0)
+            pbar.update(output_data.size(0))
             pbar.set_description(f"Training,\t"
                                  f"Epoch: {epoch+1},\t"
                                  f"learning rate: {self.lr},\t"
@@ -324,8 +336,10 @@ class TrainFlow(object):
                 module.momentum = 0
 
         with torch.no_grad():
-            self.model(self.train_loader.dataset.tensors[0].to(data.device),
-                       self.train_loader.dataset.tensors[1].to(data.device).float())
+            self.model(
+                inputs=self.train_loader.dataset[:][1].to(output_data.device).float(),
+                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device).float()
+            )
 
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -337,15 +351,15 @@ class TrainFlow(object):
         val_loss = 0
         pbar = tqdm(total=len(self.valid_loader.dataset))
         for batch_idx, data in enumerate(self.valid_loader):
-            cond_data = data[1].float()
-            cond_data = cond_data.to(self.device)
-            data = data[0]
-            data = data.to(self.device)
+            input_data = data[0].float()
+            output_data = data[1].float()
+            input_data = input_data.to(self.device)
+            output_data = output_data.to(self.device)
             with torch.no_grad():
-                loss = -self.model.log_probs(data, cond_data).mean()
+                loss = -self.model.log_probs(output_data, input_data).mean()
                 self.lst_valid_loss_per_batch.append(loss.item())
-                val_loss += loss.data.item() * data.size(0)
-            pbar.update(data.size(0))
+                val_loss += loss.data.item() * output_data.size(0)
+            pbar.update(output_data.size(0))
             pbar.set_description(f"Validation,\t"
                                  f"Epoch: {epoch + 1},\t"
                                  f"learning rate: {self.lr},\t"
@@ -363,88 +377,106 @@ class TrainFlow(object):
         sns.set_theme()
         self.model.eval()
 
-        cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
+        # cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
+        input_data = self.galaxies.test_dataset[:][0].float()
+        output_data_true = self.galaxies.test_dataset[:][1].float()
+        input_data = input_data.to(self.device)
+        output_data_true = output_data_true.to(self.device)
         with torch.no_grad():
-            tensor_output = self.model.sample(len(cond_data), cond_inputs=cond_data).detach().cpu()
+            output_data_gandalf = self.model.sample(len(input_data), cond_inputs=input_data).detach()  # .cpu()
 
-        df_generated_scaled = self.df_test[f"data frame test data"].copy()
-        df_true_scaled = self.df_test[f"data frame test data"].copy()
+        df_gandalf = pd.DataFrame()
+        df_gandalf[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]] = input_data.cpu().numpy()
+        df_gandalf[self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]] = output_data_gandalf.cpu().numpy()
+        df_gandalf = df_gandalf.astype('float64')
 
-        df_generated_label = pd.DataFrame(cond_data.numpy(), columns=self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"])
-        df_generated_output = pd.DataFrame(tensor_output.cpu().numpy(), columns=self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"])
-        df_generated_output = pd.concat([df_generated_label, df_generated_output], axis=1)
-        df_generated_scaled[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]+self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]] = df_generated_output
-        generated_rescaled = self.scaler.inverse_transform(df_generated_scaled)
-        df_generated = pd.DataFrame(generated_rescaled, columns=df_generated_scaled.keys())
+        df_balrog = pd.DataFrame()
+        df_balrog[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]] = input_data.cpu().numpy()
+        df_balrog[self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]] = output_data_true.cpu().numpy()
+        df_balrog = df_balrog.astype('float64')
 
-        true = self.scaler.inverse_transform(df_true_scaled)
-        df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
+        if self.cfg['APPLY_SCALER'] is True:
+            df_gandalf = pd.DataFrame(self.galaxies.scaler.inverse_transform(df_gandalf), columns=df_gandalf.keys())
+            df_balrog = pd.DataFrame(self.galaxies.scaler.inverse_transform(df_balrog), columns=df_balrog.keys())
+
+        if self.cfg['APPLY_YJ_TRANSFORM'] is True:
+            if self.cfg['TRANSFORM_COLS'] is None:
+                trans_col = df_balrog.keys()
+            else:
+                trans_col = self.cfg['TRANSFORM_COLS']
+            df_balrog = self.galaxies.yj_inverse_transform_data(
+                data_frame=df_balrog,
+                columns=trans_col
+            )
+            df_gandalf = self.galaxies.yj_inverse_transform_data(
+                data_frame=df_gandalf,
+                columns=trans_col
+            )
+
+        df_gandalf[self.cfg['CUT_COLS']] = self.galaxies.df_cut_cols.iloc[self.galaxies.dict_indices['test']].to_numpy()
+        df_balrog[self.cfg['CUT_COLS']] = self.galaxies.df_cut_cols.iloc[self.galaxies.dict_indices['test']].to_numpy()
+
+        # df_generated_label = pd.DataFrame(input_data.numpy(), columns=self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"])
+        # df_generated_output = pd.DataFrame(output_data_gandalf.cpu().numpy(), columns=self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"])
+        # df_generated_output = pd.concat([df_generated_label, df_generated_output], axis=1)
+        # df_generated_scaled[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]+self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]] = df_generated_output
+        # generated_rescaled = self.scaler.inverse_transform(df_generated_scaled)
+        # df_generated = pd.DataFrame(generated_rescaled, columns=df_generated_scaled.keys())
+        #
+        # true = self.scaler.inverse_transform(df_true_scaled)
+        # df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
 
         if self.cfg['APPLY_FILL_NA'] is True:
             for col in self.cfg['FILL_NA'].keys():
-                df_generated[col] = df_generated[col].fillna(self.cfg['FILL_NA'][col])
+                df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA'][col])
 
         for b in self.cfg['BANDS']:
-            df_generated[f"meas {b} - true {b}"] = df_generated[f"unsheared/{self.cfg['LUM_TYPE'].lower()}_{b}"] - df_generated[f"BDF_{self.cfg['LUM_TYPE'].upper()}_DERED_CALIB_{b.upper()}"]
-            df_true[f"meas {b} - true {b}"] = df_true[f"unsheared/{self.cfg['LUM_TYPE'].lower()}_{b}"] - df_true[f"BDF_{self.cfg['LUM_TYPE'].upper()}_DERED_CALIB_{b.upper()}"]
+            df_gandalf[f"meas {b} - true {b}"] = df_gandalf[f"unsheared/{self.cfg['LUM_TYPE'].lower()}_{b}"] - df_gandalf[f"BDF_{self.cfg['LUM_TYPE'].upper()}_DERED_CALIB_{b.upper()}"]
+            df_balrog[f"meas {b} - true {b}"] = df_balrog[f"unsheared/{self.cfg['LUM_TYPE'].lower()}_{b}"] - df_balrog[f"BDF_{self.cfg['LUM_TYPE'].upper()}_DERED_CALIB_{b.upper()}"]
 
-        df_true_cut = df_true.copy()
-
-        if self.cfg['APPLY_YJ_TRANSFORM'] is True:
-            df_true_cut = yj_inverse_transform_data(
-                data_frame=df_true_cut,
-                dict_pt=self.df_test["power transformer"],
-                columns=self.cfg['TRANSFORM_COLS']
-            )
+        df_balrog_cut = df_balrog.copy()
 
         if self.cfg['APPLY_OBJECT_CUT'] is not True:
-            df_true_cut = unsheared_object_cuts(data_frame=df_true_cut)
+            df_balrog_cut = self.galaxies.unsheared_object_cuts(data_frame=df_balrog_cut)
         if self.cfg['APPLY_FLAG_CUT'] is not True:
-            df_true_cut = flag_cuts(data_frame=df_true_cut)
+            df_balrog_cut = self.galaxies.flag_cuts(data_frame=df_balrog_cut)
         if self.cfg['APPLY_UNSHEARED_MAG_CUT'] is not True:
-            df_true_cut = unsheared_mag_cut(data_frame=df_true_cut)
+            df_balrog_cut = self.galaxies.unsheared_mag_cut(data_frame=df_balrog_cut)
         if self.cfg['APPLY_UNSHEARED_SHEAR_CUT'] is not True:
-            df_true_cut = unsheared_shear_cuts(data_frame=df_true_cut)
+            df_balrog_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_balrog_cut)
         if self.cfg['APPLY_AIRMASS_CUT'] is not True:
-            df_true_cut = airmass_cut(data_frame=df_true_cut)
+            df_balrog_cut = self.galaxies.airmass_cut(data_frame=df_balrog_cut)
 
-        df_generated_cut = df_generated.copy()
-
-        if self.cfg['APPLY_YJ_TRANSFORM'] is True:
-            df_generated_cut = yj_inverse_transform_data(
-                data_frame=df_generated_cut,
-                dict_pt=self.df_test["power transformer"],
-                columns=self.cfg['TRANSFORM_COLS']
-            )
+        df_gandalf_cut = df_gandalf.copy()
 
         if self.cfg['APPLY_OBJECT_CUT'] is not True:
-            df_generated_cut = unsheared_object_cuts(data_frame=df_generated_cut)
+            df_gandalf_cut = self.galaxies.unsheared_object_cuts(data_frame=df_gandalf_cut)
         if self.cfg['APPLY_FLAG_CUT'] is not True:
-            df_generated_cut = flag_cuts(data_frame=df_generated_cut)
+            df_gandalf_cut = self.galaxies.flag_cuts(data_frame=df_gandalf_cut)
         if self.cfg['APPLY_UNSHEARED_MAG_CUT'] is not True:
-            df_generated_cut = unsheared_mag_cut(data_frame=df_generated_cut)
+            df_gandalf_cut = self.galaxies.unsheared_mag_cut(data_frame=df_gandalf_cut)
         if self.cfg['APPLY_UNSHEARED_SHEAR_CUT'] is not True:
-            df_generated_cut = unsheared_shear_cuts(data_frame=df_generated_cut)
+            df_gandalf_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_gandalf_cut)
         if self.cfg['APPLY_AIRMASS_CUT'] is not True:
-            df_generated_cut = airmass_cut(data_frame=df_generated_cut)
+            df_gandalf_cut = self.galaxies.airmass_cut(data_frame=df_gandalf_cut)
 
-        df_generated = calc_color(
-            data_frame=df_generated,
+        df_gandalf = calc_color(
+            data_frame=df_gandalf,
             colors=self.cfg['COLORS'],
             column_name=f"unsheared/{self.cfg['LUM_TYPE'].lower()}"
         )
-        df_true = calc_color(
-            data_frame=df_true,
+        df_balrog = calc_color(
+            data_frame=df_balrog,
             colors=self.cfg['COLORS'],
             column_name=f"unsheared/{self.cfg['LUM_TYPE'].lower()}"
         )
-        df_generated_cut = calc_color(
-            data_frame=df_generated_cut,
+        df_gandalf_cut = calc_color(
+            data_frame=df_gandalf_cut,
             colors=self.cfg['COLORS'],
             column_name=f"unsheared/{self.cfg['LUM_TYPE'].lower()}"
         )
-        df_true_cut = calc_color(
-            data_frame=df_true_cut,
+        df_balrog_cut = calc_color(
+            data_frame=df_balrog_cut,
             colors=self.cfg['COLORS'],
             column_name=f"unsheared/{self.cfg['LUM_TYPE'].lower()}"
         )
@@ -465,32 +497,34 @@ class TrainFlow(object):
         if self.cfg['PLOT_COLOR_COLOR'] is True:
             try:
                 img_grid, self.dict_delta_color_color = plot_compare_corner(
-                    data_frame_generated=df_generated,
-                    data_frame_true=df_true,
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
                     dict_delta=self.dict_delta_color_color,
                     epoch=epoch+1,
+                    title=f"color-color plot",
                     columns=["r-i", "i-z"],
                     labels=["r-i", "i-z"],
                     show_plot=self.cfg['SHOW_PLOT'],
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png",
-                    # ranges=[(-4, 4), (-4, 4)]
+                    ranges=[(-4, 4), (-4, 4)]
                 )
                 self.writer.add_image("color color plot", img_grid, epoch+1)
             except Exception as e:
                 print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png")
             try:
                 img_grid, self.dict_delta_color_color_mcal = plot_compare_corner(
-                    data_frame_generated=df_generated_cut,
-                    data_frame_true=df_true_cut,
+                    data_frame_generated=df_gandalf_cut,
+                    data_frame_true=df_balrog_cut,
                     dict_delta=self.dict_delta_color_color_mcal,
                     epoch=epoch+1,
+                    title=f"mcal color-color plot",
                     columns=["r-i", "i-z"],
                     labels=["r-i", "i-z"],
                     show_plot=self.cfg['SHOW_PLOT'],
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_COLOR_PLOT']}/mcal_color_color_{epoch + 1}.png",
-                    # ranges=[(-1.2, 1.8), (-1.5, 1.5)]
+                    ranges=[(-1.2, 1.8), (-1.5, 1.5)]
                 )
                 self.writer.add_image("color color plot mcal", img_grid, epoch+1)
             except Exception as e:
@@ -498,8 +532,8 @@ class TrainFlow(object):
         if self.cfg['PLOT_RESIDUAL']:
             try:
                 img_grid = residual_plot(
-                    data_frame_generated=df_generated,
-                    data_frame_true=df_true,
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
                     luminosity_type=self.cfg['LUM_TYPE'],
                     plot_title=f"residual, epoch {epoch+1}",
                     bands=self.cfg['BANDS'],
@@ -513,8 +547,8 @@ class TrainFlow(object):
 
             try:
                 img_grid = residual_plot(
-                    data_frame_generated=df_generated_cut,
-                    data_frame_true=df_true_cut,
+                    data_frame_generated=df_gandalf_cut,
+                    data_frame_true=df_balrog_cut,
                     luminosity_type=self.cfg['LUM_TYPE'],
                     plot_title=f"mcal residual, epoch {epoch+1}",
                     bands=self.cfg['BANDS'],
@@ -529,10 +563,11 @@ class TrainFlow(object):
         if self.cfg['PLOT_CHAIN'] is True:
             try:
                 img_grid, self.dict_delta_unsheared = plot_compare_corner(
-                    data_frame_generated=df_generated,
-                    data_frame_true=df_true,
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
                     dict_delta=self.dict_delta_unsheared,
                     epoch=epoch+1,
+                    title=f"chain plot",
                     show_plot=self.cfg['SHOW_PLOT'],
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['CHAIN_PLOT']}/chainplot_{epoch + 1}.png",
@@ -552,7 +587,7 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
-                    # ranges=[(15, 30), (15, 30), (15, 30), (-2, 4), (-3.5, 4), (-1.5, 2)]
+                    ranges=[(15, 30), (15, 30), (15, 30), (-2, 4), (-3.5, 4), (-1.5, 2)]
                 )
                 self.writer.add_image("chain plot", img_grid, epoch + 1)
             except Exception as e:
@@ -560,10 +595,11 @@ class TrainFlow(object):
 
             try:
                 img_grid, self.dict_delta_unsheared_mcal = plot_compare_corner(
-                    data_frame_generated=df_generated_cut,
-                    data_frame_true=df_true_cut,
+                    data_frame_generated=df_gandalf_cut,
+                    data_frame_true=df_balrog_cut,
                     dict_delta=self.dict_delta_unsheared_mcal,
                     epoch=epoch+1,
+                    title=f"mcal chain plot",
                     show_plot=self.cfg['SHOW_PLOT'],
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_CHAIN_PLOT']}/mcal_chainplot_{epoch + 1}.png",
@@ -583,7 +619,7 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
-                    # ranges=[(15, 30), (15, 30), (15, 30), (-75, 425), (-1.5, 6), (-1, 4)]
+                    ranges=[(15, 30), (15, 30), (15, 30), (-75, 425), (-1.5, 6), (-1, 4)]
                 )
                 self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
             except Exception as e:
@@ -591,10 +627,11 @@ class TrainFlow(object):
 
             try:
                 img_grid, self.dict_delta_color_diff = plot_compare_corner(
-                    data_frame_generated=df_generated,
-                    data_frame_true=df_true,
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
                     dict_delta=self.dict_delta_color_diff,
                     epoch=epoch+1,
+                    title=f"color diff plot",
                     show_plot=self.cfg['SHOW_PLOT'],
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png",
@@ -614,7 +651,7 @@ class TrainFlow(object):
                         "meas i - true i",
                         "meas z - true z"
                     ],
-                    # ranges=[(18, 30), (18, 30), (18, 30), (-4, 4), (-4, 4), (-4, 4)]
+                    ranges=[(-4, 4), (-4, 4), (-4, 4)]  # (18, 30), (18, 30), (18, 30),
                 )
                 self.writer.add_image("color diff plot", img_grid, epoch + 1)
             except Exception as e:
@@ -622,10 +659,11 @@ class TrainFlow(object):
 
             try:
                 img_grid, self.dict_delta_color_diff_mcal = plot_compare_corner(
-                    data_frame_generated=df_generated_cut,
-                    data_frame_true=df_true_cut,
+                    data_frame_generated=df_gandalf_cut,
+                    data_frame_true=df_balrog_cut,
                     dict_delta=self.dict_delta_color_diff_mcal,
                     epoch=epoch+1,
+                    title=f"mcal color diff plot",
                     show_plot=self.cfg['SHOW_PLOT'],
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png",
@@ -645,7 +683,7 @@ class TrainFlow(object):
                         "meas i - true i",
                         "meas z - true z"
                     ],
-                    # ranges=[(18, 30), (18, 30), (18, 30), (-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]
+                    ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]  # (18, 30), (18, 30), (18, 30),
                 )
                 self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:
@@ -663,8 +701,8 @@ class TrainFlow(object):
                 ]
 
                 lists_mean_to_plot_updated, img_grid = plot_mean_or_std(
-                    data_frame_generated=df_generated,
-                    data_frame_true=df_true,
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
                     lists_to_plot=lists_mean_to_plot,
                     list_epochs=self.lst_epochs,
 
@@ -712,8 +750,8 @@ class TrainFlow(object):
                 ]
 
                 lists_mean_to_plot_cut_updated, img_grid = plot_mean_or_std(
-                    data_frame_generated=df_generated_cut,
-                    data_frame_true=df_true_cut,
+                    data_frame_generated=df_gandalf_cut,
+                    data_frame_true=df_balrog_cut,
                     lists_to_plot=lists_mean_to_plot_cut,
                     list_epochs=self.lst_epochs,
                     columns=[
@@ -761,8 +799,8 @@ class TrainFlow(object):
                 ]
 
                 lists_std_to_plot_updated, img_grid = plot_mean_or_std(
-                    data_frame_generated=df_generated,
-                    data_frame_true=df_true,
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
                     lists_to_plot=lists_std_to_plot,
                     list_epochs=self.lst_epochs,
                     columns=[
@@ -809,8 +847,8 @@ class TrainFlow(object):
                 ]
 
                 lists_std_to_plot_cut_updated, img_grid = plot_mean_or_std(
-                    data_frame_generated=df_generated_cut,
-                    data_frame_true=df_true_cut,
+                    data_frame_generated=df_gandalf_cut,
+                    data_frame_true=df_balrog_cut,
                     lists_to_plot=lists_std_to_plot_cut,
                     list_epochs=self.lst_epochs,
                     columns=[
