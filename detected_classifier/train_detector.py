@@ -6,6 +6,7 @@ import numpy as np
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+import yaml
 from Handler.data_loader import load_data
 from torch import nn
 from torch.utils.data import Dataset
@@ -13,6 +14,7 @@ from torch.utils.data import Dataset
 
 class TrainDet(object):
     def __init__(self,
+                 cfg,
                  path_train_data,
                  path_output,
                  path_loss_txt_output,
@@ -31,6 +33,7 @@ class TrainDet(object):
         self.path_output = path_output
         self.path_loss_txt_output = path_loss_txt_output
         self.run = run
+        self.cfg = cfg
         self.size_training_dataset = size_training_dataset
         self.size_validation_dataset = size_validation_dataset
         self.size_test_dataset = size_test_dataset
@@ -44,22 +47,12 @@ class TrainDet(object):
         self.bs = bs
 
         self.col_label_det = [
-            "BDF_MAG_DERED_CALIB_U",
-            "BDF_MAG_DERED_CALIB_G",
             "BDF_MAG_DERED_CALIB_R",
             "BDF_MAG_DERED_CALIB_I",
             "BDF_MAG_DERED_CALIB_Z",
-            "BDF_MAG_DERED_CALIB_J",
-            "BDF_MAG_DERED_CALIB_H",
-            "BDF_MAG_DERED_CALIB_K",
-            "BDF_MAG_ERR_DERED_CALIB_U",
-            "BDF_MAG_ERR_DERED_CALIB_G",
             "BDF_MAG_ERR_DERED_CALIB_R",
             "BDF_MAG_ERR_DERED_CALIB_I",
             "BDF_MAG_ERR_DERED_CALIB_Z",
-            "BDF_MAG_ERR_DERED_CALIB_J",
-            "BDF_MAG_ERR_DERED_CALIB_H",
-            "BDF_MAG_ERR_DERED_CALIB_K",
             "Color Mag U-G",
             "Color Mag G-R",
             "Color Mag R-I",
@@ -97,16 +90,7 @@ class TrainDet(object):
     def init_dataset(self, selected_scaler, reproducible):
         """"""
         training_data, validation_data, test_data, all_data = load_data(
-            path_training_data=self.path_train_data,
-            path_output=self.path_output,
-            input_flow=self.col_label_det,
-            output_flow=self.col_output_det,
-            selected_scaler=selected_scaler,
-            size_training_dataset=self.size_training_dataset,
-            size_validation_dataset=self.size_validation_dataset,
-            size_test_dataset=self.size_test_dataset,
-            reproducible=reproducible,
-            run=self.run
+            cfg=self.cfg
         )
 
         train_tensor = torch.from_numpy(training_data[f"output flow in order {self.col_output_det}"])
@@ -332,6 +316,7 @@ def binary_acc(y_pred, y_test):
 
 
 def main(
+        cfg,
         path_train_data,
         path_output,
         path_loss_txt_output,
@@ -348,6 +333,7 @@ def main(
     """"""
 
     train_detector = TrainDet(
+        cfg,
         path_train_data=path_train_data,
         size_training_dataset=size_training_dataset,
         size_validation_dataset=size_validation_dataset,
@@ -366,28 +352,81 @@ def main(
 
 
 if __name__ == '__main__':
-    i = 0
-    path = os.path.abspath(sys.path[i])
+    
+    sys.path.append(os.path.dirname(__file__))
+    path = os.path.abspath(sys.path[-1])
+    if get_os() == "Mac":
+        print("load mac config-file")
+        config_file_name = "mac.cfg"
+    elif get_os() == "Windows":
+        print("load windows config-file")
+        config_file_name = "windows.cfg"
+    elif get_os() == "Linux":
+        print("load linux config-file")
+        config_file_name = "linux.cfg"
+    else:
+        print(f"OS Error: {get_os()}")
 
-    while not os.path.exists(f"{path}/Data/balrog_all_w_undetected_3000000.pkl"):
-        i += 1
-        path = os.path.abspath(sys.path[i])
+    parser = argparse.ArgumentParser(description='Start gaNdalF')
+    parser.add_argument(
+        '--config_filename',
+        "-cf",
+        type=str,
+        nargs=1,
+        required=False,
+        default=config_file_name,
+        help='Name of config file. If not given default.cfg will be used'
+    )
+    parser.add_argument(
+        '--mode',
+        "-m",
+        type=str,
+        nargs=1,
+        required=False,
+        help='Mode of gaNdalF'
+    )
+    args = parser.parse_args()
+
+    if isinstance(args.mode, list):
+        args.mode = args.mode[0]
+
+    if isinstance(args.config_filename, list):
+        args.config_filename = args.config_filename[0]
+
+    with open(f"{path}/files/conf/{args.config_filename}", 'r') as fp:
+        cfg = yaml.safe_load(fp)
+
+    if args.mode is None:
+        args.mode = cfg["MODE"]
+        mode = args.mode
+    else:
+        mode = args.mode
+        cfg["MODE"] = mode
+
+    now = datetime.now()
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    cfg['PATH_OUTPUT_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/classifier_{cfg['RUN_DATE']}"
+    if not os.path.exists(cfg['PATH_OUTPUT_CLASSF']):
+        os.mkdir(cfg['PATH_OUTPUT_CLASSF'])
+        
+        
     for lr in [0.001, 0.0001, 0.00001, 0.000001]:
         for bs in [8, 16, 32, 64]:
-            if not os.path.exists(f"{path}/Output/plots/lr_{lr}_bs_{bs}"):
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/loss")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/acc")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/acc_validation")
-                os.mkdir(f"{path}/Output/plots/lr_{lr}_bs_{bs}/y_pred")
+            if not os.path.exists(f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}"):
+                os.mkdir(f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}")
+                os.mkdir(f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}/loss")
+                os.mkdir(f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}/acc")
+                os.mkdir(f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}/acc_validation")
+                os.mkdir(f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}/y_pred")
             main(
-                path_train_data=f"{path}/Data/balrog_all_w_undetected_3000000.pkl",
-                size_training_dataset=.6,
-                size_validation_dataset=.2,
-                size_test_dataset=.2,
-                epochs=150,
-                path_output=f"{path}/Output/plots/lr_{lr}_bs_{bs}",
-                path_loss_txt_output=f"{path}/Output/plots",
+                cfg=cfg,
+                path_train_data=f"{cfg['PATH_DATA_CLASSF']}/{cfg['DATA_FILE_NAME_CLASSF']}",
+                size_training_dataset=cfg['SIZE_TRAINING_DATA_CLASSF'],
+                size_validation_dataset=cfg['SIZE_VALIDATION_DATA_CLASSF'],
+                size_test_dataset=cfg['SIZE_TEST_DATA_CLASSF'],
+                epochs=cfg['EPOCHS_CLASSF'],
+                path_output=f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}",
+                path_loss_txt_output=f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{lr}_bs_{bs}",
                 selected_scaler="MaxAbsScaler",
                 run=1,
                 batch_size=bs,

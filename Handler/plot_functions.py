@@ -199,6 +199,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         plt.show()
     if save_plot is True:
         plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig)
     return img_tensor, dict_delta
 
 
