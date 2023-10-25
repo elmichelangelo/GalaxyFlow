@@ -12,6 +12,8 @@ from io import BytesIO
 import corner
 from Handler.helper_functions import string_to_tuple
 import time
+import matplotlib
+matplotlib.use('Agg')
 
 
 def plot_to_tensor():
@@ -77,7 +79,7 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
     return img_tensor
 
 
-def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, epoch, dict_delta, ranges=None,
+def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
                         show_plot=False, save_plot=False, save_name=None):
     if epoch == 1:
         for label in labels:
@@ -117,7 +119,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         show_titles=True,
         title_fmt=".2f",
         title_kwargs={"fontsize": 12},
-        scale_hist=False,
+        hist_kwargs={'alpha': 0},
+        scale_hist=True,
         quantiles=[0.16, 0.5, 0.84],
         density=True,
         plot_datapoints=True,
@@ -139,7 +142,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         show_titles=True,
         title_fmt=".2f",
         title_kwargs={"fontsize": 12},
-        scale_hist=False,
+        hist_kwargs={'alpha': 0},
+        scale_hist=True,
         quantiles=[0.16, 0.5, 0.84],
         density=True,
         plot_datapoints=True,
@@ -156,8 +160,9 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
     for i in range(ndim):
         ax = axes[i, i]
-        ax.set_xticks([])
-        ax.set_xticklabels([])
+        sns.kdeplot(arr_generated[:, i], ax=ax, color='#ff8c00', fill=True, levels=[0.16, 0.5, 0.84])
+        sns.kdeplot(arr_true[:, i], ax=ax, color='#51a6fb', fill=True, levels=[0.16, 0.5, 0.84])
+        # ax.set_xlim(ranges[i])  # Setzen Sie die Achsenlimits entsprechend Ihren ranges
         ax.set_yticklabels(ax.get_yticks(), rotation=45)
 
         # Titel mit Quantilen manuell hinzufügen
@@ -171,7 +176,14 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
         dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
 
-    fig.suptitle(f'Epoch {epoch}', fontsize=16)
+    if ranges is not None:
+        for i in range(ndim):
+            for j in range(ndim):
+                ax = axes[i, j]
+                ax.set_xlim(ranges[j])
+                ax.set_ylim(ranges[i])
+
+    fig.suptitle(f'{title}, epoch {epoch}', fontsize=16)
 
     delta_legend_elements = []
     epochs = list(range(1, epoch + 1))
@@ -184,7 +196,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
                 delta_legend_elements.append(line)
 
         delta_ax.axhline(y=0, color='gray', linestyle='--')
-        delta_ax.set_ylim(-0.4, 0.4)
+        delta_ax.set_ylim(-0.05, 0.05)
 
         if idx == len(delta_names) - 1:
             delta_ax.set_xlabel('Epoch')
@@ -199,7 +211,11 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         plt.show()
     if save_plot is True:
         plt.savefig(save_name, dpi=200)
+<<<<<<< HEAD
     plt.clf()
+=======
+    fig.clf()
+>>>>>>> 0a86dc09d1a7f8b3d2eecff849c3fecbb2f4d8bb
     plt.close(fig)
     return img_tensor, dict_delta
 

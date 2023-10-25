@@ -30,7 +30,7 @@ def load_test_data(path_test_data):
 
 def load_data(
         cfg,
-        writer=None
+        writer
 ):
     """"""
 
@@ -97,8 +97,8 @@ def load_data(
             ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("unsheared chain plot", img_grid)
+
+        writer.add_image("unsheared chain plot", img_grid)
         img_grid = plot_corner(
             data_frame=df_training_data,
             labels=[
@@ -120,8 +120,7 @@ def load_data(
             ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("unsheared error chain plot", img_grid)
+        writer.add_image("unsheared error chain plot", img_grid)
         img_grid = plot_corner(
             data_frame=df_training_data,
             labels=[
@@ -147,8 +146,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("BDF chain plot", img_grid)
+        writer.add_image("BDF chain plot", img_grid)
         img_grid = plot_corner(
             data_frame=df_training_data,
             labels=[
@@ -174,8 +172,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("BDF error chain plot", img_grid)
+        writer.add_image("BDF error chain plot", img_grid)
         img_grid = plot_corner(
             data_frame=df_training_data,
             labels=[
@@ -199,8 +196,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("COLOR BDF chain plot", img_grid)
+        writer.add_image("COLOR BDF chain plot", img_grid)
         img_grid = plot_corner(
             data_frame=df_training_data,
             labels=[
@@ -216,8 +212,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("AIRMASS chain plot", img_grid)
+        writer.add_image("AIRMASS chain plot", img_grid)
 
         img_grid = plot_corner(
             data_frame=df_training_data,
@@ -234,8 +229,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("FWHM chain plot", img_grid)
+        writer.add_image("FWHM chain plot", img_grid)
 
         img_grid = plot_corner(
             data_frame=df_training_data,
@@ -252,8 +246,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("MAGLIM chain plot", img_grid)
+        writer.add_image("MAGLIM chain plot", img_grid)
 
         img_grid = plot_corner(
             data_frame=df_training_data,
@@ -270,8 +263,7 @@ def load_data(
             # ranges=[(16, 32), (16, 32), (16, 32), (-3, 3), (-3, 3), (-3, 3)],
             show_plot=cfg["SHOW_LOAD_DATA"]
         )
-        if writer is not None:
-            writer.add_image("GALAXY chain plot", img_grid)
+        writer.add_image("GALAXY chain plot", img_grid)
     scaler = None
     if cfg['SCALER'] == "MinMaxScaler":
         scaler = MinMaxScaler()
