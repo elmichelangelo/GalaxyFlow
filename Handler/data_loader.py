@@ -361,7 +361,7 @@ def load_data(
 
 def save_training_catalogs(dict_data, cfg, save_name):
     """"""
-    with open(f"{cfg['PATH_OUTPUT_CATALOGS']}/{save_name}", "wb") as f:
+    with open(f"{cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS']}/{save_name}", "wb") as f:
         if cfg["PROTOCOL"] == 2:
             pickle.dump(dict_data, f, protocol=2)
         else:

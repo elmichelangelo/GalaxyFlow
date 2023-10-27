@@ -9,10 +9,13 @@ import gc
 
 class GalaxyDataset(Dataset):
     def __init__(self, cfg, kind, lst_split: list = None):
+        df_classf_output_cols = None
         if kind == "flow_training":
             self.postfix = ""
         elif kind == "classifier_training":
             self.postfix = "_CLASSF"
+        elif kind == "run_gandalf":
+            self.postfix = "_RUN"
         else:
             raise TypeError(f"{kind} is no valid kind")
         with open(f"{cfg[f'PATH_DATA{self.postfix}']}/{cfg[f'DATA_FILE_NAME{self.postfix}']}", 'rb') as f:
@@ -49,10 +52,16 @@ class GalaxyDataset(Dataset):
                 df_data = self.airmass_cut(df_data)
                 self.applied_airmass_cut = True
 
-            df_data = df_data[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
-                ]
+            if self.postfix == "_CLASSF":
+                df_classf_output_cols = df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+                df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+            elif self.postfix == "_RUN":
+                df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+            else:
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                    ]
 
             self.applied_yj_transform = False
             if cfg[f"APPLY_YJ_TRANSFORM{self.postfix}"] is True:
@@ -73,16 +82,22 @@ class GalaxyDataset(Dataset):
                 df_data, self.scaler = self.scale_data(data_frame=df_data, cfg=cfg)
                 self.applied_scaler = True
 
-            self.tsr_data = TensorDataset(
-                torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values))
+            if df_classf_output_cols is not None:
+                df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_output_cols
 
-            self.train_dataset, self.val_dataset, self.test_dataset, self.dict_indices = self.custom_random_split(
-                dataset=self.tsr_data,
-                lst_split=lst_split,
-                df_data=df_data,
-                cfg=cfg
-            )
+            if self.postfix == "_RUN":
+                self.tsr_data = TensorDataset(
+                    torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values))
+            else:
+                self.tsr_data = TensorDataset(
+                    torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values))
+                self.train_dataset, self.val_dataset, self.test_dataset, self.dict_indices = self.custom_random_split(
+                    dataset=self.tsr_data,
+                    lst_split=lst_split,
+                    df_data=df_data,
+                    cfg=cfg
+                )
 
             del df_data
             gc.collect()

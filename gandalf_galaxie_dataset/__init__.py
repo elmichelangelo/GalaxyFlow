@@ -1,0 +1,1 @@
+from gandalf_galaxie_dataset.des_galaxies import GalaxyDataset as DESGalaxies

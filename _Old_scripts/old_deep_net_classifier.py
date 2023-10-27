@@ -4,6 +4,7 @@ import os
 import sys
 import numpy as np
 import seaborn as sns
+from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
 import pandas as pd
 import matplotlib.pyplot as plt
 from galaxyflow import GalaxyDataset
@@ -141,6 +142,17 @@ class TrainDet(object):
             if e - self.best_validation_epoch >= 30:
                 break
 
+        # Plot misclassification error over epochs
+        misclassification_errors = [1 - acc / 100 for acc in lst_acc]
+        plt.figure()
+        plt.plot(range(1, len(misclassification_errors) + 1), misclassification_errors, marker='o', color='red')
+        plt.title('Misclassification Error Over Epochs')
+        plt.xlabel('Epochs')
+        plt.ylabel('Misclassification Error')
+        plt.savefig(
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['MISCLASS_ERROR']}/misclassification_error_over_epochs.png")
+        plt.clf()
+
         with open(f"{self.cfg['PATH_WRITER_CLASSF']}/loss.txt", "a") as f:
             f.write(f"Learning Rate {self.lr} \t|\t "
                     f"Batch Size {self.bs} \t|\t "
@@ -176,7 +188,7 @@ class TrainDet(object):
             lst_y_full = list(y_batch.numpy())
             for idx, y in enumerate(list(y_pred_valid_round.detach().numpy())):  # y_pred_valid
                 lst_y_pred.append(float(y))
-                lst_y.append(float(lst_y_full[idx]))
+                lst_y.append(int(lst_y_full[idx]))
 
             df_y = pd.DataFrame({
                 "detected": lst_y + lst_y_pred,
@@ -186,6 +198,48 @@ class TrainDet(object):
 
             sns.histplot(data=df_y, x="detected", hue="type")
             plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['Y_PRED']}/y_pred_{e}.png")
+            plt.clf()
+
+            # Compute confusion matrix
+            y_pred_tag = torch.where(y_pred_valid >= 0.5, torch.ones_like(y_pred_valid), torch.zeros_like(y_pred_valid))
+            cm = confusion_matrix(lst_y, y_pred_tag)
+            df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
+            plt.figure(figsize=(10, 7))
+            sns.heatmap(df_cm, annot=True, fmt="g")
+            plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['CONFUSION_MATRIX']}/confusion_matrix_{e}.png")
+            plt.clf()
+
+            # Compute ROC and AUC
+            fpr, tpr, thresholds = roc_curve(lst_y, lst_y_pred)
+            roc_auc = auc(fpr, tpr)
+            plt.figure()
+            plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title('Receiver Operating Characteristic (ROC) Curve')
+            plt.legend(loc="lower right")
+            plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ROC_CURVE']}/roc_curve_{e}.png")
+            plt.clf()
+
+            # Compute precision-recall curve
+            precision, recall, thresholds = precision_recall_curve(lst_y, lst_y_pred)
+            plt.figure()
+            plt.plot(recall, precision, color='blue', lw=2)
+            plt.xlabel('Recall')
+            plt.ylabel('Precision')
+            plt.title('Precision-Recall Curve')
+            plt.savefig(
+                f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve_{e}.png")
+            plt.clf()
+
+            # Histogram of predicted probabilities
+            plt.figure()
+            plt.hist(lst_y_pred, bins=30, color='skyblue', edgecolor='black')
+            plt.title('Histogram of Predicted Probabilities')
+            plt.xlabel('Probability')
+            plt.ylabel('Frequency')
+            plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram_{e}.png")
             plt.clf()
             break
 

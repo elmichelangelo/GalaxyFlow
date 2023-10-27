@@ -1,27 +1,15 @@
 import copy
-import sys
-import os
-import matplotlib.pyplot as plt
-import numpy as np
-import pickle
 import torch
 import torch.optim as optim
 import torch.utils.data
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import torch.nn
-import torchvision.utils
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from tensorboard.plugins.hparams import api as hp
-import galaxyflow.flow as fnn
-from galaxyflow import GalaxyDataset
-import pandas as pd
-from Handler.data_loader import load_data
-from chainconsumer import ChainConsumer
+import gandalf_flow.gaNdalF_flow as fnn
+from gandalf_galaxie_dataset import DESGalaxies
 from Handler.helper_functions import *
-from Handler.cut_functions import *
 from Handler.plot_functions import *
-from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
 torch.set_default_dtype(torch.float64)
 
@@ -84,12 +72,12 @@ class TrainFlow(object):
         self.nh = number_hidden
         self.nb = number_blocks
 
-        cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        cfg['PATH_WRITER'] = (f"{cfg['PATH_OUTPUT']}/{cfg['PATH_WRITER']}/"
+        cfg['PATH_OUTPUT_SUBFOLDER'] = f"{cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        cfg['PATH_WRITER'] = (f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_WRITER']}/"
                               f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
-        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['PATH_PLOTS']}"
-        cfg['PATH_SAVE_NN'] = f"{cfg['PATH_OUTPUT']}/{cfg['PATH_SAVE_NN']}"
+        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_PLOTS']}"
+        cfg['PATH_SAVE_NN'] = f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_SAVE_NN']}"
 
         for plot in cfg['PLOTS']:
             cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
@@ -130,10 +118,10 @@ class TrainFlow(object):
 
     def make_dirs(self):
         """"""
-        if not os.path.exists(self.cfg['PATH_OUTPUT']):
-            os.mkdir(self.cfg['PATH_OUTPUT'])
-        if not os.path.exists(self.cfg['PATH_OUTPUT_CATALOGS']):
-            os.mkdir(self.cfg['PATH_OUTPUT_CATALOGS'])
+        if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER']):
+            os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER'])
+        if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS']):
+            os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'])
         if self.cfg['PLOT_TEST'] is True:
             if not os.path.exists(self.cfg['PATH_PLOTS']):
                 os.mkdir(self.cfg['PATH_PLOTS'])
@@ -147,7 +135,7 @@ class TrainFlow(object):
 
     def init_dataset(self):
         """"""
-        galaxies = GalaxyDataset(
+        galaxies = DESGalaxies(
             cfg=self.cfg,
             kind="flow_training",
             lst_split=[self.cfg['SIZE_TRAINING_DATA'], self.cfg['SIZE_VALIDATION_DATA'], self.cfg['SIZE_TEST_DATA']]

@@ -1,6 +1,6 @@
 from datetime import datetime
 from Handler.helper_functions import get_os
-from galaxyflow.training import TrainFlow
+from gandalf_flow.training import TrainFlow
 import argparse
 import matplotlib.pyplot as plt
 import sys

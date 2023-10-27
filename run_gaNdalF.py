@@ -1,6 +1,6 @@
 from datetime import datetime
 from Handler.helper_functions import get_os
-from detected_classifier.train_detector import TrainDet
+from gandalf import gaNdalF
 import argparse
 import matplotlib.pyplot as plt
 import sys
@@ -10,21 +10,11 @@ sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
-def main(
-        cfg,
-        epochs,
-        batch_size,
-        lr
-):
+def main(cfg):
     """"""
+    gandalf = gaNdalF(cfg=cfg)
 
-    train_detector = TrainDet(
-        cfg=cfg,
-        bs=batch_size,
-        lr=lr
-    )
-
-    train_detector.run_training()
+    gandalf.run()
 
 
 if __name__ == '__main__':
@@ -57,20 +47,13 @@ if __name__ == '__main__':
     if isinstance(args.config_filename, list):
         args.config_filename = args.config_filename[0]
 
-    with open(f"{path}/files/conf/{args.config_filename}", 'r') as fp:
+    with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()
-    cfg['RUN_DATE_CLASSF'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/run_{cfg['RUN_DATE_CLASSF']}"
-    if not os.path.exists(cfg['PATH_OUTPUT_CLASSF']):
-        os.mkdir(cfg['PATH_OUTPUT_CLASSF'])
+    cfg['RUN_DATE_RUN'] = now.strftime('%Y-%m-%d_%H-%M')
+    cfg['PATH_OUTPUT_RUN'] = f"{cfg['PATH_OUTPUT_RUN']}/run_{cfg['RUN_DATE_RUN']}"
+    if not os.path.exists(cfg['PATH_OUTPUT_RUN']):
+        os.mkdir(cfg['PATH_OUTPUT_RUN'])
 
-    for lr in cfg['LEARNING_RATE_CLASSF']:
-        for bs in cfg['BATCH_SIZE_CLASSF']:
-            main(
-                cfg=cfg,
-                epochs=150,
-                batch_size=bs,
-                lr=lr
-            )
+    main(cfg)
