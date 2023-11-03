@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     now = datetime.now()
     cfg['RUN_DATE_RUN'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT_RUN'] = f"{cfg['PATH_OUTPUT_RUN']}/run_{cfg['RUN_DATE_RUN']}"
+    cfg['PATH_OUTPUT_RUN'] = f"{cfg['PATH_OUTPUT_RUN']}/gandalf_run_{cfg['RUN_DATE_RUN']}"
     if not os.path.exists(cfg['PATH_OUTPUT_RUN']):
         os.mkdir(cfg['PATH_OUTPUT_RUN'])
 

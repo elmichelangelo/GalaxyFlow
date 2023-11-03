@@ -226,7 +226,7 @@ class FlowSequential(nn.Sequential):
         self.num_inputs = inputs.size(-1)
 
         if logdets is None:
-            logdets = torch.zeros(inputs.size(0), 1, device=inputs.device)
+            logdets = torch.zeros(inputs.size(0), 1, device=inputs.device, dtype=torch.float64)
 
         assert mode in ['direct', 'inverse']
         if mode == 'direct':
@@ -235,10 +235,9 @@ class FlowSequential(nn.Sequential):
                 logdets += logdet
         else:
             for module in reversed(self._modules.values()):
-                #  TODO I got an error here when I did not cast them explicit as float. Not sure why? Here is the error:
-                #  "RuntimeError: expected scalar type Double but found Float"
-                inputs = inputs.float()
-                cond_inputs = cond_inputs.float()
+                module.double()
+                inputs = inputs.double()
+                cond_inputs = cond_inputs.double()
                 inputs, logdet = module(inputs, cond_inputs, mode)
                 logdets += logdet
 

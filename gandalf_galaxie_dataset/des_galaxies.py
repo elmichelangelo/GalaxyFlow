@@ -21,11 +21,19 @@ class GalaxyDataset(Dataset):
         with open(f"{cfg[f'PATH_DATA{self.postfix}']}/{cfg[f'DATA_FILE_NAME{self.postfix}']}", 'rb') as f:
             df_data = pd.read_pickle(f)
             self.df_cut_cols = df_data[cfg[f'CUT_COLS{self.postfix}']]
-            df_data = df_data[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f'CUT_COLS{self.postfix}']
-                ]
+            if self.postfix == "_RUN":
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"] +
+                    cfg[f'CUT_COLS{self.postfix}']
+                    ]
+            else:
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f'CUT_COLS{self.postfix}']
+                    ]
 
             self.applied_object_cut = False
             if cfg[f"APPLY_OBJECT_CUT{self.postfix}"] is True:
@@ -56,7 +64,11 @@ class GalaxyDataset(Dataset):
                 df_classf_output_cols = df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
                 df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
             elif self.postfix == "_RUN":
-                df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+                df_run_output_cols = df_data[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
+                df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                                  cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                                  ]
+
             else:
                 df_data = df_data[
                     cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
@@ -85,9 +97,18 @@ class GalaxyDataset(Dataset):
             if df_classf_output_cols is not None:
                 df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_output_cols
 
+            if df_run_output_cols is not None:
+                df_data[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]] = df_run_output_cols
+                df_data[cfg[f"CUT_COLS{self.postfix}"]] = self.df_cut_cols
+
             if self.postfix == "_RUN":
                 self.tsr_data = TensorDataset(
-                    torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values))
+                    torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"CUT_COLS{self.postfix}"]].values)
+
+                )
             else:
                 self.tsr_data = TensorDataset(
                     torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
@@ -98,12 +119,11 @@ class GalaxyDataset(Dataset):
                     df_data=df_data,
                     cfg=cfg
                 )
-
             del df_data
             gc.collect()
 
     def __len__(self):
-        return len(self.train_dataset) + len(self.val_dataset) + len(self.test_dataset)
+        return len(self.tsr_data)
 
     def __getitem__(self, idx):
         sample = self.tsr_data[idx]

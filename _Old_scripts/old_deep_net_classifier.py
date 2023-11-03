@@ -7,7 +7,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
 import pandas as pd
 import matplotlib.pyplot as plt
-from galaxyflow import GalaxyDataset
+from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader
 from Handler.data_loader import load_data
 from torch import nn
@@ -63,7 +63,7 @@ class TrainDet(object):
 
     def init_dataset(self):
         """"""
-        galaxies = GalaxyDataset(
+        galaxies = DESGalaxies(
             cfg=self.cfg,
             kind="classifier_training",
             lst_split=[

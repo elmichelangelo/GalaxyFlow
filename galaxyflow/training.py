@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 import torch.nn
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-import gandalf_flow.gaNdalF_flow as fnn
+import galaxyflow.gaNdalF_flow as fnn
 from gandalf_galaxie_dataset import DESGalaxies
 from Handler.helper_functions import *
 from Handler.plot_functions import *

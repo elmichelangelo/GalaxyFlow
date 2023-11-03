@@ -1,6 +1,6 @@
 from datetime import datetime
 from Handler.helper_functions import get_os
-from gandalf_classifier.gaNdalF_classifier import TrainDet
+from gandalf_classifier.gaNdalF_classifier import gaNdalFClassifier
 import argparse
 import matplotlib.pyplot as plt
 import sys
@@ -13,7 +13,7 @@ plt.rcParams["figure.figsize"] = (16, 9)
 def main(cfg, batch_size, lr):
     """"""
 
-    train_detector = TrainDet(
+    train_detector = gaNdalFClassifier(
         cfg=cfg,
         bs=batch_size,
         lr=lr
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     now = datetime.now()
     cfg['RUN_DATE_CLASSF'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/run_{cfg['RUN_DATE_CLASSF']}"
+    cfg['PATH_OUTPUT_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/classifier_training_{cfg['RUN_DATE_CLASSF']}"
     if not os.path.exists(cfg['PATH_OUTPUT_CLASSF']):
         os.mkdir(cfg['PATH_OUTPUT_CLASSF'])
 

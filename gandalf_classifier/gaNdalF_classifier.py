@@ -1,7 +1,11 @@
 import torch
 import os
 import seaborn as sns
+import numpy as np
+import pickle
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
+from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 import pandas as pd
 import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
@@ -9,7 +13,7 @@ from sklearn.metrics import accuracy_score
 from gandalf_galaxie_dataset import DESGalaxies
 
 
-class TrainDet(object):
+class gaNdalFClassifier(object):
     def __init__(self,
                  cfg,
                  lr,
@@ -35,8 +39,12 @@ class TrainDet(object):
 
         self.make_dirs()
 
-        self.model = XGBClassifier()
-        self.model.set_params(eval_metric=["error", "logloss"], learning_rate=lr)
+        eval_set = [(self.X_train, self.y_train), (self.X_val, self.y_val)]
+
+        xgb_clf = XGBClassifier(eval_metric=["error", "logloss"], learning_rate=lr, verbose=True, eval_set=eval_set,)
+        pipe = Pipeline([("clf", xgb_clf)])
+
+        self.model = CalibratedClassifierCV(pipe, cv=2, method="isotonic")
         self.best_validation_loss = float('inf')
         self.best_validation_acc = 0.0
         self.best_validation_epoch = 0
@@ -76,39 +84,39 @@ class TrainDet(object):
 
     def run_training(self):
         """"""
-        eval_set = [(self.X_train, self.y_train), (self.X_val,  self.y_val)]
-
         self.model.fit(
             self.X_train,
-            self.y_train,
-            eval_set=eval_set,
-            verbose=True
+            self.y_train.ravel()
         )
 
         # Validate the model
         y_pred = self.model.predict(self.X_test)
         y_pred_prob = self.model.predict_proba(self.X_test)[:, 1]
-        predictions = [round(value) for value in y_pred]
+        predictions = y_pred_prob > np.random.rand(len(self.X_test))
         validation_accuracy = accuracy_score(self.y_test, predictions)
-        print(f"Accuracy: {validation_accuracy * 100.0:.2f}%")
+        print(f"Accuracy for lr={self.lr}: {validation_accuracy * 100.0:.2f}%")
 
-        self.create_plots(y_pred, y_pred_prob, self.y_test)
+        if self.cfg['PLOT_CLASSF'] is True:
+            self.create_plots(y_pred, y_pred_prob, self.y_test)
 
-        self.model.save_model(f"{self.cfg['PATH_SAVE_NN_CLASSF']}/xgboost_model.json")
+        if self.cfg['SAVE_NN_CLASSF'] is True:
+            with open(f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg[f'SAVE_NAME_NN']}_{self.cfg['RUN_DATE_CLASSF']}.pkl", 'wb') as file:
+                pickle.dump(self.model, file)
 
     def create_plots(self, y_pred, y_pred_prob, y_true):
         # Konfusionsmatrix
         cm = confusion_matrix(y_true, y_pred)
         df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
-        plt.figure(figsize=(10, 7))
+        fig_matrix = plt.figure(figsize=(10, 7))
         sns.heatmap(df_cm, annot=True, fmt="g")
         plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['CONFUSION_MATRIX']}/confusion_matrix.png")
         plt.clf()
+        plt.close(fig_matrix)
 
         # ROC und AUC
         fpr, tpr, thresholds = roc_curve(y_true, y_pred_prob)
         roc_auc = auc(fpr, tpr)
-        plt.figure()
+        fig_roc_curve = plt.figure()
         plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
         plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
         plt.xlabel('False Positive Rate')
@@ -117,25 +125,28 @@ class TrainDet(object):
         plt.legend(loc="lower right")
         plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ROC_CURVE']}/roc_curve.png")
         plt.clf()
+        plt.close(fig_roc_curve)
 
         # Precision-Recall-Kurve
         precision, recall, thresholds = precision_recall_curve(y_true, y_pred_prob)
-        plt.figure()
+        fig_recal_curve = plt.figure()
         plt.plot(recall, precision, color='blue', lw=2)
         plt.xlabel('Recall')
         plt.ylabel('Precision')
         plt.title('Precision-Recall Curve')
         plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve.png")
         plt.clf()
+        plt.close(fig_recal_curve)
 
         # Histogramm der vorhergesagten Wahrscheinlichkeiten
-        plt.figure()
+        fig_prob_his = plt.figure()
         plt.hist(y_pred_prob, bins=30, color='skyblue', edgecolor='black')
         plt.title('Histogram of Predicted Probabilities')
         plt.xlabel('Probability')
         plt.ylabel('Frequency')
         plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram.png")
         plt.clf()
+        plt.close(fig_prob_his)
 
     @staticmethod
     def dataset_to_numpy(dataset):
