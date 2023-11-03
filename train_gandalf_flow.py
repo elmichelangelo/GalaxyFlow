@@ -1,14 +1,11 @@
-
 from datetime import datetime
-import torch.cuda
-from Handler.helper_functions import get_os, string_to_tuple
+from Handler.helper_functions import get_os
 from galaxyflow.training import TrainFlow
 import argparse
 import matplotlib.pyplot as plt
 import sys
 import yaml
 import os
-sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
@@ -45,7 +42,8 @@ if __name__ == '__main__':
         print("load linux config-file")
         config_file_name = "linux.cfg"
     else:
-        print(f"OS Error: {get_os()}")
+        print("load default config-file")
+        config_file_name = "default.cfg"
 
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
@@ -57,31 +55,13 @@ if __name__ == '__main__':
         default=config_file_name,
         help='Name of config file. If not given default.cfg will be used'
     )
-    parser.add_argument(
-        '--mode',
-        "-m",
-        type=str,
-        nargs=1,
-        required=False,
-        help='Mode of gaNdalF'
-    )
     args = parser.parse_args()
-
-    if isinstance(args.mode, list):
-        args.mode = args.mode[0]
 
     if isinstance(args.config_filename, list):
         args.config_filename = args.config_filename[0]
 
     with open(f"{path}/files/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
-
-    if args.mode is None:
-        args.mode = cfg["MODE"]
-        mode = args.mode
-    else:
-        mode = args.mode
-        cfg["MODE"] = mode
 
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')

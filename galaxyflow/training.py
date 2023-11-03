@@ -1,28 +1,17 @@
 import copy
-import sys
-import os
-import matplotlib.pyplot as plt
-import numpy as np
-import pickle
 import torch
 import torch.optim as optim
 import torch.utils.data
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import torch.nn
-import torchvision.utils
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from tensorboard.plugins.hparams import api as hp
-import galaxyflow.flow as fnn
-from galaxyflow import GalaxyDataset
-import pandas as pd
-from Handler.data_loader import load_data
-from chainconsumer import ChainConsumer
+import galaxyflow.gaNdalF_flow as fnn
+from gandalf_galaxie_dataset import DESGalaxies
 from Handler.helper_functions import *
-from Handler.cut_functions import *
 from Handler.plot_functions import *
-from scipy.stats import binned_statistic, median_abs_deviation
 import seaborn as sns
+torch.set_default_dtype(torch.float64)
 
 
 class TrainFlow(object):
@@ -83,12 +72,12 @@ class TrainFlow(object):
         self.nh = number_hidden
         self.nb = number_blocks
 
-        cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        cfg['PATH_WRITER'] = (f"{cfg['PATH_OUTPUT']}/{cfg['PATH_WRITER']}/"
+        cfg['PATH_OUTPUT_SUBFOLDER'] = f"{cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        cfg['PATH_WRITER'] = (f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_WRITER']}/"
                               f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
-        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['PATH_PLOTS']}"
-        cfg['PATH_SAVE_NN'] = f"{cfg['PATH_OUTPUT']}/{cfg['PATH_SAVE_NN']}"
+        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_PLOTS']}"
+        cfg['PATH_SAVE_NN'] = f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_SAVE_NN']}"
 
         for plot in cfg['PLOTS']:
             cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
@@ -109,8 +98,8 @@ class TrainFlow(object):
         )
         with torch.no_grad():
             for batch_idx, data in enumerate(self.train_loader):
-                input_data = data[0].float()
-                output_data = data[1].float()
+                input_data = data[0].double()
+                output_data = data[1].double()
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
                 self.writer.add_graph(self.model, (output_data, input_data))
@@ -129,10 +118,10 @@ class TrainFlow(object):
 
     def make_dirs(self):
         """"""
-        if not os.path.exists(self.cfg['PATH_OUTPUT']):
-            os.mkdir(self.cfg['PATH_OUTPUT'])
-        if not os.path.exists(self.cfg['PATH_OUTPUT_CATALOGS']):
-            os.mkdir(self.cfg['PATH_OUTPUT_CATALOGS'])
+        if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER']):
+            os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER'])
+        if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS']):
+            os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'])
         if self.cfg['PLOT_TEST'] is True:
             if not os.path.exists(self.cfg['PATH_PLOTS']):
                 os.mkdir(self.cfg['PATH_PLOTS'])
@@ -146,8 +135,9 @@ class TrainFlow(object):
 
     def init_dataset(self):
         """"""
-        galaxies = GalaxyDataset(
+        galaxies = DESGalaxies(
             cfg=self.cfg,
+            kind="flow_training",
             lst_split=[self.cfg['SIZE_TRAINING_DATA'], self.cfg['SIZE_VALIDATION_DATA'], self.cfg['SIZE_TEST_DATA']]
         )
 
@@ -156,42 +146,7 @@ class TrainFlow(object):
         valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
 
-        # training_data, validation_data, test_data = load_data(
-        #     cfg=self.cfg,
-        #     writer=self.writer
-        # )
-        #
-        # train_output = torch.from_numpy(
-        #     training_data[f"data frame training data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # train_input = torch.from_numpy(
-        #     training_data[f"data frame training data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # train_dataset = torch.utils.data.TensorDataset(train_output, train_input)
-        #
-        # valid_output = torch.from_numpy(
-        #     validation_data[f"data frame validation data"][self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # valid_input = torch.from_numpy(
-        #     validation_data[f"data frame validation data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        # valid_dataset = torch.utils.data.TensorDataset(valid_output, valid_input)
-        #
-        # if self.cfg['VALIDATION_BATCH_SIZE'] == -1:
-        #     self.cfg['VALIDATION_BATCH_SIZE'] = len(validation_data[f"data frame validation data"])
-        #
-        # train_loader = torch.utils.data.DataLoader(
-        #     train_dataset,
-        #     batch_size=self.bs,
-        #     shuffle=False,
-        #     # **kwargs
-        # )
-        #
-        # valid_loader = torch.utils.data.DataLoader(
-        #     valid_dataset,
-        #     batch_size=self.cfg['VALIDATION_BATCH_SIZE'],
-        #     shuffle=False,
-        #     drop_last=False,
-        #     # **kwargs
-        # )
-
-        return train_loader, valid_loader, test_loader, galaxies  # test_data, test_data[f"scaler"]
+        return train_loader, valid_loader, test_loader, galaxies
 
     def init_network(self, num_outputs, num_input):
         modules = []
@@ -305,8 +260,8 @@ class TrainFlow(object):
         train_loss = 0.0
         pbar = tqdm(total=len(self.train_loader.dataset))
         for batch_idx, data in enumerate(self.train_loader):
-            input_data = data[0].float()
-            output_data = data[1].float()
+            input_data = data[0].double()
+            output_data = data[1].double()
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
             self.optimizer.zero_grad()
@@ -337,8 +292,8 @@ class TrainFlow(object):
 
         with torch.no_grad():
             self.model(
-                inputs=self.train_loader.dataset[:][1].to(output_data.device).float(),
-                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device).float()
+                inputs=self.train_loader.dataset[:][1].to(output_data.device).double(),
+                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device).double()
             )
 
         for module in self.model.modules():
@@ -351,8 +306,8 @@ class TrainFlow(object):
         val_loss = 0
         pbar = tqdm(total=len(self.valid_loader.dataset))
         for batch_idx, data in enumerate(self.valid_loader):
-            input_data = data[0].float()
-            output_data = data[1].float()
+            input_data = data[0].double()
+            output_data = data[1].double()
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
             with torch.no_grad():
@@ -377,9 +332,8 @@ class TrainFlow(object):
         sns.set_theme()
         self.model.eval()
 
-        # cond_data = torch.Tensor(self.df_test[f"data frame test data"][self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE']}"]].to_numpy())
-        input_data = self.galaxies.test_dataset[:][0].float()
-        output_data_true = self.galaxies.test_dataset[:][1].float()
+        input_data = self.galaxies.test_dataset[:][0].double()
+        output_data_true = self.galaxies.test_dataset[:][1].double()
         input_data = input_data.to(self.device)
         output_data_true = output_data_true.to(self.device)
         with torch.no_grad():
@@ -425,7 +379,8 @@ class TrainFlow(object):
         #
         # true = self.scaler.inverse_transform(df_true_scaled)
         # df_true = pd.DataFrame(true, columns=df_generated_scaled.keys())
-
+        if self.cfg['DROP_NA'] is True:
+            df_gandalf = df_gandalf.dropna()
         if self.cfg['APPLY_FILL_NA'] is True:
             for col in self.cfg['FILL_NA'].keys():
                 df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA'][col])
@@ -587,7 +542,7 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
-                    ranges=[(15, 30), (15, 30), (15, 30), (-2, 4), (-3.5, 4), (-1.5, 2)]
+                    ranges=[(15, 30), (15, 30), (15, 30), (-15, 75), (-1.5, 4), (-1.5, 2)]
                 )
                 self.writer.add_image("chain plot", img_grid, epoch + 1)
             except Exception as e:
@@ -619,7 +574,7 @@ class TrainFlow(object):
                         "size_ratio",
                         "T",
                     ],
-                    ranges=[(15, 30), (15, 30), (15, 30), (-75, 425), (-1.5, 6), (-1, 4)]
+                    ranges=[(15, 30), (15, 30), (15, 30), (-75, 200), (-1.5, 6), (-1, 4)]
                 )
                 self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
             except Exception as e:
@@ -636,22 +591,16 @@ class TrainFlow(object):
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png",
                     columns=[
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_R",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_I",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_Z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
                     labels=[
-                        # "true r",
-                        # "true i",
-                        # "true z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
-                    ranges=[(-4, 4), (-4, 4), (-4, 4)]  # (18, 30), (18, 30), (18, 30),
+                    ranges=[(-4, 4), (-4, 4), (-4, 4)]
                 )
                 self.writer.add_image("color diff plot", img_grid, epoch + 1)
             except Exception as e:
@@ -668,22 +617,16 @@ class TrainFlow(object):
                     save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png",
                     columns=[
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_R",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_I",
-                        # f"BDF_{cfg['LUM_TYPE'].upper()}_DERED_CALIB_Z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
                     labels=[
-                        # "true r",
-                        # "true i",
-                        # "true z",
                         "meas r - true r",
                         "meas i - true i",
                         "meas z - true z"
                     ],
-                    ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]  # (18, 30), (18, 30), (18, 30),
+                    ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]
                 )
                 self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:

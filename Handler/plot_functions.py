@@ -13,7 +13,7 @@ import corner
 from Handler.helper_functions import string_to_tuple
 import time
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 
 
 def plot_to_tensor():
@@ -101,10 +101,12 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
     ndim = arr_generated.shape[1]
 
-    # fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
-    fig = plt.figure(figsize=(16, 12))
-    gs = fig.add_gridspec(ndim + 5, ndim, hspace=0.05, wspace=0.1)
-    axes = np.array([[fig.add_subplot(gs[i, j]) for j in range(ndim)] for i in range(ndim)])
+    if dict_delta is None:
+        fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
+    else:
+        fig = plt.figure(figsize=(16, 12))
+        gs = fig.add_gridspec(ndim + 5, ndim, hspace=0.05, wspace=0.1)
+        axes = np.array([[fig.add_subplot(gs[i, j]) for j in range(ndim)] for i in range(ndim)])
 
     # Plot gandalf
     corner.corner(
@@ -160,6 +162,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
     for i in range(ndim):
         ax = axes[i, i]
+        sns.histplot(arr_generated[:, i], ax=ax, color='#ff8c00', stat='density', bins=20, alpha=0.5)
+        sns.histplot(arr_true[:, i], ax=ax, color='#51a6fb', stat='density', bins=20, alpha=0.5)
         sns.kdeplot(arr_generated[:, i], ax=ax, color='#ff8c00', fill=True, levels=[0.16, 0.5, 0.84])
         sns.kdeplot(arr_true[:, i], ax=ax, color='#51a6fb', fill=True, levels=[0.16, 0.5, 0.84])
         # ax.set_xlim(ranges[i])  # Setzen Sie die Achsenlimits entsprechend Ihren ranges
@@ -171,10 +175,16 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         delta_q16 = quantiles_gandalf[0, i] - quantiles_balrog[0, i]
         delta_q84 = quantiles_gandalf[1, i] - quantiles_balrog[1, i]
 
-        dict_delta[f"delta mean {labels[i]}"].append(delta_mean)
-        dict_delta[f"delta median {labels[i]}"].append(delta_median)
-        dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
-        dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
+        if dict_delta is not None:
+            dict_delta[f"delta mean {labels[i]}"].append(delta_mean)
+            dict_delta[f"delta median {labels[i]}"].append(delta_median)
+            dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
+            dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
+        else:
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta mean {labels[i]}: {delta_mean}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta median {labels[i]}: {delta_median}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta q16 {labels[i]}: {delta_q16}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta q84 {labels[i]}: {delta_q84}'), )
 
     if ranges is not None:
         for i in range(ndim):
@@ -183,29 +193,36 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
                 ax.set_xlim(ranges[j])
                 ax.set_ylim(ranges[i])
 
-    fig.suptitle(f'{title}, epoch {epoch}', fontsize=16)
+    if epoch is not None:
+        fig.suptitle(f'{title}, epoch {epoch}', fontsize=16)
+    else:
+        fig.suptitle(f'{title}', fontsize=16)
 
-    delta_legend_elements = []
-    epochs = list(range(1, epoch + 1))
-    for idx, delta_name in enumerate(delta_names):
-        delta_ax = fig.add_subplot(gs[ndim + 1 + idx, :])
-        for i, label in enumerate(labels):
-            line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o',
-                                  label=f"delta {label}")
-            if idx == 0:
-                delta_legend_elements.append(line)
+    if dict_delta is not None:
+        delta_legend_elements = []
+        epochs = list(range(1, epoch + 1))
+        for idx, delta_name in enumerate(delta_names):
+            delta_ax = fig.add_subplot(gs[ndim + 1 + idx, :])
+            for i, label in enumerate(labels):
+                line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o',
+                                      label=f"delta {label}")
+                if idx == 0:
+                    delta_legend_elements.append(line)
 
-        delta_ax.axhline(y=0, color='gray', linestyle='--')
-        delta_ax.set_ylim(-0.05, 0.05)
+            delta_ax.axhline(y=0, color='gray', linestyle='--')
+            delta_ax.set_ylim(-0.05, 0.05)
 
-        if idx == len(delta_names) - 1:
-            delta_ax.set_xlabel('Epoch')
-        else:
-            delta_ax.set_xticklabels([])
+            if idx == len(delta_names) - 1:
+                delta_ax.set_xlabel('Epoch')
+            else:
+                delta_ax.set_xticklabels([])
 
-        delta_ax.set_ylabel(f'Delta {delta_name}')
+            delta_ax.set_ylabel(f'Delta {delta_name}')
 
-    fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
+        fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
+    else:
+        fig.legend(handles=legend_elements, loc='upper right', fontsize=12)
+
     img_tensor = plot_to_tensor()
     if show_plot is True:
         plt.show()

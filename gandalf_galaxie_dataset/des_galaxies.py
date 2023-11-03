@@ -1,5 +1,4 @@
-from torch.utils.data import Dataset, DataLoader, random_split, TensorDataset, Subset
-# from Handler.helper_functions import yj_transform_data
+from torch.utils.data import Dataset, TensorDataset, Subset
 from sklearn.preprocessing import PowerTransformer, MaxAbsScaler, MinMaxScaler, StandardScaler
 from itertools import accumulate
 import numpy as np
@@ -9,69 +8,122 @@ import gc
 
 
 class GalaxyDataset(Dataset):
-    def __init__(self, cfg, lst_split: list = None):
-        with open(f"{cfg['PATH_DATA']}/{cfg['DATA_FILE_NAME']}", 'rb') as f:
+    def __init__(self, cfg, kind, lst_split: list = None):
+        df_classf_output_cols = None
+        if kind == "flow_training":
+            self.postfix = ""
+        elif kind == "classifier_training":
+            self.postfix = "_CLASSF"
+        elif kind == "run_gandalf":
+            self.postfix = "_RUN"
+        else:
+            raise TypeError(f"{kind} is no valid kind")
+        with open(f"{cfg[f'PATH_DATA{self.postfix}']}/{cfg[f'DATA_FILE_NAME{self.postfix}']}", 'rb') as f:
             df_data = pd.read_pickle(f)
-            self.df_cut_cols = df_data[cfg['CUT_COLS']]
-            df_data = df_data[
-                cfg[f"INPUT_COLS_{cfg['LUM_TYPE']}"] + cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE']}"] + cfg['CUT_COLS']]
+            self.df_cut_cols = df_data[cfg[f'CUT_COLS{self.postfix}']]
+            if self.postfix == "_RUN":
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"] +
+                    cfg[f'CUT_COLS{self.postfix}']
+                    ]
+            else:
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f'CUT_COLS{self.postfix}']
+                    ]
 
             self.applied_object_cut = False
-            if cfg['APPLY_OBJECT_CUT'] is True:
+            if cfg[f"APPLY_OBJECT_CUT{self.postfix}"] is True:
                 df_data = self.unsheared_object_cuts(df_data)
                 self.applied_object_cut = True
 
             self.applied_flag_cut = False
-            if cfg['APPLY_FLAG_CUT'] is True:
+            if cfg[f"APPLY_FLAG_CUT{self.postfix}"] is True:
                 df_data = self.flag_cuts(df_data)
                 self.applied_flag_cut = True
 
             self.applied_mag_cut = False
-            if cfg['APPLY_UNSHEARED_MAG_CUT'] is True:
+            if cfg[f"APPLY_UNSHEARED_MAG_CUT{self.postfix}"] is True:
                 df_data = self.unsheared_mag_cut(df_data)
                 self.applied_mag_cut = True
 
             self.applied_shear_cut = False
-            if cfg['APPLY_UNSHEARED_SHEAR_CUT'] is True:
+            if cfg[f"APPLY_UNSHEARED_SHEAR_CUT{self.postfix}"] is True:
                 df_data = self.unsheared_shear_cuts(df_data)
                 self.applied_shear_cut = True
 
             self.applied_airmass_cut = False
-            if cfg['APPLY_AIRMASS_CUT'] is True:
+            if cfg[f"APPLY_AIRMASS_CUT{self.postfix}"] is True:
                 df_data = self.airmass_cut(df_data)
                 self.applied_airmass_cut = True
 
-            df_data = df_data[cfg[f"INPUT_COLS_{cfg['LUM_TYPE']}"] + cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE']}"]]
+            if self.postfix == "_CLASSF":
+                df_classf_output_cols = df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+                df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+            elif self.postfix == "_RUN":
+                df_run_output_cols = df_data[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
+                df_data = df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                                  cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                                  ]
+
+            else:
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                    ]
 
             self.applied_yj_transform = False
-            if cfg['APPLY_YJ_TRANSFORM'] is True:
-                if cfg['TRANSFORM_COLS'] is None:
-                    df_data, self.dict_pt = self.yj_transform_data(data_frame=df_data, columns=df_data.keys())
+            if cfg[f"APPLY_YJ_TRANSFORM{self.postfix}"] is True:
+                if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
+                    df_data, self.dict_pt = self.yj_transform_data(
+                        data_frame=df_data,
+                        columns=df_data.keys()
+                    )
                 else:
-                    df_data, self.dict_pt = self.yj_transform_data(data_frame=df_data, columns=cfg['TRANSFORM_COLS'])
+                    df_data, self.dict_pt = self.yj_transform_data(
+                        data_frame=df_data,
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
+                    )
                 self.applied_yj_transform = True
 
             self.applied_scaler = False
-            if cfg['APPLY_SCALER'] is True:
+            if cfg[f"APPLY_SCALER{self.postfix}"] is True:
                 df_data, self.scaler = self.scale_data(data_frame=df_data, cfg=cfg)
                 self.applied_scaler = True
 
-            self.tsr_data = TensorDataset(
-                torch.tensor(df_data[cfg['INPUT_COLS_MAG']].values),
-                torch.tensor(df_data[cfg['OUTPUT_COLS_MAG']].values))
+            if df_classf_output_cols is not None:
+                df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_output_cols
 
-            self.train_dataset, self.val_dataset, self.test_dataset, self.dict_indices = self.custom_random_split(
-                dataset=self.tsr_data,
-                lst_split=lst_split,
-                df_data=df_data,
-                cfg=cfg
-            )
+            if df_run_output_cols is not None:
+                df_data[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]] = df_run_output_cols
+                df_data[cfg[f"CUT_COLS{self.postfix}"]] = self.df_cut_cols
 
+            if self.postfix == "_RUN":
+                self.tsr_data = TensorDataset(
+                    torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"CUT_COLS{self.postfix}"]].values)
+
+                )
+            else:
+                self.tsr_data = TensorDataset(
+                    torch.tensor(df_data[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                    torch.tensor(df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values))
+                self.train_dataset, self.val_dataset, self.test_dataset, self.dict_indices = self.custom_random_split(
+                    dataset=self.tsr_data,
+                    lst_split=lst_split,
+                    df_data=df_data,
+                    cfg=cfg
+                )
             del df_data
             gc.collect()
 
     def __len__(self):
-        return len(self.train_dataset) + len(self.val_dataset) + len(self.test_dataset)
+        return len(self.tsr_data)
 
     def __getitem__(self, idx):
         sample = self.tsr_data[idx]
@@ -120,19 +172,18 @@ class GalaxyDataset(Dataset):
 
         return train_dataset, val_dataset, test_dataset, dict_indices
 
-    @staticmethod
-    def scale_data(data_frame, cfg):
+    def scale_data(self, data_frame, cfg):
         """"""
-        if cfg['SCALER'] == "MinMaxScaler":
+        if cfg[f"SCALER{self.postfix}"] == "MinMaxScaler":
             scaler = MinMaxScaler()
-        elif cfg['SCALER'] == "MaxAbsScaler":
+        elif cfg[f"SCALER{self.postfix}"] == "MaxAbsScaler":
             scaler = MaxAbsScaler()
-        elif cfg['SCALER'] == "StandardScaler":
+        elif cfg[f"SCALER{self.postfix}"] == "StandardScaler":
             scaler = StandardScaler()
-        elif cfg['SCALER'] is None:
+        elif cfg[f"SCALER{self.postfix}"] is None:
             scaler = None
         else:
-            raise TypeError(f"{cfg['SCALER']} is no valid scaler")
+            raise TypeError(f'{cfg[f"SCALER{self.postfix}"]} is no valid scaler')
         data_frame_scaled = None
         if scaler is not None:
             scaler.fit(data_frame)
