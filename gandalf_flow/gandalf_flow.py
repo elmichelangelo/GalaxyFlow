@@ -6,15 +6,16 @@ from torch.utils.data import DataLoader
 import torch.nn
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-import galaxyflow.gaNdalF_flow as fnn
+from Handler import count_parameters, fnn, calc_color, make_gif, loss_plot, plot_compare_corner, residual_plot, plot_mean_or_std
 from gandalf_galaxie_dataset import DESGalaxies
-from Handler.helper_functions import *
-from Handler.plot_functions import *
+import pandas as pd
+import numpy as np
 import seaborn as sns
+import os
 torch.set_default_dtype(torch.float64)
 
 
-class TrainFlow(object):
+class gaNdalFFlow(object):
 
     def __init__(self,
                  cfg,

@@ -1,5 +1,5 @@
 from datetime import datetime
-from Handler.helper_functions import get_os
+from Handler import get_os
 from gandalf_classifier.gaNdalF_classifier import gaNdalFClassifier
 import argparse
 import matplotlib.pyplot as plt

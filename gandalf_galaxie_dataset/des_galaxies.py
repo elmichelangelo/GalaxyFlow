@@ -10,6 +10,7 @@ import gc
 class GalaxyDataset(Dataset):
     def __init__(self, cfg, kind, lst_split: list = None):
         df_classf_output_cols = None
+        df_run_output_cols = None
         if kind == "flow_training":
             self.postfix = ""
         elif kind == "classifier_training":

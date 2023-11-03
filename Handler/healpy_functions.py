@@ -1,4 +1,3 @@
-import healpy as hp
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -9,6 +8,7 @@ def load_healpix(path2file, hp_show=False, nest=True, partial=False, field=None)
     # Returns:
 
     """
+    import healpy as hp
     if field is None:
         hp_map = hp.read_map(path2file, nest=nest, partial=partial)
     else:
@@ -36,6 +36,7 @@ def match_skybrite_2_footprint(path2footprint, path2skybrite, hp_show=False, nes
     Returns:
 
     """
+    import healpy as hp
     hp_map_footprint = load_healpix(
         path2file=path2footprint,
         hp_show=hp_show,

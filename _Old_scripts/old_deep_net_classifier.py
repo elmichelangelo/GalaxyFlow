@@ -1,7 +1,6 @@
 import torch
 import copy
 import os
-import sys
 import numpy as np
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
@@ -9,9 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader
-from Handler.data_loader import load_data
 from torch import nn
-from torch.utils.data import Dataset
 
 
 class TrainDet(object):

@@ -1,6 +1,6 @@
 from datetime import datetime
-from Handler.helper_functions import get_os
-from galaxyflow.training import TrainFlow
+from Handler import get_os
+from gandalf_flow import gaNdalFFlow
 import argparse
 import matplotlib.pyplot as plt
 import sys
@@ -18,7 +18,7 @@ def main(
         batch_size):
     """"""
 
-    train_flow = TrainFlow(
+    train_flow = gaNdalFFlow(
         cfg=cfg,
         learning_rate=learning_rate,
         weight_decay=weight_decay,
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     if isinstance(args.config_filename, list):
         args.config_filename = args.config_filename[0]
 
-    with open(f"{path}/files/conf/{args.config_filename}", 'r') as fp:
+    with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()

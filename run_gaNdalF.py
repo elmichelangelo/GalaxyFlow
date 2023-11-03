@@ -1,5 +1,5 @@
 from datetime import datetime
-from Handler.helper_functions import get_os
+from Handler import get_os
 from gandalf import gaNdalF
 import argparse
 import matplotlib.pyplot as plt

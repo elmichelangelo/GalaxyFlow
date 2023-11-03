@@ -1,9 +1,7 @@
 from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader, RandomSampler
 from scipy.stats import binned_statistic, median_abs_deviation
-from Handler.helper_functions import calc_color
-from Handler.plot_functions import plot_compare_corner
-from xgboost import XGBClassifier
+from Handler import calc_color, plot_compare_corner
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
