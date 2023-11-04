@@ -65,8 +65,8 @@ if __name__ == '__main__':
 
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/run_{cfg['RUN_DATE']}"
-    cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/run_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/flow_training_{cfg['RUN_DATE']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
     if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):

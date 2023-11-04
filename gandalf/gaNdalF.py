@@ -17,24 +17,27 @@ class gaNdalF(object):
         """"""
         self.cfg = cfg
 
+        self.make_dirs()
+
         self.galaxies = self.init_dataset()
 
         self.gandalf_flow, self.gandalf_classifier = self.init_trained_models()
 
     def make_dirs(self):
         """"""
+        self.cfg['PATH_OUTPUT_RUN'] = f"{self.cfg['PATH_OUTPUT_RUN']}/gandalf_run_{self.cfg['RUN_DATE_RUN']}"
+        self.cfg['PATH_PLOTS_RUN'] = f"{self.cfg['PATH_OUTPUT_RUN']}/{self.cfg['PATH_PLOTS_RUN']}"
+        self.cfg['PATH_CATALOG_RUN'] = f"{self.cfg['PATH_OUTPUT_RUN']}/{self.cfg['PATH_CATALOG_RUN']}"
         if not os.path.exists(self.cfg['PATH_OUTPUT_RUN']):
             os.mkdir(self.cfg['PATH_OUTPUT_RUN'])
-        if self.cfg['PLOT_TEST_RUN'] is True:
-            if not os.path.exists(self.cfg['PATH_PLOTS_RUN']):
-                os.mkdir(self.cfg['PATH_PLOTS_RUN'])
-            for path_plot in self.cfg['PATH_PLOTS_FOLDER_RUN'].values():
-                if not os.path.exists(path_plot):
-                    os.mkdir(path_plot)
-
-        if self.cfg['SAVE_NN_RUN'] is True:
-            if not os.path.exists(self.cfg["PATH_SAVE_NN_RUN"]):
-                os.mkdir(self.cfg["PATH_SAVE_NN_RUN"])
+        if not os.path.exists(self.cfg['PATH_PLOTS_RUN']):
+            os.mkdir(self.cfg['PATH_PLOTS_RUN'])
+        if not os.path.exists(self.cfg['PATH_CATALOG_RUN']):
+            os.mkdir(self.cfg['PATH_CATALOG_RUN'])
+        for plot in self.cfg['PLOTS_RUN']:
+            self.cfg[f'PATH_PLOTS_FOLDER_RUN'][plot.upper()] = f"{self.cfg['PATH_PLOTS_RUN']}/{plot}"
+            if not os.path.exists(self.cfg[f'PATH_PLOTS_FOLDER_RUN'][plot.upper()]):
+                os.mkdir(self.cfg[f'PATH_PLOTS_FOLDER_RUN'][plot.upper()])
 
     def init_dataset(self):
         galaxies = DESGalaxies(
@@ -134,17 +137,17 @@ class gaNdalF(object):
             df_gandalf_cut = self.galaxies.airmass_cut(data_frame=df_gandalf_cut)
 
         if self.cfg['PLOT_RUN'] is True:
-            self.plot_data(df_gandalf=df_gandalf_cut, df_balrog=df_balrog_cut)
+            self.plot_data(df_gandalf=df_gandalf_cut, df_balrog=df_balrog_cut, mcal='mcal_')
 
         self.save_data(df_gandalf=df_gandalf_cut)
 
     def save_data(self, df_gandalf):
         """"""
         df_gandalf.rename(columns={"ID": "true_id"}, inplace=True)
-        with open(f"{self.cfg['PATH_OUTPUT_RUN']}/{self.cfg['NAME_EMULATED_DATA']}_{self.cfg['NUMBER_SAMPLES']}.pkl", "wb") as f:
+        with open(f"{self.cfg['PATH_CATALOG_RUN']}/{self.cfg['NAME_EMULATED_DATA']}_{self.cfg['NUMBER_SAMPLES']}.pkl", "wb") as f:
             pickle.dump(df_gandalf.to_dict(), f, protocol=2)
 
-    def plot_data(self, df_gandalf, df_balrog):
+    def plot_data(self, df_gandalf, df_balrog, mcal=''):
         if self.cfg['PLOT_COLOR_COLOR_RUN'] is True:
             df_gandalf = calc_color(
                 data_frame=df_gandalf,
@@ -167,7 +170,7 @@ class gaNdalF(object):
                 labels=["r-i", "i-z"],
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
-                save_name=None,  # f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color.png",
+                save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER_RUN'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{mcal}color_color.png",
                 ranges=[(-4, 4), (-4, 4)]
             )
 
@@ -243,11 +246,39 @@ class gaNdalF(object):
                     lst_axis_res[idx].legend([], [], frameon=False)
             hist_figure.tight_layout()
             if self.cfg['SAVE_PLOT_RUN'] is True:
-                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_RUN']['RESIDUAL']}/residual_plot.png")
+                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_RUN'][f'{mcal.upper()}RESIDUAL_PLOT']}/{mcal}residual_plot.png")
             if self.cfg['SHOW_PLOT_RUN'] is True:
                 plt.show()
             plt.clf()
             plt.close()
+        if self.cfg['PLOT_CHAIN_RUN'] is True:
+                plot_compare_corner(
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
+                    dict_delta=None,
+                    epoch=None,
+                    title=f"{mcal} chain plot",
+                    show_plot=self.cfg['SHOW_PLOT_RUN'],
+                    save_plot=self.cfg['SAVE_PLOT_RUN'],
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER_RUN'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot.png",
+                    columns=[
+                        f"unsheared/{self.cfg['LUM_TYPE_RUN'].lower()}_r",
+                        f"unsheared/{self.cfg['LUM_TYPE_RUN'].lower()}_i",
+                        f"unsheared/{self.cfg['LUM_TYPE_RUN'].lower()}_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio",
+                        "unsheared/T"
+                    ],
+                    labels=[
+                        f"{self.cfg['LUM_TYPE_RUN'].lower()}_r",
+                        f"{self.cfg['LUM_TYPE_RUN'].lower()}_i",
+                        f"{self.cfg['LUM_TYPE_RUN'].lower()}_z",
+                        "snr",
+                        "size_ratio",
+                        "T",
+                    ],
+                    ranges=[(15, 30), (15, 30), (15, 30), (-15, 75), (-1.5, 4), (-1.5, 2)]
+                )
 
         if self.cfg['PLOT_CONDITIONS'] is True:
             for condition in self.cfg['CONDITIONS']:
@@ -345,7 +376,7 @@ class gaNdalF(object):
                     lst_axis_con[0].legend()
                     cond_figure.tight_layout()
                     if self.cfg['SAVE_PLOT_RUN'] is True:
-                        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_RUN']['CONDITIONS']}/condition_{condition}_plot.png")
+                        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_RUN'][f'{mcal.upper()}CONDITIONS_PLOT']}/{mcal}{condition}_plot.png")
                     if self.cfg['SHOW_PLOT_RUN'] is True:
                         plt.show()
                     plt.clf()
@@ -407,7 +438,7 @@ class gaNdalF(object):
                 )
             plt.legend()
             if self.cfg['SAVE_PLOT_RUN'] == True:
-                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_RUN']['HISTOGRAM']}/magnitude_histogram.png")
+                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_RUN'][f'{mcal.upper()}HIST_PLOT']}/{mcal}magnitude_histogram.png")
             if self.cfg['SHOW_PLOT_RUN'] == True:
                 plt.show()
             plt.clf()
