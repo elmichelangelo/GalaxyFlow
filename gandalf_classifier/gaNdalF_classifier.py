@@ -39,9 +39,7 @@ class gaNdalFClassifier(object):
 
         self.make_dirs()
 
-        eval_set = [(self.X_train, self.y_train), (self.X_val, self.y_val)]
-
-        xgb_clf = XGBClassifier(eval_metric=["error", "logloss"], learning_rate=lr, verbose=True, eval_set=eval_set,)
+        xgb_clf = XGBClassifier(eval_metric=["error", "logloss"], learning_rate=lr)
         pipe = Pipeline([("clf", xgb_clf)])
 
         self.model = CalibratedClassifierCV(pipe, cv=2, method="isotonic")
@@ -54,7 +52,7 @@ class gaNdalFClassifier(object):
         """"""
         if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER_CLASSF']):
             os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER_CLASSF'])
-        if self.cfg['PLOT_TEST_CLASSF'] is True:
+        if self.cfg['PLOT_CLASSF'] is True:
             if not os.path.exists(self.cfg['PATH_PLOTS_CLASSF']):
                 os.mkdir(self.cfg['PATH_PLOTS_CLASSF'])
             for path_plot in self.cfg['PATH_PLOTS_FOLDER_CLASSF'].values():
@@ -93,8 +91,10 @@ class gaNdalFClassifier(object):
         y_pred = self.model.predict(self.X_test)
         y_pred_prob = self.model.predict_proba(self.X_test)[:, 1]
         predictions = y_pred_prob > np.random.rand(len(self.X_test))
-        validation_accuracy = accuracy_score(self.y_test, predictions)
+        validation_accuracy = accuracy_score(self.y_test, y_pred)
+        validation_accuracy_stochastic = accuracy_score(self.y_test, predictions)
         print(f"Accuracy for lr={self.lr}: {validation_accuracy * 100.0:.2f}%")
+        print(f"Accuracy stochastic for lr={self.lr}: {validation_accuracy_stochastic * 100.0:.2f}%")
 
         if self.cfg['PLOT_CLASSF'] is True:
             self.create_plots(y_pred, y_pred_prob, self.y_test)

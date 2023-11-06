@@ -1,6 +1,6 @@
 from datetime import datetime
 from Handler import get_os
-from gandalf_classifier.gaNdalF_classifier import gaNdalFClassifier
+from gandalf_classifier.gaNdalF_deep_classifier import gaNdalFClassifier
 import argparse
 import matplotlib.pyplot as plt
 import sys
