@@ -73,12 +73,16 @@ class gaNdalFFlow(object):
         self.nh = number_hidden
         self.nb = number_blocks
 
-        cfg['PATH_OUTPUT_SUBFOLDER'] = f"{cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        cfg['PATH_WRITER'] = (f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_WRITER']}/"
+        self.cfg['PATH_PLOTS'] = "Plots"
+        self.cfg['PATH_WRITER'] = "Writer"
+        self.cfg['PATH_SAVE_NN'] = "Save_NN"
+        self.cfg['PATH_PLOTS_FOLDER'] = {}
+        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{self.cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        self.cfg['PATH_WRITER'] = (f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['PATH_WRITER']}/"
                               f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
-        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_PLOTS']}"
-        cfg['PATH_SAVE_NN'] = f"{cfg['PATH_OUTPUT_SUBFOLDER']}/{cfg['PATH_SAVE_NN']}"
+        self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['PATH_PLOTS']}"
+        self.cfg['PATH_SAVE_NN'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['PATH_SAVE_NN']}"
 
         for plot in cfg['PLOTS']:
             cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
