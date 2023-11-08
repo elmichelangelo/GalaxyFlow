@@ -48,15 +48,18 @@ class gaNdalFClassifier(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(in_features=len(cfg['INPUT_COLS_MAG_CLASSF']), out_features=64),
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.5),
+            # nn.Dropout(0.5),
 
             nn.Linear(in_features=64, out_features=128),
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.5),
+            # nn.Dropout(0.5),
+
+            nn.Linear(in_features=128, out_features=128),
+            nn.LeakyReLU(0.2),
+            # nn.Dropout(0.5),
 
             nn.Linear(in_features=128, out_features=64),
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.5),
 
             nn.Linear(in_features=64, out_features=32),
             nn.LeakyReLU(0.2),
