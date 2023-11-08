@@ -58,6 +58,7 @@ class gaNdalFClassifier(nn.Module):
             nn.LeakyReLU(0.2),
             # nn.Dropout(0.5),
 
+            # TODO this Layer was additionally added to the model
             nn.Linear(in_features=128, out_features=64),
             nn.LeakyReLU(0.2),
 
