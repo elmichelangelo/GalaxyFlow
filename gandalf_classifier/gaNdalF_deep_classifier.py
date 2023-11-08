@@ -33,7 +33,7 @@ class gaNdalFClassifier(nn.Module):
         self.lr = lr
         self.device = torch.device(cfg["DEVICE_CLASSF"])
 
-        self.train_loader, self.valid_loader, self.df_test, self.galaxies = self.init_dataset()
+        self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
 
         cfg['PATH_OUTPUT_SUBFOLDER_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{self.lr}_bs_{self.bs}"
         cfg['PATH_WRITER_CLASSF'] = f"{cfg['PATH_OUTPUT_SUBFOLDER_CLASSF']}/{cfg['FOLDER_NAME_WRITER_CLASSF']}"
@@ -177,51 +177,48 @@ class gaNdalFClassifier(nn.Module):
     def calibrate(self, valid_loader):
         self.model.eval()  # Set model to evaluation mode
         predictions = []
-        labels = []
+        tsr_input, tsr_output = self.dataset_to_tensor(self.valid_loader.dataset)
         with torch.no_grad():
-            for inputs, targets in valid_loader:
-                inputs = inputs.float()
-                outputs = self.model(inputs)
-                predictions.extend(outputs.squeeze().cpu().numpy())
-                labels.extend(targets.cpu().numpy())
+            outputs = self.model(tsr_input.double().to(self.device))
+            predictions.extend(outputs.squeeze().cpu().numpy())
 
         # Fit calibration model
         calibration_model = LogisticRegression()
-        calibration_model.fit(np.array(predictions).reshape(-1, 1), np.array(labels))
+        calibration_model.fit(np.array(predictions).reshape(-1, 1), tsr_output.numpy())
         joblib.dump(self.calibration_model, 'calibration_model.pkl')  # Speichern des Modells
         return calibration_model
 
-    def predict_calibrated(self, inputs):
-        self.model.eval()  # Set model to evaluation mode
-        with torch.no_grad():
-            inputs = inputs.float()
-            outputs = self.model(inputs).squeeze().cpu().numpy()
-        calibrated_outputs = self.calibration_model.predict_proba(outputs.reshape(-1, 1))[:, 1]
+    def predict_calibrated(self, y_pred):
+        calibrated_outputs = self.calibration_model.predict_proba(y_pred.reshape(-1, 1))[:, 1]
         return calibrated_outputs
 
     def run_training(self):
         """"""
         self.train()
-
+        self.model.eval()
+        tsr_input, tsr_output = self.dataset_to_tensor(self.test_loader.dataset)
+        detected_true = tsr_output.numpy()
         # Validate the model
-        y_pred = self.model(self.test_loader[0][:])
-        y_pred_prob = self.predict_calibrated(self.test_loader[0][:])
-        predictions = y_pred_prob > np.random.rand(len(self.test_loader[0][:]))
-        validation_accuracy = accuracy_score(self.self.test_loader[1][:], y_pred)
-        validation_accuracy_stochastic = accuracy_score(self.test_loader[1][:], predictions)
+        with torch.no_grad():
+            probability = self.model(tsr_input.double().to(self.device)).squeeze().cpu().numpy()
+        probability_calibrated = self.predict_calibrated(probability)
+        detected = probability > np.random.rand(len(detected_true))
+        detected_calibrated = probability_calibrated > np.random.rand(len(detected_true))
+        validation_accuracy = accuracy_score(detected_true, detected)
+        validation_accuracy_calibrated = accuracy_score(detected_true, detected_calibrated)
         print(f"Accuracy for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%")
-        print(f"Accuracy stochastic for lr={self.lr}, bs={self.bs}: {validation_accuracy_stochastic * 100.0:.2f}%")
+        print(f"Accuracy calibrated for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%")
 
         if self.cfg['PLOT_CLASSF'] is True:
-            self.create_plots(y_pred, y_pred_prob, self.y_test)
+            self.create_plots(detected, detected_calibrated, detected_true, probability, probability_calibrated)
 
         if self.cfg['SAVE_NN_CLASSF'] is True:
             with open(f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg[f'SAVE_NAME_NN']}_{self.cfg['RUN_DATE_CLASSF']}.pkl", 'wb') as file:
                 pickle.dump(self.model, file)
 
-    def create_plots(self, y_pred, y_pred_prob, y_true):
+    def create_plots(self, detected, detected_calibrated, detected_true, probability, probability_calibrated):
         # Konfusionsmatrix
-        cm = confusion_matrix(y_true, y_pred)
+        cm = confusion_matrix(detected_true, detected)
         df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
         fig_matrix = plt.figure(figsize=(10, 7))
         sns.heatmap(df_cm, annot=True, fmt="g")
@@ -229,8 +226,16 @@ class gaNdalFClassifier(nn.Module):
         plt.clf()
         plt.close(fig_matrix)
 
+        cm = confusion_matrix(detected_true, detected_calibrated)
+        df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
+        fig_matrix = plt.figure(figsize=(10, 7))
+        sns.heatmap(df_cm, annot=True, fmt="g")
+        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['CONFUSION_MATRIX']}/confusion_matrix_calibrated.png")
+        plt.clf()
+        plt.close(fig_matrix)
+
         # ROC und AUC
-        fpr, tpr, thresholds = roc_curve(y_true, y_pred_prob)
+        fpr, tpr, thresholds = roc_curve(detected_true, detected)
         roc_auc = auc(fpr, tpr)
         fig_roc_curve = plt.figure()
         plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
@@ -243,8 +248,21 @@ class gaNdalFClassifier(nn.Module):
         plt.clf()
         plt.close(fig_roc_curve)
 
+        fpr, tpr, thresholds = roc_curve(detected_true, detected_calibrated)
+        roc_auc = auc(fpr, tpr)
+        fig_roc_curve = plt.figure()
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic (ROC) Curve')
+        plt.legend(loc="lower right")
+        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ROC_CURVE']}/roc_curve_calibrated.png")
+        plt.clf()
+        plt.close(fig_roc_curve)
+
         # Precision-Recall-Kurve
-        precision, recall, thresholds = precision_recall_curve(y_true, y_pred_prob)
+        precision, recall, thresholds = precision_recall_curve(detected_true, detected)
         fig_recal_curve = plt.figure()
         plt.plot(recall, precision, color='blue', lw=2)
         plt.xlabel('Recall')
@@ -254,9 +272,19 @@ class gaNdalFClassifier(nn.Module):
         plt.clf()
         plt.close(fig_recal_curve)
 
+        precision, recall, thresholds = precision_recall_curve(detected_true, detected_calibrated)
+        fig_recal_curve = plt.figure()
+        plt.plot(recall, precision, color='blue', lw=2)
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title('Precision-Recall Curve')
+        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve_calibrated.png")
+        plt.clf()
+        plt.close(fig_recal_curve)
+
         # Histogramm der vorhergesagten Wahrscheinlichkeiten
         fig_prob_his = plt.figure()
-        plt.hist(y_pred_prob, bins=30, color='skyblue', edgecolor='black')
+        plt.hist(probability, bins=30, color='skyblue', edgecolor='black')
         plt.title('Histogram of Predicted Probabilities')
         plt.xlabel('Probability')
         plt.ylabel('Frequency')
@@ -264,19 +292,42 @@ class gaNdalFClassifier(nn.Module):
         plt.clf()
         plt.close(fig_prob_his)
 
+        fig_prob_his = plt.figure()
+        plt.hist(probability_calibrated, bins=30, color='skyblue', edgecolor='black')
+        plt.title('Histogram of Predicted Probabilities')
+        plt.xlabel('Probability')
+        plt.ylabel('Frequency')
+        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram_calibrated.png")
+        plt.clf()
+        plt.close(fig_prob_his)
+
     @staticmethod
-    def dataset_to_numpy(dataset):
-        # Sammeln Sie alle Datenpunkte in einer Liste
+    def dataset_to_tensor(dataset):
         data_list = [dataset[i] for i in range(len(dataset))]
-        # Trennen Sie die Daten von den Labels (angenommen, Ihr Dataset gibt ein Tupel von (Daten, Label) zurück)
-        data, labels = zip(*data_list)
-        # Konvertieren Sie die Listen von Tensoren in Tensoren
-        data_tensor = torch.stack(data)
-        labels_tensor = torch.stack(labels)
-        # Konvertieren Sie die Tensoren in Numpy-Arrays
-        data_array = data_tensor.numpy()
-        labels_array = labels_tensor.numpy()
-        return data_array, labels_array
+        input_data, output_data = zip(*data_list)
+        tsr_input = torch.stack(input_data)
+        tsr_output = torch.stack(output_data)
+        return tsr_input, tsr_output
+
+    @staticmethod
+    def dataloader_to_numpy(dataloader):
+        data_list = []
+        label_list = []
+
+        dataloader.dataset.model.eval()
+
+        with torch.no_grad():
+            for batch_data in dataloader:
+                inputs, labels = batch_data
+                inputs = inputs.double().to('cpu')
+                labels = labels.double().to('cpu')
+                data_list.append(inputs.numpy())
+                label_list.append(labels.numpy())
+
+        data_array = np.concatenate(data_list, axis=0)
+        label_array = np.concatenate(label_list, axis=0)
+
+        return data_array, label_array
 
 
 if __name__ == '__main__':
