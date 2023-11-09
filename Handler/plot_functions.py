@@ -8,6 +8,7 @@ from natsort import natsorted
 from chainconsumer import ChainConsumer
 from scipy.stats import gaussian_kde
 from torchvision.transforms import ToTensor
+from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
 from io import BytesIO
 import corner
 from Handler.helper_functions import string_to_tuple
@@ -742,6 +743,138 @@ def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title=
     plt.clf()
     plt.close()
     return img_tensor
+
+
+def plot_classification_results(data_frame, cols, show_plot, save_plot, save_name, title='Classification Results'):
+    true_galaxy_values = data_frame[cols].values
+
+    true_positives = (data_frame['detected'] == 1) & (data_frame['detected_true'] == 1)
+    true_negatives = (data_frame['detected'] == 0) & (data_frame['detected_true'] == 0)
+    false_positives = (data_frame['detected'] == 1) & (data_frame['detected_true'] == 0)
+    false_negatives = (data_frame['detected'] == 0) & (data_frame['detected_true'] == 1)
+    colors = np.empty(true_galaxy_values.shape[0], dtype='object')
+    colors[true_positives] = 'True Positives'
+    colors[true_negatives] = 'True Negatives'
+    colors[false_positives] = 'False Positives'
+    colors[false_negatives] = 'False Negatives'
+
+    true_positives_calibrated = (data_frame['detected_calibrated'] == 1) & (data_frame['detected_true'] == 1)
+    true_negatives_calibrated = (data_frame['detected_calibrated'] == 0) & (data_frame['detected_true'] == 0)
+    false_positives_calibrated = (data_frame['detected_calibrated'] == 1) & (data_frame['detected_true'] == 0)
+    false_negatives_calibrated = (data_frame['detected_calibrated'] == 0) & (data_frame['detected_true'] == 1)
+    colors_calibrated = np.empty(true_galaxy_values.shape[0], dtype='object')
+    colors_calibrated[true_positives_calibrated] = 'True Positives'
+    colors_calibrated[true_negatives_calibrated] = 'True Negatives'
+    colors_calibrated[false_positives_calibrated] = 'False Positives'
+    colors_calibrated[false_negatives_calibrated] = 'False Negatives'
+
+    data = pd.DataFrame({
+        cols[0]: true_galaxy_values[:, 0],
+        cols[1]: true_galaxy_values[:, 1],
+        'Classification': colors
+    })
+
+    data_calibrated = pd.DataFrame({
+        cols[0]: true_galaxy_values[:, 0],
+        cols[1]: true_galaxy_values[:, 1],
+        'Classification': colors_calibrated
+    })
+
+    data_errors = data[data['Classification'].str.contains('False')]
+    data_calibrated_errors = data_calibrated[data_calibrated['Classification'].str.contains('False')]
+
+    color_dict = {'True Positives': 'green', 'True Negatives': 'blue', 'False Positives': 'red',
+                  'False Negatives': 'purple'}
+
+    fig_classf, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(10, 8))
+    sns.scatterplot(data=data, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax1)
+    sns.scatterplot(data=data_calibrated, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax2)
+    sns.scatterplot(data=data_errors, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax3)
+    sns.scatterplot(data=data_calibrated_errors, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax4)
+
+    fig_classf.suptitle(title)
+    fig_classf.subplots_adjust(right=0.85)
+    ax1.grid(True)
+    ax2.grid(True)
+    ax3.grid(True)
+    ax4.grid(True)
+
+    ax2.legend(loc='center left', bbox_to_anchor=(1.25, 0.5))
+    ax1.get_legend().remove()
+    ax3.get_legend().remove()
+    ax4.get_legend().remove()
+
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_classf)
+
+
+def plot_confusion_matrix(data_frame, show_plot, save_plot, save_name, title='Confusion matrix'):
+    """"""
+    matrix = confusion_matrix(data_frame['detected_true'], data_frame['detected_calibrated'])
+    df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
+
+    matrix_calibrated = confusion_matrix(data_frame['detected_true'], data_frame['detected'])
+    df_cm_cali = pd.DataFrame(matrix_calibrated, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
+
+    fig_matrix, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 8))
+    sns.heatmap(df_cm, annot=True, fmt="g", ax=ax1)
+    sns.heatmap(df_cm_cali, annot=True, fmt="g", ax=ax2)
+    plt.title(title)
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_matrix)
+
+
+def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
+    """"""
+    fpr, tpr, thresholds = roc_curve(data_frame['detected_true'], data_frame['detected'])
+    roc_auc = auc(fpr, tpr)
+    fpr_calib, tpr_calib, thresholds_calib = roc_curve(data_frame['detected_true'], data_frame['detected_calibrated'])
+    roc_auc_calib = auc(fpr_calib, tpr_calib)
+
+    fig_roc_curve = plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+
+    plt.plot(fpr_calib, tpr_calib, color='darkgreen', lw=2, label=f'ROC curve calibrated (area = {roc_auc_calib:.2f})')
+    plt.plot([0, 1], [0, 1], color='blue', lw=2, linestyle='--')
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(title)
+    plt.legend(loc="lower right")
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_roc_curve)
+
+
+def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precision-Recall Curve'):
+    """"""
+    precision, recall, thresholds = precision_recall_curve(data_frame['detected_true'], data_frame['detected'])
+    precision_calib, recall_calib, thresholds_calib = precision_recall_curve(data_frame['detected_true'], data_frame['detected_calibrated'])
+
+    fig_recal_curve = plt.figure()
+    plt.plot(recall, precision, color='darkorange', lw=2)
+    plt.plot(recall_calib, precision_calib, color='darkgreen', lw=2)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title(title)
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_recal_curve)
 
 
 def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", y_label="", title="", color=None):

@@ -10,6 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.calibration import CalibratedClassifierCV
 import pandas as pd
 import matplotlib.pyplot as plt
+from Handler import plot_classification_results, plot_confusion_matrix, plot_roc_curve, plot_recall_curve
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 from gandalf_galaxie_dataset import DESGalaxies
@@ -50,17 +51,24 @@ class gaNdalFClassifier(nn.Module):
             nn.LeakyReLU(0.2),
             # nn.Dropout(0.5),
 
-            nn.Linear(in_features=64, out_features=128),
-            nn.LeakyReLU(0.2),
-            # nn.Dropout(0.5),
-
-            nn.Linear(in_features=128, out_features=128),
-            nn.LeakyReLU(0.2),
-            # nn.Dropout(0.5),
-
-            # TODO this Layer was additionally added to the model
-            nn.Linear(in_features=128, out_features=64),
-            nn.LeakyReLU(0.2),
+            # nn.Linear(in_features=64, out_features=128),
+            # nn.LeakyReLU(0.2),
+            # # nn.Dropout(0.5),
+            #
+            # nn.Linear(in_features=128, out_features=128),
+            # nn.LeakyReLU(0.2),
+            # # nn.Dropout(0.5),
+            #
+            # # TODO this Layer was additionally added to the model
+            # nn.Linear(in_features=128, out_features=256),
+            # nn.LeakyReLU(0.2),
+            #
+            # nn.Linear(in_features=256, out_features=128),
+            # nn.LeakyReLU(0.2),
+            #
+            # nn.Linear(in_features=128, out_features=64),
+            # nn.LeakyReLU(0.2),
+            # # TODO this Layer was additionally added to the model
 
             nn.Linear(in_features=64, out_features=32),
             nn.LeakyReLU(0.2),
@@ -110,19 +118,25 @@ class gaNdalFClassifier(nn.Module):
             ]
         )
 
-        # Convert the datasets to numpy arrays for XGBoost compatibility
         train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=True, num_workers=0)
         valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         return train_loader, valid_loader, test_loader, galaxies
 
     def train(self, mode=True):
-        """"""
+        """
+        Trains the neural network model.
+
+        :param mode: A boolean value that determines the training mode of the model.
+        """
         super().train(mode=mode)
+        # Training cycle that runs for a certain number of epochs
         for epoch in range(self.cfg['EPOCHS_CLASSF']):
             self.model.train()  # Set the model to training mode
             train_loss = 0.0
-            pbar = tqdm(total=len(self.train_loader.dataset))
+            pbar_train = tqdm(total=len(self.train_loader.dataset), unit="batch", ncols=200)
+
+            # Iterates over the training data in batches
             for batch_idx, data in enumerate(self.train_loader):
                 input_data = data[0].double()
                 output_data = data[1].double()
@@ -131,24 +145,27 @@ class gaNdalFClassifier(nn.Module):
                 self.optimizer.zero_grad()  # Clear the gradients
                 outputs = self.model(input_data)  # Forward pass
                 loss = self.loss_function(outputs.squeeze(), output_data.squeeze())  # Calculate loss
-                loss.backward()  # Backpropagation
-                self.optimizer.step()  # Update weights
+                loss.backward()  # Backward pass
+                self.optimizer.step()  # Updates the weights
                 train_loss += loss.item() * output_data.size(0)
-                pbar.update(output_data.size(0))
-                pbar.set_description(f"Training,\t"
-                                     f"Epoch: {epoch + 1},\t"
-                                     f"learning rate: {self.lr},\t"
-                                     f"batch size: {self.bs},\t"
-                                     f"loss: {train_loss / pbar.n}")
+                pbar_train.update(output_data.size(0))
+                pbar_train.set_description(f"Training,\t"
+                                           f"Epoch: {epoch + 1},\t"
+                                           f"learning rate: {self.lr},\t"
+                                           f"batch size: {self.bs},\t"
+                                           f"loss: {train_loss / pbar_train.n}")
+            pbar_train.close()
 
-            # Calculate average losses
+            # Calculates the average training loss
             train_loss = train_loss / len(self.train_loader.dataset)
 
-            # Validation pass
+            # Sets the model to evaluation mode
             self.model.eval()  # Set the model to evaluation mode
             with torch.no_grad():
                 valid_loss = 0.0
-                pbar = tqdm(total=len(self.valid_loader.dataset))
+                pbar_val = tqdm(total=len(self.valid_loader.dataset), unit="batch", ncols=200)
+
+                # Iterates over the validation data in batches
                 for batch_idx, data in enumerate(self.valid_loader):
                     input_data = data[0].double()
                     output_data = data[1].double()
@@ -157,28 +174,32 @@ class gaNdalFClassifier(nn.Module):
                     outputs = self.model(input_data)
                     loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
                     valid_loss += loss.item() * input_data.size(0)
-                    pbar.update(output_data.size(0))
-                    pbar.set_description(f"Validation,\t"
-                                         f"Epoch: {epoch + 1},\t"
-                                         f"learning rate: {self.lr},\t"
-                                         f"batch size: {self.bs},\t"
-                                         f"loss: {valid_loss / pbar.n}")
+                    pbar_val.update(output_data.size(0))
+                    pbar_val.set_description(f"Validation,\t"
+                                             f"Epoch: {epoch + 1},\t"
+                                             f"learning rate: {self.lr},\t"
+                                             f"batch size: {self.bs},\t"
+                                             f"loss: {valid_loss / pbar_val.n}")
+                pbar_val.close()
 
+            # Calculates the average validation loss
             valid_loss = valid_loss / len(self.valid_loader.dataset)
 
-            # Print training and validation loss
+            # Prints the training and validation loss
             print(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
 
-            # Save the model if the validation loss decreased
+            # Saves the model if the validation loss has decreased
             if valid_loss <= self.best_loss:
                 print(f'Validation loss decreased ({self.best_loss:.6f} --> {valid_loss:.6f})')
                 self.best_loss = valid_loss
-        self.calibration_model = self.calibrate(self.valid_loader)  # Kalibrierungsmodell wird hier trainiert
+
+        # Trains the calibration model
+        self.calibration_model = self.calibrate()
 
     def forward(self, inputs):
         return self.model(inputs)
 
-    def calibrate(self, valid_loader):
+    def calibrate(self):
         self.model.eval()  # Set model to evaluation mode
         predictions = []
         tsr_input, tsr_output = self.dataset_to_tensor(self.valid_loader.dataset)
@@ -201,7 +222,22 @@ class gaNdalFClassifier(nn.Module):
         self.train()
         self.model.eval()
         tsr_input, tsr_output = self.dataset_to_tensor(self.test_loader.dataset)
+        input_data = tsr_input.numpy()
+        df_test_data = pd.DataFrame(input_data, columns=self.cfg['INPUT_COLS_MAG_CLASSF'])
+        if self.cfg['APPLY_SCALER_CLASSF'] is True:
+            df_test_data = pd.DataFrame(self.galaxies.scaler.inverse_transform(df_test_data), columns=df_test_data.keys())
+
+        if self.cfg['APPLY_YJ_TRANSFORM_CLASSF'] is True:
+            if self.cfg['TRANSFORM_COLS'] is None:
+                trans_col = df_test_data.keys()
+            else:
+                trans_col = self.cfg['TRANSFORM_COLS_CLASSF']
+            df_test_data = self.galaxies.yj_inverse_transform_data(
+                data_frame=df_test_data,
+                columns=trans_col
+            )
         detected_true = tsr_output.numpy()
+        df_test_data['detected_true'] = detected_true
         # Validate the model
         with torch.no_grad():
             probability = self.model(tsr_input.double().to(self.device)).squeeze().cpu().numpy()
@@ -213,78 +249,110 @@ class gaNdalFClassifier(nn.Module):
         print(f"Accuracy for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%")
         print(f"Accuracy calibrated for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%")
 
+        df_test_data['detected'] = detected
+        df_test_data['detected_calibrated'] = detected_calibrated
+        df_test_data['probability'] = probability
+        df_test_data['probability_calibrated'] = probability_calibrated
+
         if self.cfg['PLOT_CLASSF'] is True:
-            self.create_plots(detected, detected_calibrated, detected_true, probability, probability_calibrated)
+            self.create_plots(df_test_data, detected, detected_calibrated, detected_true, probability, probability_calibrated)
 
         if self.cfg['SAVE_NN_CLASSF'] is True:
             with open(f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg[f'SAVE_NAME_NN']}_{self.cfg['RUN_DATE_CLASSF']}.pkl", 'wb') as file:
                 pickle.dump(self.model, file)
 
-    def create_plots(self, detected, detected_calibrated, detected_true, probability, probability_calibrated):
-        # Konfusionsmatrix
-        cm = confusion_matrix(detected_true, detected)
-        df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
-        fig_matrix = plt.figure(figsize=(10, 7))
-        sns.heatmap(df_cm, annot=True, fmt="g")
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['CONFUSION_MATRIX']}/confusion_matrix.png")
-        plt.clf()
-        plt.close(fig_matrix)
+    def create_plots(self, df_test_data, detected, detected_calibrated, detected_true, probability, probability_calibrated, epoch=""):
 
-        cm = confusion_matrix(detected_true, detected_calibrated)
-        df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
-        fig_matrix = plt.figure(figsize=(10, 7))
-        sns.heatmap(df_cm, annot=True, fmt="g")
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['CONFUSION_MATRIX']}/confusion_matrix_calibrated.png")
-        plt.clf()
-        plt.close(fig_matrix)
+        lst_cols = [
+            ['BDF_MAG_DERED_CALIB_R', 'BDF_MAG_DERED_CALIB_I'],
+            ['BDF_MAG_DERED_CALIB_I', 'BDF_MAG_DERED_CALIB_Z'],
+            ['Color BDF MAG U-G', 'Color BDF MAG G-R'],
+            ['Color BDF MAG R-I', 'Color BDF MAG I-Z'],
+            ['Color BDF MAG Z-J', 'Color BDF MAG J-H'],
+            ['BDF_T', 'BDF_G'],
+            ['FWHM_WMEAN_R', 'FWHM_WMEAN_I'],
+            ['FWHM_WMEAN_I', 'FWHM_WMEAN_Z'],
+            ['AIRMASS_WMEAN_R', 'AIRMASS_WMEAN_I'],
+            ['AIRMASS_WMEAN_I', 'AIRMASS_WMEAN_Z'],
+            ['MAGLIM_R', 'MAGLIM_I'],
+            ['MAGLIM_I', 'MAGLIM_Z'],
+            ['EBV_SFD98', 'Color BDF MAG H-K']
+        ]
+
+        lst_save_names = [
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_RI_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_IZ_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_UG_GR_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_RI_IZ_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_ZJ_JH_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_TG_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_FWHM_RI_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_FWHM_IZ_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_RI_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_IZ_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_RI_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_EBV_Color_{self.cfg['EPOCHS_CLASSF']}.png",
+        ]
+        if self.cfg['PLOT_MISS_CLASSF'] is True:
+            for idx_cols, cols in enumerate(lst_cols):
+                plot_classification_results(
+                    data_frame=df_test_data,
+                    cols=cols,
+                    show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                    save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                    save_name=lst_save_names[idx_cols],
+                    title=f"Classification Results, lr={self.lr}, bs={self.bs}, epoch={self.cfg['EPOCHS_CLASSF']}"
+                )
+
+        if self.cfg['PLOT_MATRIX'] is True:
+            plot_confusion_matrix(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+                title=f"Confusion Matrix, lr={self.lr}, bs={self.bs}, epoch={self.cfg['EPOCHS_CLASSF']}"
+            )
 
         # ROC und AUC
-        fpr, tpr, thresholds = roc_curve(detected_true, detected)
-        roc_auc = auc(fpr, tpr)
-        fig_roc_curve = plt.figure()
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic (ROC) Curve')
-        plt.legend(loc="lower right")
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ROC_CURVE']}/roc_curve.png")
-        plt.clf()
-        plt.close(fig_roc_curve)
-
-        fpr, tpr, thresholds = roc_curve(detected_true, detected_calibrated)
-        roc_auc = auc(fpr, tpr)
-        fig_roc_curve = plt.figure()
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic (ROC) Curve')
-        plt.legend(loc="lower right")
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ROC_CURVE']}/roc_curve_calibrated.png")
-        plt.clf()
-        plt.close(fig_roc_curve)
+        if self.cfg['PLOT_ROC_CURVE'] is True:
+            plot_roc_curve(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'ROC_CURVE']}/roc_curve_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={self.cfg['EPOCHS_CLASSF']}"
+            )
 
         # Precision-Recall-Kurve
-        precision, recall, thresholds = precision_recall_curve(detected_true, detected)
-        fig_recal_curve = plt.figure()
-        plt.plot(recall, precision, color='blue', lw=2)
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.title('Precision-Recall Curve')
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve.png")
-        plt.clf()
-        plt.close(fig_recal_curve)
+        if self.cfg['PLOT_PRECISION_RECALL_CURVE'] is True:
+            plot_recall_curve(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{self.cfg['EPOCHS_CLASSF']}.png",
+                title=f"recision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={self.cfg['EPOCHS_CLASSF']}"
+            )
 
-        precision, recall, thresholds = precision_recall_curve(detected_true, detected_calibrated)
-        fig_recal_curve = plt.figure()
-        plt.plot(recall, precision, color='blue', lw=2)
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.title('Precision-Recall Curve')
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve_calibrated.png")
-        plt.clf()
-        plt.close(fig_recal_curve)
+        # precision, recall, thresholds = precision_recall_curve(detected_true, detected)
+        # fig_recal_curve = plt.figure()
+        # plt.plot(recall, precision, color='blue', lw=2)
+        # plt.xlabel('Recall')
+        # plt.ylabel('Precision')
+        # plt.title('Precision-Recall Curve')
+        # plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve{epoch}.png")
+        # plt.clf()
+        # plt.close(fig_recal_curve)
+        #
+        # precision, recall, thresholds = precision_recall_curve(detected_true, detected_calibrated)
+        # fig_recal_curve = plt.figure()
+        # plt.plot(recall, precision, color='blue', lw=2)
+        # plt.xlabel('Recall')
+        # plt.ylabel('Precision')
+        # plt.title('Precision-Recall Curve')
+        # plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve_calibrated{epoch}.png")
+        # plt.clf()
+        # plt.close(fig_recal_curve)
 
         # Histogramm der vorhergesagten Wahrscheinlichkeiten
         fig_prob_his = plt.figure()
@@ -292,7 +360,7 @@ class gaNdalFClassifier(nn.Module):
         plt.title('Histogram of Predicted Probabilities')
         plt.xlabel('Probability')
         plt.ylabel('Frequency')
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram.png")
+        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram{epoch}.png")
         plt.clf()
         plt.close(fig_prob_his)
 
@@ -301,7 +369,7 @@ class gaNdalFClassifier(nn.Module):
         plt.title('Histogram of Predicted Probabilities')
         plt.xlabel('Probability')
         plt.ylabel('Frequency')
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram_calibrated.png")
+        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram_calibrated{epoch}.png")
         plt.clf()
         plt.close(fig_prob_his)
 
