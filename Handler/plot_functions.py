@@ -877,6 +877,22 @@ def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precis
     plt.close(fig_recal_curve)
 
 
+def plot_probability_hist(data_frame, show_plot, save_plot, save_name, title='Histogram of Predicted Probabilities'):
+    """"""
+    fig_prob_his = plt.figure()
+    plt.hist(data_frame['probability'], bins=30, color='red', edgecolor='black')
+    plt.hist(data_frame['probability_calibrated'], bins=30, color='skyblue', edgecolor='black')
+    plt.title(title)
+    plt.xlabel('Probability')
+    plt.ylabel('Frequency')
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_prob_his)
+
+
 def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", y_label="", title="", color=None):
     """"""
 

@@ -139,7 +139,7 @@ class TrainDet(object):
             if e - self.best_validation_epoch >= 30:
                 break
 
-        # Plot misclassification error over epochs
+        # Plot misclassification error over epoch
         misclassification_errors = [1 - acc / 100 for acc in lst_acc]
         plt.figure()
         plt.plot(range(1, len(misclassification_errors) + 1), misclassification_errors, marker='o', color='red')
@@ -299,10 +299,8 @@ class BinaryClassifier(nn.Module):
 
 
 def binary_acc(y_pred, y_test):
-    # y_pred_tag = torch.round(y_pred)
+    y_pred_tag = torch.round(y_pred)
     plt.hist(y_pred.detach().numpy())
-    y_pred_tag = torch.where(y_pred <= 0.2, torch.zeros_like(y_pred), y_pred)
-    y_pred_tag = torch.where(y_pred_tag >= 0.8, torch.ones_like(y_pred_tag), y_pred_tag)
 
     correct_results_sum = (y_pred_tag == y_test).sum().float()
     acc = correct_results_sum / y_test.shape[0]

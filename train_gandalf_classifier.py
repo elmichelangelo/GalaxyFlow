@@ -21,6 +21,8 @@ def main(cfg, batch_size, lr):
 
     train_detector.run_training()
 
+    train_detector.save_model()
+
 
 if __name__ == '__main__':
     path = os.path.abspath(sys.path[-1])

@@ -3,9 +3,9 @@ import os
 import seaborn as sns
 import numpy as np
 import pickle
-from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
 from sklearn.pipeline import Pipeline
 from sklearn.calibration import CalibratedClassifierCV
+from Handler import plot_classification_results, plot_confusion_matrix, plot_roc_curve, plot_recall_curve, plot_probability_hist
 import pandas as pd
 import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
@@ -26,6 +26,7 @@ class gaNdalFClassifier(object):
         self.best_acc = 0.0
         self.best_epoch = 0
         self.lr = lr
+        self.lst_loss = []
 
         self.X_train, self.X_val, self.X_test, self.y_train, self.y_val, self.y_test = self.init_dataset()
 
@@ -86,7 +87,9 @@ class gaNdalFClassifier(object):
             self.X_train,
             self.y_train.ravel()
         )
-
+        df_test_data = pd.DataFrame(self.X_test, columns=self.cfg['INPUT_COLS_MAG_CLASSF'])
+        detected_true = self.y_test
+        df_test_data['detected_true'] = detected_true
         # Validate the model
         y_pred = self.model.predict(self.X_test)
         y_pred_prob = self.model.predict_proba(self.X_test)[:, 1]
@@ -96,57 +99,109 @@ class gaNdalFClassifier(object):
         print(f"Accuracy for lr={self.lr}: {validation_accuracy * 100.0:.2f}%")
         print(f"Accuracy stochastic for lr={self.lr}: {validation_accuracy_stochastic * 100.0:.2f}%")
 
+        df_test_data['detected'] = predictions
+        df_test_data['detected_calibrated'] = predictions
+        df_test_data['probability'] = y_pred_prob
+        df_test_data['probability_calibrated'] = y_pred_prob
+
         if self.cfg['PLOT_CLASSF'] is True:
-            self.create_plots(y_pred, y_pred_prob, self.y_test)
+            self.create_plots(df_test_data, self.cfg['EPOCHS_CLASSF'])
 
         if self.cfg['SAVE_NN_CLASSF'] is True:
             with open(f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg[f'SAVE_NAME_NN']}_{self.cfg['RUN_DATE_CLASSF']}.pkl", 'wb') as file:
                 pickle.dump(self.model, file)
 
-    def create_plots(self, y_pred, y_pred_prob, y_true):
-        # Konfusionsmatrix
-        cm = confusion_matrix(y_true, y_pred)
-        df_cm = pd.DataFrame(cm, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
-        fig_matrix = plt.figure(figsize=(10, 7))
-        sns.heatmap(df_cm, annot=True, fmt="g")
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['CONFUSION_MATRIX']}/confusion_matrix.png")
-        plt.clf()
-        plt.close(fig_matrix)
+    def create_plots(self, df_test_data, epoch=''):
+
+        lst_cols = [
+            ['BDF_MAG_DERED_CALIB_R', 'BDF_MAG_DERED_CALIB_I'],
+            ['BDF_MAG_DERED_CALIB_I', 'BDF_MAG_DERED_CALIB_Z'],
+            ['Color BDF MAG U-G', 'Color BDF MAG G-R'],
+            ['Color BDF MAG R-I', 'Color BDF MAG I-Z'],
+            ['Color BDF MAG Z-J', 'Color BDF MAG J-H'],
+            ['BDF_T', 'BDF_G'],
+            ['FWHM_WMEAN_R', 'FWHM_WMEAN_I'],
+            ['FWHM_WMEAN_I', 'FWHM_WMEAN_Z'],
+            ['AIRMASS_WMEAN_R', 'AIRMASS_WMEAN_I'],
+            ['AIRMASS_WMEAN_I', 'AIRMASS_WMEAN_Z'],
+            ['MAGLIM_R', 'MAGLIM_I'],
+            ['MAGLIM_I', 'MAGLIM_Z'],
+            ['EBV_SFD98', 'Color BDF MAG H-K']
+        ]
+
+        lst_save_names = [
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_UG_GR_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_RI_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_ZJ_JH_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_TG_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_FWHM_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_FWHM_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_EBV_Color_{epoch}.png",
+        ]
+        if self.cfg['PLOT_MISS_CLASSF'] is True:
+            for idx_cols, cols in enumerate(lst_cols):
+                plot_classification_results(
+                    data_frame=df_test_data,
+                    cols=cols,
+                    show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                    save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                    save_name=lst_save_names[idx_cols],
+                    title=f"Classification Results, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                )
+
+        if self.cfg['PLOT_MATRIX'] is True:
+            plot_confusion_matrix(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch_{epoch}.png",
+                title=f"Confusion Matrix, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
 
         # ROC und AUC
-        fpr, tpr, thresholds = roc_curve(y_true, y_pred_prob)
-        roc_auc = auc(fpr, tpr)
-        fig_roc_curve = plt.figure()
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic (ROC) Curve')
-        plt.legend(loc="lower right")
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['ROC_CURVE']}/roc_curve.png")
-        plt.clf()
-        plt.close(fig_roc_curve)
+        if self.cfg['PLOT_ROC_CURVE'] is True:
+            plot_roc_curve(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
+                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
 
         # Precision-Recall-Kurve
-        precision, recall, thresholds = precision_recall_curve(y_true, y_pred_prob)
-        fig_recal_curve = plt.figure()
-        plt.plot(recall, precision, color='blue', lw=2)
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.title('Precision-Recall Curve')
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PRECISION_RECALL_CURVE']}/precision_recall_curve.png")
-        plt.clf()
-        plt.close(fig_recal_curve)
+        if self.cfg['PLOT_PRECISION_RECALL_CURVE'] is True:
+            plot_recall_curve(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{epoch}.png",
+                title=f"recision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
 
         # Histogramm der vorhergesagten Wahrscheinlichkeiten
-        fig_prob_his = plt.figure()
-        plt.hist(y_pred_prob, bins=30, color='skyblue', edgecolor='black')
-        plt.title('Histogram of Predicted Probabilities')
-        plt.xlabel('Probability')
-        plt.ylabel('Frequency')
-        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['PROB_HIST']}/probability_histogram.png")
-        plt.clf()
-        plt.close(fig_prob_his)
+        if self.cfg['PLOT_PROBABILITY_HIST'] is True:
+            plot_probability_hist(
+                data_frame=df_test_data,
+                show_plot=self.cfg['SHOW_PLOT_CLASSF'],
+                save_plot=self.cfg['SAVE_PLOT_CLASSF'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'PROB_HIST']}/probability_histogram{epoch}.png",
+                title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
+
+        if self.cfg['PLOT_LOSS_CLASSF'] is True:
+            self.lst_loss.append(1)
+            sns.scatterplot(self.lst_loss)
+            if self.cfg['SHOW_PLOT_CLASSF'] is True:
+                plt.show()
+            if self.cfg['SAVE_PLOT_CLASSF'] is True:
+                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'LOSS']}/loss_{epoch}.png")
+            plt.clf()
 
     @staticmethod
     def dataset_to_numpy(dataset):

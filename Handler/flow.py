@@ -273,7 +273,7 @@ class FlowSequential(nn.Sequential):
     #         validation_data=None,
     #         validation_context=None,
     #         validation_split=0.0,
-    #         epochs=20,
+    #         epoch=20,
     #         bs=100,
     #         patience=np.inf,
     #         monitor='val_loss',
@@ -346,7 +346,7 @@ class FlowSequential(nn.Sequential):
     #
     #     start_time_sec = time.time()
     #
-    #     for epoch in range(epochs):
+    #     for epoch in range(epoch):
     #
     #         # --- TRAIN AND EVALUATE ON TRAINING SET -----------------------------
     #         self.train()
@@ -398,10 +398,10 @@ class FlowSequential(nn.Sequential):
     #         if verbose > 1:
     #             try:
     #                 print('Epoch %3d/%3d, train loss: %5.2f, val loss: %5.2f' % \
-    #                       (epoch + 1, epochs, train_loss, val_loss))
+    #                       (epoch + 1, epoch, train_loss, val_loss))
     #             except:
     #                 print('Epoch %3d/%3d, train loss: %5.2f' % \
-    #                       (epoch + 1, epochs, train_loss))
+    #                       (epoch + 1, epoch, train_loss))
     #
     #         # Monitor loss
     #         if history[monitor][-1] < best_loss:
@@ -412,7 +412,7 @@ class FlowSequential(nn.Sequential):
     #         if epoch - best_epoch >= patience:
     #             self.load_state_dict(best_model)
     #             if verbose > 0:
-    #                 print('Finished early after %3d epochs' % (best_epoch))
+    #                 print('Finished early after %3d epoch' % (best_epoch))
     #                 print('Best loss achieved %5.2f' % (best_loss))
     #             break
     #
@@ -421,7 +421,7 @@ class FlowSequential(nn.Sequential):
     #     if verbose > 0:
     #         end_time_sec = time.time()
     #         total_time_sec = end_time_sec - start_time_sec
-    #         time_per_epoch_sec = total_time_sec / epochs
+    #         time_per_epoch_sec = total_time_sec / epoch
     #         print()
     #         print('Time total:     %5.2f sec' % (total_time_sec))
     #         print('Time per epoch: %5.2f sec' % (time_per_epoch_sec))
