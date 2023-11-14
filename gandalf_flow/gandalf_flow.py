@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import os
+import joblib
 torch.set_default_dtype(torch.float64)
 
 
@@ -151,6 +152,15 @@ class gaNdalFFlow(object):
         valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
 
+        if self.cfg["APPLY_SCALER"] is True:
+            joblib.dump(
+                galaxies.dict_pt,
+                f'{self.cfg["PATH_SAVE_NN"]}/yj-transformer_lr_{self.lr}_bs_{self.bs}_run_{self.cfg["RUN_DATE"]}.joblib')
+        if self.cfg["APPLY_SCALER"] is True:
+            joblib.dump(
+                galaxies.scaler,
+                f'{self.cfg["PATH_SAVE_NN"]}/max_abs_scaler_lr_{self.lr}_bs_{self.bs}_run_{self.cfg["RUN_DATE"]}.joblib')
+
         return train_loader, valid_loader, test_loader, galaxies
 
     def init_network(self, num_outputs, num_input):
@@ -252,10 +262,10 @@ class gaNdalFFlow(object):
         if self.cfg['SAVE_NN'] is True:
             torch.save(
                 self.best_model,
-                f"{self.cfg['PATH_SAVE_NN']}/best_model_epoch_{self.best_validation_epoch+1}_run_{self.cfg['RUN_DATE']}.pt")
+                f"{self.cfg['PATH_SAVE_NN']}/best_model_e_{self.best_validation_epoch+1}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM']}_run_{self.cfg['RUN_DATE']}.pt")
             torch.save(
                 self.model,
-                f"{self.cfg['PATH_SAVE_NN']}/last_model_epoch_{self.cfg['EPOCHS']}_run_{self.cfg['RUN_DATE']}.pt")
+                f"{self.cfg['PATH_SAVE_NN']}/last_model_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM']}_run_{self.cfg['RUN_DATE']}.pt")
 
         self.writer.flush()
         self.writer.close()
