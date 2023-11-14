@@ -37,30 +37,30 @@ class GalaxyDataset(Dataset):
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
 
-        self.applied_object_cut = False
-        if cfg[f"APPLY_OBJECT_CUT{self.postfix}"] is True:
-            df_data = self.unsheared_object_cuts(df_data)
-            self.applied_object_cut = True
-
-        self.applied_flag_cut = False
-        if cfg[f"APPLY_FLAG_CUT{self.postfix}"] is True:
-            df_data = self.flag_cuts(df_data)
-            self.applied_flag_cut = True
-
-        self.applied_mag_cut = False
-        if cfg[f"APPLY_UNSHEARED_MAG_CUT{self.postfix}"] is True:
-            df_data = self.unsheared_mag_cut(df_data)
-            self.applied_mag_cut = True
-
-        self.applied_shear_cut = False
-        if cfg[f"APPLY_UNSHEARED_SHEAR_CUT{self.postfix}"] is True:
-            df_data = self.unsheared_shear_cuts(df_data)
-            self.applied_shear_cut = True
-
-        self.applied_airmass_cut = False
-        if cfg[f"APPLY_AIRMASS_CUT{self.postfix}"] is True:
-            df_data = self.airmass_cut(df_data)
-            self.applied_airmass_cut = True
+        # self.applied_object_cut = False
+        # if cfg[f"APPLY_OBJECT_CUT{self.postfix}"] is True:
+        #     df_data = self.unsheared_object_cuts(df_data)
+        #     self.applied_object_cut = True
+        #
+        # self.applied_flag_cut = False
+        # if cfg[f"APPLY_FLAG_CUT{self.postfix}"] is True:
+        #     df_data = self.flag_cuts(df_data)
+        #     self.applied_flag_cut = True
+        #
+        # self.applied_mag_cut = False
+        # if cfg[f"APPLY_UNSHEARED_MAG_CUT{self.postfix}"] is True:
+        #     df_data = self.unsheared_mag_cut(df_data)
+        #     self.applied_mag_cut = True
+        #
+        # self.applied_shear_cut = False
+        # if cfg[f"APPLY_UNSHEARED_SHEAR_CUT{self.postfix}"] is True:
+        #     df_data = self.unsheared_shear_cuts(df_data)
+        #     self.applied_shear_cut = True
+        #
+        # self.applied_airmass_cut = False
+        # if cfg[f"APPLY_AIRMASS_CUT{self.postfix}"] is True:
+        #     df_data = self.airmass_cut(df_data)
+        #     self.applied_airmass_cut = True
 
         if self.postfix == "_CLASSF":
             df_classf_output_cols = df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
@@ -96,6 +96,9 @@ class GalaxyDataset(Dataset):
             df_data, self.scaler = self.scale_data(data_frame=df_data, cfg=cfg)
             self.applied_scaler = True
 
+        if self.postfix == "flow_training":
+            df_data = df_data[df_data["detected"] == 1]
+
         if df_classf_output_cols is not None:
             df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_output_cols
 
@@ -121,24 +124,6 @@ class GalaxyDataset(Dataset):
                 df_data=df_data,
                 cfg=cfg
             )
-            # TODO implement Dataloader instead of datasets
-            # self.train_loader = DataLoader(
-            #     self.train_dataset,
-            #     batch_size=cfg[f"BATCH_SIZE{self.postfix}"],
-            #     shuffle=True,
-            #     num_workers=0
-            # )
-            # self.valid_loader = DataLoader(
-            #     self.val_dataset,
-            #     batch_size=cfg[f"BATCH_SIZE{self.postfix}"],
-            #     shuffle=False, num_workers=0
-            # )
-            # self.test_loader = DataLoader(
-            #     self.test_dataset,
-            #     batch_size=cfg[f"BATCH_SIZE{self.postfix}"],
-            #     shuffle=False,
-            #     num_workers=0
-            # )
         del df_data
         gc.collect()
 
