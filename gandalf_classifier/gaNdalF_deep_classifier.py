@@ -202,12 +202,12 @@ class gaNdalFClassifier(nn.Module):
         # save config model
         joblib.dump(
             self.calibration_model,
-            f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg['SAVE_NAME_NN']}_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE_CLASSF']}.pkl"
+            f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg['SAVE_NAME_NN']}_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE_CLASSF']}.pkl"
         )
         # save  model
         torch.save(
             self.model,
-            f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg['SAVE_NAME_NN']}_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE_CLASSF']}.pt")
+            f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg['SAVE_NAME_NN']}_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE_CLASSF']}.pt")
 
     def calibrate(self):
         self.model.eval()  # Set model to evaluation mode
