@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset, TensorDataset, Subset, DataLoader
 from sklearn.preprocessing import PowerTransformer, MaxAbsScaler, MinMaxScaler, StandardScaler
 from itertools import accumulate
+import joblib
 import numpy as np
 import pandas as pd
 import torch
@@ -11,6 +12,7 @@ class GalaxyDataset(Dataset):
     def __init__(self, cfg, kind, lst_split: list = None):
         df_classf_output_cols = None
         df_run_output_cols = None
+        self.cfg = cfg
         if kind == "flow_training":
             self.postfix = ""
         elif kind == "classifier_training":
@@ -93,11 +95,12 @@ class GalaxyDataset(Dataset):
 
         self.applied_scaler = False
         if cfg[f"APPLY_SCALER{self.postfix}"] is True:
-            df_data, self.scaler = self.scale_data(data_frame=df_data, cfg=cfg)
+            df_data, self.scaler = self.scale_data(data_frame=df_data)
             self.applied_scaler = True
 
         if self.postfix == "flow_training":
             df_data = df_data[df_data["detected"] == 1]
+            print(f"length training dataset:{len(df_data)}")
 
         if df_classf_output_cols is not None:
             df_data[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_output_cols
@@ -177,18 +180,9 @@ class GalaxyDataset(Dataset):
 
         return train_dataset, val_dataset, test_dataset, dict_indices
 
-    def scale_data(self, data_frame, cfg):
+    def scale_data(self, data_frame):
         """"""
-        if cfg[f"SCALER{self.postfix}"] == "MinMaxScaler":
-            scaler = MinMaxScaler()
-        elif cfg[f"SCALER{self.postfix}"] == "MaxAbsScaler":
-            scaler = MaxAbsScaler()
-        elif cfg[f"SCALER{self.postfix}"] == "StandardScaler":
-            scaler = StandardScaler()
-        elif cfg[f"SCALER{self.postfix}"] is None:
-            scaler = None
-        else:
-            raise TypeError(f'{cfg[f"SCALER{self.postfix}"]} is no valid scaler')
+        scaler = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_SCALER']}{self.postfix}")
         data_frame_scaled = None
         if scaler is not None:
             scaler.fit(data_frame)
@@ -203,15 +197,12 @@ class GalaxyDataset(Dataset):
             data_frame[col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
         return data_frame
 
-    @staticmethod
-    def yj_transform_data(data_frame, columns):
+    def yj_transform_data(self, data_frame, columns):
         """"""
-        dict_pt = {}
+        dict_pt = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_YJ_TRANSFORMER']}{self.postfix}")
         for col in columns:
-            pt = PowerTransformer(method="yeo-johnson")
-            pt.fit(np.array(data_frame[col]).reshape(-1, 1))
+            pt = dict_pt[f"{col} pt"]
             data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
-            dict_pt[f"{col} pt"] = pt
         return data_frame, dict_pt
 
     @staticmethod
