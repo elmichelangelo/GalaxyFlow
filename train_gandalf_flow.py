@@ -75,11 +75,11 @@ if __name__ == '__main__':
     if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):
         os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
 
-    batch_size = cfg["BATCH_SIZE"]
-    scaler = cfg["SCALER"]
+    batch_size = cfg["BATCH_SIZE_FLOW"]
+    scaler = cfg["SCALER_FLOW"]
     number_hidden = cfg["NUMBER_HIDDEN"]
     number_blocks = cfg["NUMBER_BLOCKS"]
-    learning_rate = cfg["LEARNING_RATE"]
+    learning_rate = cfg["LEARNING_RATE_FLOW"]
     weight_decay = cfg["WEIGHT_DECAY"]
 
     if not isinstance(batch_size, list):
