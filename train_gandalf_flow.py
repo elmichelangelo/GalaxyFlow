@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import sys
 import yaml
 import os
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
