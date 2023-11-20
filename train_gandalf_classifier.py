@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import sys
 import yaml
 import os
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
@@ -58,10 +61,10 @@ if __name__ == '__main__':
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()
-    cfg['RUN_DATE_CLASSF'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/classifier_training_{cfg['RUN_DATE_CLASSF']}"
-    if not os.path.exists(cfg['PATH_OUTPUT_CLASSF']):
-        os.mkdir(cfg['PATH_OUTPUT_CLASSF'])
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/classifier_training_{cfg['RUN_DATE']}"
+    if not os.path.exists(cfg['PATH_OUTPUT']):
+        os.mkdir(cfg['PATH_OUTPUT'])
 
     for lr in cfg['LEARNING_RATE_CLASSF']:
         for bs in cfg['BATCH_SIZE_CLASSF']:

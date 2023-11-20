@@ -51,5 +51,5 @@ if __name__ == '__main__':
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()
-    cfg['RUN_DATE_RUN'] = now.strftime('%Y-%m-%d_%H-%M')
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     main(cfg)

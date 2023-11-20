@@ -787,10 +787,42 @@ def plot_classification_results(data_frame, cols, show_plot, save_plot, save_nam
                   'False Negatives': 'purple'}
 
     fig_classf, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(10, 8))
-    sns.scatterplot(data=data, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax1)
-    sns.scatterplot(data=data_calibrated, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax2)
-    sns.scatterplot(data=data_errors, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax3)
-    sns.scatterplot(data=data_calibrated_errors, x=cols[0], y=cols[1], hue='Classification', palette=color_dict, alpha=0.5, ax=ax4)
+    sns.scatterplot(
+        data=data,
+        x=cols[0],
+        y=cols[1],
+        hue='Classification',
+        palette=color_dict,
+        alpha=0.5,
+        ax=ax1
+    )
+    sns.scatterplot(
+        data=data_calibrated,
+        x=cols[0],
+        y=cols[1],
+        hue='Classification',
+        palette=color_dict,
+        alpha=0.5,
+        ax=ax2
+    )
+    sns.scatterplot(
+        data=data_errors,
+        x=cols[0],
+        y=cols[1],
+        hue='Classification',
+        palette=color_dict,
+        alpha=0.5,
+        ax=ax3
+    )
+    sns.scatterplot(
+        data=data_calibrated_errors,
+        x=cols[0],
+        y=cols[1],
+        hue='Classification',
+        palette=color_dict,
+        alpha=0.5,
+        ax=ax4
+    )
 
     fig_classf.suptitle(title)
     fig_classf.subplots_adjust(right=0.85)
@@ -814,10 +846,16 @@ def plot_classification_results(data_frame, cols, show_plot, save_plot, save_nam
 
 def plot_confusion_matrix(data_frame, show_plot, save_plot, save_name, title='Confusion matrix'):
     """"""
-    matrix = confusion_matrix(data_frame['detected_true'], data_frame['detected_calibrated'])
+    matrix = confusion_matrix(
+        data_frame['detected_true'].ravel(),
+        data_frame['detected_calibrated'].ravel()
+    )
     df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
 
-    matrix_calibrated = confusion_matrix(data_frame['detected_true'], data_frame['detected'])
+    matrix_calibrated = confusion_matrix(
+        data_frame['detected_true'].ravel(),
+        data_frame['detected'].ravel()
+    )
     df_cm_cali = pd.DataFrame(matrix_calibrated, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
 
     fig_matrix, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 8))
@@ -834,9 +872,15 @@ def plot_confusion_matrix(data_frame, show_plot, save_plot, save_name, title='Co
 
 def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
     """"""
-    fpr, tpr, thresholds = roc_curve(data_frame['detected_true'], data_frame['detected'])
+    fpr, tpr, thresholds = roc_curve(
+        data_frame['detected_true'].ravel(),
+        data_frame['detected'].ravel()
+    )
     roc_auc = auc(fpr, tpr)
-    fpr_calib, tpr_calib, thresholds_calib = roc_curve(data_frame['detected_true'], data_frame['detected_calibrated'])
+    fpr_calib, tpr_calib, thresholds_calib = roc_curve(
+        data_frame['detected_true'].ravel(),
+        data_frame['detected_calibrated'].ravel()
+    )
     roc_auc_calib = auc(fpr_calib, tpr_calib)
 
     fig_roc_curve = plt.figure()
@@ -860,8 +904,14 @@ def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver 
 
 def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precision-Recall Curve'):
     """"""
-    precision, recall, thresholds = precision_recall_curve(data_frame['detected_true'], data_frame['detected'])
-    precision_calib, recall_calib, thresholds_calib = precision_recall_curve(data_frame['detected_true'], data_frame['detected_calibrated'])
+    precision, recall, thresholds = precision_recall_curve(
+        data_frame['detected_true'].ravel(),
+        data_frame['detected'].ravel()
+    )
+    precision_calib, recall_calib, thresholds_calib = precision_recall_curve(
+        data_frame['detected_true'].ravel(),
+        data_frame['detected_calibrated'].ravel()
+    )
 
     fig_recal_curve = plt.figure()
     plt.plot(recall, precision, color='darkorange', lw=2)

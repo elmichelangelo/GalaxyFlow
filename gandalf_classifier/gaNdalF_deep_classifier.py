@@ -32,18 +32,19 @@ class gaNdalFClassifier(nn.Module):
 
         self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
 
-        cfg['PATH_OUTPUT_SUBFOLDER_CLASSF'] = f"{cfg['PATH_OUTPUT_CLASSF']}/lr_{self.lr}_bs_{self.bs}"
-        cfg['PATH_WRITER_CLASSF'] = f"{cfg['PATH_OUTPUT_SUBFOLDER_CLASSF']}/{cfg['FOLDER_NAME_WRITER_CLASSF']}"
-        cfg['PATH_PLOTS_CLASSF'] = f"{cfg['PATH_OUTPUT_SUBFOLDER_CLASSF']}/{cfg['FOLDER_NAME_PLOTS_CLASSF']}"
-        cfg['PATH_SAVE_NN_CLASSF'] = f"{cfg['PATH_OUTPUT_SUBFOLDER_CLASSF']}/{cfg['FOLDER_NAME_SAVE_NN_CLASSF']}"
+        self.cfg['PATH_PLOTS_FOLDER'] = {}
+        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_bs_{self.bs}"
+        self.cfg['PATH_WRITER'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_WRITER']}"
+        self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_PLOTS']}"
+        self.cfg['PATH_SAVE_NN'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_SAVE_NN']}"
 
-        for plot in cfg['PLOTS_CLASSF']:
-            cfg[f'PATH_PLOTS_FOLDER_CLASSF'][plot.upper()] = f"{cfg['PATH_PLOTS_CLASSF']}/{plot}"
+        for plot in self.cfg['PLOTS_CLASSF']:
+            self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{self.cfg['PATH_PLOTS']}/{plot}"
 
         self.make_dirs()
 
         self.model = nn.Sequential(
-            nn.Linear(in_features=len(cfg['INPUT_COLS_MAG_CLASSF']), out_features=64),
+            nn.Linear(in_features=len(self.cfg['INPUT_COLS_MAG_CLASSF']), out_features=64),
             nn.LeakyReLU(0.2),
             # nn.Dropout(0.5),
 
@@ -72,6 +73,7 @@ class gaNdalFClassifier(nn.Module):
             nn.Linear(in_features=32, out_features=1),
             nn.Sigmoid()
         )
+        self.model.to(self.device)
 
         # Loss function to calculate the error of the neural net (binary cross entropy)
         self.loss_function = nn.BCELoss()
@@ -79,7 +81,7 @@ class gaNdalFClassifier(nn.Module):
         self.loss = 0
 
         # Optimizer to calculate the weight changes
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
         self.best_validation_loss = float('inf')
         self.best_validation_acc = 0.0
@@ -89,32 +91,27 @@ class gaNdalFClassifier(nn.Module):
 
     def make_dirs(self):
         """"""
-        if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER_CLASSF']):
-            os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER_CLASSF'])
+        if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER']):
+            os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER'])
         if self.cfg['PLOT_CLASSF'] is True:
-            if not os.path.exists(self.cfg['PATH_PLOTS_CLASSF']):
-                os.mkdir(self.cfg['PATH_PLOTS_CLASSF'])
-            for path_plot in self.cfg['PATH_PLOTS_FOLDER_CLASSF'].values():
+            if not os.path.exists(self.cfg['PATH_PLOTS']):
+                os.mkdir(self.cfg['PATH_PLOTS'])
+            for path_plot in self.cfg['PATH_PLOTS_FOLDER'].values():
                 if not os.path.exists(path_plot):
                     os.mkdir(path_plot)
 
         if self.cfg['SAVE_NN_CLASSF'] is True:
-            if not os.path.exists(self.cfg["PATH_SAVE_NN_CLASSF"]):
-                os.mkdir(self.cfg["PATH_SAVE_NN_CLASSF"])
+            if not os.path.exists(self.cfg["PATH_SAVE_NN"]):
+                os.mkdir(self.cfg["PATH_SAVE_NN"])
 
     def init_dataset(self):
         galaxies = DESGalaxies(
             cfg=self.cfg,
-            kind="classifier_training",
-            lst_split=[
-                self.cfg['SIZE_TRAINING_DATA_CLASSF'],
-                self.cfg['SIZE_VALIDATION_DATA_CLASSF'],
-                self.cfg['SIZE_TEST_DATA_CLASSF']
-            ]
+            kind="classifier_training"
         )
 
         train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=True, num_workers=0)
-        valid_loader = DataLoader(galaxies.val_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
+        valid_loader = DataLoader(galaxies.valid_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         return train_loader, valid_loader, test_loader, galaxies
 
@@ -202,12 +199,12 @@ class gaNdalFClassifier(nn.Module):
         # save config model
         joblib.dump(
             self.calibration_model,
-            f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg['SAVE_NAME_NN']}_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE_CLASSF']}.pkl"
+            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pkl"
         )
         # save  model
         torch.save(
             self.model,
-            f"{self.cfg['PATH_SAVE_NN_CLASSF']}/{self.cfg['SAVE_NAME_NN']}_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE_CLASSF']}.pt")
+            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pt")
 
     def calibrate(self):
         self.model.eval()  # Set model to evaluation mode
@@ -234,10 +231,13 @@ class gaNdalFClassifier(nn.Module):
         input_data = tsr_input.numpy()
         df_test_data = pd.DataFrame(input_data, columns=self.cfg['INPUT_COLS_MAG_CLASSF'])
         if self.cfg['APPLY_SCALER_CLASSF'] is True:
-            df_test_data = pd.DataFrame(self.galaxies.scaler.inverse_transform(df_test_data), columns=df_test_data.keys())
+            df_test_data = pd.DataFrame(
+                self.galaxies.scaler.inverse_transform(df_test_data),
+                columns=df_test_data.keys()
+            )
 
         if self.cfg['APPLY_YJ_TRANSFORM_CLASSF'] is True:
-            if self.cfg['TRANSFORM_COLS'] is None:
+            if self.cfg['TRANSFORM_COLS_CLASSF'] is None:
                 trans_col = df_test_data.keys()
             else:
                 trans_col = self.cfg['TRANSFORM_COLS_CLASSF']
@@ -288,19 +288,19 @@ class gaNdalFClassifier(nn.Module):
         ]
 
         lst_save_names = [
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_RI_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_UG_GR_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_RI_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_Color_ZJ_JH_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_BDF_TG_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_FWHM_RI_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_FWHM_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_RI_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_RI_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'MISS-CLASSIFICATION']}/classf_EBV_Color_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_BDF_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_BDF_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_Color_UG_GR_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_Color_RI_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_Color_ZJ_JH_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_BDF_TG_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_FWHM_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_FWHM_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_RI_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_EBV_Color_{epoch}.png",
         ]
         if self.cfg['PLOT_MISS_CLASSF'] is True:
             for idx_cols, cols in enumerate(lst_cols):
@@ -318,7 +318,7 @@ class gaNdalFClassifier(nn.Module):
                 data_frame=df_test_data,
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch_{epoch}.png",
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch_{epoch}.png",
                 title=f"Confusion Matrix, lr={self.lr}, bs={self.bs}, epoch={epoch}"
             )
 
@@ -328,7 +328,7 @@ class gaNdalFClassifier(nn.Module):
                 data_frame=df_test_data,
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
                 title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
             )
 
@@ -338,7 +338,7 @@ class gaNdalFClassifier(nn.Module):
                 data_frame=df_test_data,
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{epoch}.png",
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{epoch}.png",
                 title=f"recision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
             )
 
@@ -348,7 +348,7 @@ class gaNdalFClassifier(nn.Module):
                 data_frame=df_test_data,
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'PROB_HIST']}/probability_histogram{epoch}.png",
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PROB_HIST']}/probability_histogram{epoch}.png",
                 title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}"
             )
 
@@ -357,7 +357,7 @@ class gaNdalFClassifier(nn.Module):
             if self.cfg['SHOW_PLOT_CLASSF'] is True:
                 plt.show()
             if self.cfg['SAVE_PLOT_CLASSF'] is True:
-                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF'][f'LOSS']}/loss_{epoch}.png")
+                plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'LOSS']}/loss_{epoch}.png")
             plt.clf()
 
 

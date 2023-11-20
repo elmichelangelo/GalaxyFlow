@@ -16,6 +16,8 @@ class GalaxyDataset(Dataset):
         df_run_train_output_cols = None
         df_run_valid_output_cols = None
         df_run_test_output_cols = None
+        self.name_yj_transformer = ""
+        self.name_scaler = ""
         self.cfg = cfg
         if kind == "flow_training":
             self.postfix = "_FLOW"
@@ -28,6 +30,7 @@ class GalaxyDataset(Dataset):
             self.data_set_type = "ALL"
         else:
             raise TypeError(f"{kind} is no valid kind")
+        self.lum_type = self.cfg[f'LUM_TYPE{self.postfix}']
         with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}", 'rb') as file_train:
             df_train = pd.read_pickle(file_train)
         file_train.close()
@@ -44,75 +47,75 @@ class GalaxyDataset(Dataset):
 
         if self.postfix == "_RUN":
             df_train = df_train[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"] +
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
             df_valid = df_valid[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"] +
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
             df_test = df_test[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"] +
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
         else:
             df_train = df_train[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
             df_valid = df_valid[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
             df_test = df_test[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f'CUT_COLS{self.postfix}']
                 ]
 
         if self.postfix == "_CLASSF":
-            df_classf_train_output_cols = df_train[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
-            df_train = df_train[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+            df_classf_train_output_cols = df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]]
+            df_train = df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
 
-            df_classf_valid_output_cols = df_valid[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
-            df_valid = df_valid[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+            df_classf_valid_output_cols = df_valid[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]]
+            df_valid = df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
 
-            df_classf_test_output_cols = df_test[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
-            df_test = df_test[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]]
+            df_classf_test_output_cols = df_test[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]]
+            df_test = df_test[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
         elif self.postfix == "_RUN":
             df_run_train_output_cols = df_train[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
-            df_train = df_train[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                              cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+            df_train = df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                              cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                               ]
             df_run_valid_output_cols = df_valid[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
-            df_valid = df_valid[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                              cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+            df_valid = df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                              cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                               ]
             df_run_test_output_cols = df_test[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
-            df_test = df_test[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                              cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+            df_test = df_test[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                              cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                               ]
 
         else:
             df_train = df_train[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
             df_valid = df_valid[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
             df_test = df_test[
-                cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"] +
-                cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]
+                cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
 
         self.applied_yj_transform = False
@@ -161,11 +164,11 @@ class GalaxyDataset(Dataset):
             print(f"length test dataset:{len(df_test)}")
 
         if df_classf_train_output_cols is not None:
-            df_train[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_train_output_cols
+            df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]] = df_classf_train_output_cols
         if df_classf_valid_output_cols is not None:
-            df_valid[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_valid_output_cols
+            df_valid[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]] = df_classf_valid_output_cols
         if df_classf_test_output_cols is not None:
-            df_test[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]] = df_classf_test_output_cols
+            df_test[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]] = df_classf_test_output_cols
 
         if df_run_train_output_cols is not None:
             df_train[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]] = df_run_train_output_cols
@@ -179,38 +182,38 @@ class GalaxyDataset(Dataset):
 
         if self.postfix == "_RUN":
             self.train_dataset = TensorDataset(
-                torch.tensor(df_train[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_train[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+                torch.tensor(df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values),
                 torch.tensor(df_train[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
                 torch.tensor(df_train[cfg[f"CUT_COLS{self.postfix}"]].values)
 
             )
             self.valid_dataset = TensorDataset(
-                torch.tensor(df_valid[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_valid[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                torch.tensor(df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+                torch.tensor(df_valid[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values),
                 torch.tensor(df_valid[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
                 torch.tensor(df_valid[cfg[f"CUT_COLS{self.postfix}"]].values)
 
             )
             self.test_dataset = TensorDataset(
-                torch.tensor(df_test[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_test[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
+                torch.tensor(df_test[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+                torch.tensor(df_test[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values),
                 torch.tensor(df_test[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
                 torch.tensor(df_test[cfg[f"CUT_COLS{self.postfix}"]].values)
 
             )
         else:
             self.train_dataset = TensorDataset(
-                torch.tensor(df_train[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_train[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values)
+                torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+                torch.tensor(df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values)
             )
             self.valid_dataset = TensorDataset(
-                torch.tensor(df_valid[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_valid[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values)
+                torch.tensor(df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+                torch.tensor(df_valid[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values)
             )
             self.test_dataset = TensorDataset(
-                torch.tensor(df_test[cfg[f"INPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values),
-                torch.tensor(df_test[cfg[f"OUTPUT_COLS_{cfg[f'LUM_TYPE{self.postfix}']}{self.postfix}"]].values)
+                torch.tensor(df_test[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+                torch.tensor(df_test[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values)
             )
 
         del df_train
@@ -272,17 +275,34 @@ class GalaxyDataset(Dataset):
     def scale_data(self, data_frame):
         """"""
         scaler = joblib.load(
-            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_SCALER_{self.data_set_type}']}"
+            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}']}"
         )
+        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}']
+        print(f"Use {self.name_scaler} to scale data")
         data_frame_scaled = None
         if scaler is not None:
-            scaler.fit(data_frame)
             scaled = scaler.transform(data_frame)
             data_frame_scaled = pd.DataFrame(scaled, columns=data_frame.columns)
         return data_frame_scaled, scaler
 
+    def inverse_scale_data(self, data_frame):
+        """"""
+        print(f"Use {self.name_scaler} to inverse scale data")
+        data_frame = pd.DataFrame(self.scaler.inverse_transform(data_frame), columns=data_frame.keys())
+        return data_frame
+
+    def scale_data_on_fly(self, data_frame, scaler):
+        """"""
+        print(f"Use {self.name_scaler} to scale data")
+        data_frame_scaled = None
+        if scaler is not None:
+            scaled = scaler.transform(data_frame)
+            data_frame_scaled = pd.DataFrame(scaled, columns=data_frame.columns)
+        return data_frame_scaled
+
     def yj_inverse_transform_data(self, data_frame, columns):
         """"""
+        print(f"Use {self.name_yj_transformer} to inverse transform data")
         for col in columns:
             pt = self.dict_pt[f"{col} pt"]
             data_frame[col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
@@ -293,10 +313,20 @@ class GalaxyDataset(Dataset):
         dict_pt = joblib.load(
             filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
         )
+        self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
+        print(f"Use {self.name_yj_transformer} to transform data")
         for col in columns:
             pt = dict_pt[f"{col} pt"]
             data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
         return data_frame, dict_pt
+
+    def yj_transform_data_on_fly(self, data_frame, columns, dict_pt):
+        """"""
+        print(f"Use {self.name_yj_transformer} to transform data")
+        for col in columns:
+            pt = dict_pt[f"{col} pt"]
+            data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+        return data_frame
 
     @staticmethod
     def unsheared_object_cuts(data_frame):
