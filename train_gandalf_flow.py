@@ -69,6 +69,8 @@ if __name__ == '__main__':
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}"
+    if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):
+        os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
     cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/flow_training_{cfg['RUN_DATE']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
@@ -76,7 +78,6 @@ if __name__ == '__main__':
         os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
 
     batch_size = cfg["BATCH_SIZE_FLOW"]
-    scaler = cfg["SCALER_FLOW"]
     number_hidden = cfg["NUMBER_HIDDEN"]
     number_blocks = cfg["NUMBER_BLOCKS"]
     learning_rate = cfg["LEARNING_RATE_FLOW"]
@@ -84,8 +85,6 @@ if __name__ == '__main__':
 
     if not isinstance(batch_size, list):
         batch_size = [batch_size]
-    if not isinstance(scaler, list):
-        scaler = [scaler]
     if not isinstance(number_hidden, list):
         number_hidden = [number_hidden]
     if not isinstance(number_blocks, list):
@@ -100,13 +99,11 @@ if __name__ == '__main__':
             for nh in number_hidden:
                 for nb in number_blocks:
                     for bs in batch_size:
-                        for sc in scaler:
-
-                            main(
-                                cfg=cfg,
-                                learning_rate=lr,
-                                weight_decay=wd,
-                                number_hidden=nh,
-                                number_blocks=nb,
-                                batch_size=bs
-                            )
+                        main(
+                            cfg=cfg,
+                            learning_rate=lr,
+                            weight_decay=wd,
+                            number_hidden=nh,
+                            number_blocks=nb,
+                            batch_size=bs
+                        )

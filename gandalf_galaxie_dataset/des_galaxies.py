@@ -31,15 +31,21 @@ class GalaxyDataset(Dataset):
         else:
             raise TypeError(f"{kind} is no valid kind")
         self.lum_type = self.cfg[f'LUM_TYPE{self.postfix}']
+        print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']} train data set")
         with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}", 'rb') as file_train:
             df_train = pd.read_pickle(file_train)
         file_train.close()
+        print(f"shape train dataset: {df_train.shape}")
+        print(f"Load {cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']} validation data set")
         with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']}", 'rb') as file_valid:
             df_valid = pd.read_pickle(file_valid)
         file_valid.close()
+        print(f"shape valid dataset: {df_valid.shape}")
+        print(f"Load {cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']} test data set")
         with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']}", 'rb') as file_test:
             df_test = pd.read_pickle(file_test)
         file_test.close()
+        print(f"shape test dataset: {df_test.shape}")
 
         self.df_train_cut_cols = df_train[cfg[f'CUT_COLS{self.postfix}']]
         self.df_valid_cut_cols = df_valid[cfg[f'CUT_COLS{self.postfix}']]
@@ -331,36 +337,36 @@ class GalaxyDataset(Dataset):
     @staticmethod
     def unsheared_object_cuts(data_frame):
         """"""
-        # print("Apply unsheared object cuts")
+        print("Apply unsheared object cuts")
         cuts = (data_frame["unsheared/extended_class_sof"] >= 0) & (data_frame["unsheared/flags_gold"] < 2)
         data_frame = data_frame[cuts]
-        # print('Length of catalog after applying unsheared object cuts: {}'.format(len(data_frame)))
+        print('Length of catalog after applying unsheared object cuts: {}'.format(len(data_frame)))
         return data_frame
 
     @staticmethod
     def flag_cuts(data_frame):
         """"""
-        # print("Apply flag cuts")
+        print("Apply flag cuts")
         cuts = (data_frame["match_flag_1.5_asec"] < 2) & \
                (data_frame["flags_foreground"] == 0) & \
                (data_frame["flags_badregions"] < 2) & \
                (data_frame["flags_footprint"] == 1)
         data_frame = data_frame[cuts]
-        # print('Length of catalog after applying flag cuts: {}'.format(len(data_frame)))
+        print('Length of catalog after applying flag cuts: {}'.format(len(data_frame)))
         return data_frame
 
     @staticmethod
     def airmass_cut(data_frame):
         """"""
-        # print('Cut mcal_detect_df_survey catalog so that AIRMASS_WMEAN_R is not null')
+        print('Cut mcal_detect_df_survey catalog so that AIRMASS_WMEAN_R is not null')
         data_frame = data_frame[pd.notnull(data_frame["AIRMASS_WMEAN_R"])]
-        # print('Length of catalog after applying AIRMASS_WMEAN_R cuts: {}'.format(len(data_frame)))
+        print('Length of catalog after applying AIRMASS_WMEAN_R cuts: {}'.format(len(data_frame)))
         return data_frame
 
     @staticmethod
     def unsheared_mag_cut(data_frame):
         """"""
-        # print("Apply unsheared mag cuts")
+        print("Apply unsheared mag cuts")
         cuts = (
                 (18 < data_frame["unsheared/mag_i"]) &
                 (data_frame["unsheared/mag_i"] < 23.5) &
@@ -374,13 +380,13 @@ class GalaxyDataset(Dataset):
                 (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 1.5)
         )
         data_frame = data_frame[cuts]
-        # print('Length of catalog after applying unsheared mag cuts: {}'.format(len(data_frame)))
+        print('Length of catalog after applying unsheared mag cuts: {}'.format(len(data_frame)))
         return data_frame
 
     @staticmethod
     def unsheared_shear_cuts(data_frame):
         """"""
-        # print("Apply unsheared shear cuts")
+        print("Apply unsheared shear cuts")
         cuts = (
                 (10 < data_frame["unsheared/snr"]) &
                 (data_frame["unsheared/snr"] < 1000) &
@@ -389,7 +395,7 @@ class GalaxyDataset(Dataset):
         )
         data_frame = data_frame[cuts]
         data_frame = data_frame[~((2 < data_frame["unsheared/T"]) & (data_frame["unsheared/snr"] < 30))]
-        # print('Length of catalog after applying unsheared shear cuts: {}'.format(len(data_frame)))
+        print('Length of catalog after applying unsheared shear cuts: {}'.format(len(data_frame)))
         return data_frame
 
     def get_dict_pt(self):

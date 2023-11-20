@@ -93,7 +93,7 @@ class gaNdalFFlow(object):
                     f"number blocks: {self.nb}_"
                     f"batch size: {self.bs}"
         )
-        self.train_loader, self.valid_loader, self.df_test, self.galaxies = self.init_dataset()
+        self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
 
         self.model, self.optimizer = self.init_network(
             num_outputs=len(cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE_FLOW']}_FLOW"]),
@@ -146,7 +146,7 @@ class gaNdalFFlow(object):
         # Create DataLoaders for training, validation, and testing
         train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         valid_loader = DataLoader(galaxies.valid_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
-        test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
+        test_loader = DataLoader(galaxies.test_dataset, batch_size=len(galaxies.test_dataset), shuffle=False, num_workers=0)
         return train_loader, valid_loader, test_loader, galaxies
 
     def init_network(self, num_outputs, num_input):
@@ -245,13 +245,13 @@ class gaNdalFFlow(object):
                     except Exception as e:
                         print(f"Could not make gif for {gif[0]}. Error message: {e}")
 
-        if self.cfg['SAVE_NN'] is True:
+        if self.cfg['SAVE_NN_FLOW'] is True:
             torch.save(
                 self.best_model,
-                f"{self.cfg['PATH_SAVE_NN']}/best_model_e_{self.best_validation_epoch+1}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER_FLOW']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_FLOW']}_run_{self.cfg['RUN_DATE']}.pt")
+                f"{self.cfg['PATH_SAVE_NN']}/best_model_e_{self.best_validation_epoch+1}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['APPLY_SCALER_FLOW']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_FLOW']}_run_{self.cfg['RUN_DATE']}.pt")
             torch.save(
                 self.model,
-                f"{self.cfg['PATH_SAVE_NN']}/last_model_e_{self.cfg['EPOCHS_FLOW']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['SCALER_FLOW']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_FLOW']}_run_{self.cfg['RUN_DATE']}.pt")
+                f"{self.cfg['PATH_SAVE_NN']}/last_model_e_{self.cfg['EPOCHS_FLOW']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['APPLY_SCALER_FLOW']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_FLOW']}_run_{self.cfg['RUN_DATE']}.pt")
 
         self.writer.flush()
         self.writer.close()
@@ -333,26 +333,35 @@ class gaNdalFFlow(object):
         sns.set_theme()
         self.model.eval()
 
-        input_data = self.galaxies.test_dataset[:][0].double()
-        output_data_true = self.galaxies.test_dataset[:][1].double()
-        input_data = input_data.to(self.device)
-        output_data_true = output_data_true.to(self.device)
+        for batch_idx, data in enumerate(self.test_loader):
+            tsr_input = data[0].double()
+            arr_true_output = data[1].numpy()
+            tsr_input = tsr_input.to(self.device)
+            print(f"Länge des gezogenen Datensatzes: {len(tsr_input)}")
+
         with torch.no_grad():
-            output_data_gandalf = self.model.sample(len(input_data), cond_inputs=input_data).detach()  # .cpu()
-
-        df_gandalf = pd.DataFrame()
-        df_gandalf[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE_FLOW']}_FLOW"]] = input_data.cpu().numpy()
-        df_gandalf[self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE_FLOW']}_FLOW"]] = output_data_gandalf.cpu().numpy()
+            arr_gandalf_output = self.model.sample(len(tsr_input), cond_inputs=tsr_input).detach().cpu().numpy()
+        df_gandalf = pd.DataFrame(
+            np.concatenate(
+                (tsr_input.cpu().numpy(), arr_gandalf_output),
+                axis=1
+            ),
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+        )
+        df_balrog = pd.DataFrame(
+            np.concatenate(
+                (tsr_input.cpu().numpy(), arr_true_output),
+                axis=1
+            ),
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[
+                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+        )
         df_gandalf = df_gandalf.astype('float64')
-
-        df_balrog = pd.DataFrame()
-        df_balrog[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE_FLOW']}_FLOW"]] = input_data.cpu().numpy()
-        df_balrog[self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE_FLOW']}_FLOW"]] = output_data_true.cpu().numpy()
         df_balrog = df_balrog.astype('float64')
 
         if self.cfg['APPLY_SCALER_FLOW'] is True:
-            df_gandalf = pd.DataFrame(self.galaxies.scaler.inverse_transform(df_gandalf), columns=df_gandalf.keys())
-            df_balrog = pd.DataFrame(self.galaxies.scaler.inverse_transform(df_balrog), columns=df_balrog.keys())
+            df_gandalf = self.galaxies.inverse_scale_data(data_frame=df_gandalf)
+            df_balrog = self.galaxies.inverse_scale_data(data_frame=df_balrog)
 
         if self.cfg['APPLY_YJ_TRANSFORM_FLOW'] is True:
             if self.cfg['TRANSFORM_COLS_FLOW'] is None:
@@ -371,11 +380,10 @@ class gaNdalFFlow(object):
         df_gandalf[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
         df_balrog[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
 
+        for col in self.cfg['FILL_NA_FLOW'].keys():
+            df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA_FLOW'][col])
         if self.cfg['DROP_NA_FLOW'] is True:
             df_gandalf = df_gandalf.dropna()
-        if self.cfg['APPLY_FILL_NA_FLOW'] is True:
-            for col in self.cfg['FILL_NA_FLOW'].keys():
-                df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA_FLOW'][col])
 
         for b in self.cfg['BANDS_FLOW']:
             df_gandalf[f"meas {b} - true {b}"] = df_gandalf[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - df_gandalf[f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
