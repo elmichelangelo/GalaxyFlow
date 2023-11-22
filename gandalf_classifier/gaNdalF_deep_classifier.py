@@ -46,26 +46,12 @@ class gaNdalFClassifier(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(in_features=len(self.cfg['INPUT_COLS_MAG_CLASSF']), out_features=64),
             nn.LeakyReLU(0.2),
-            # nn.Dropout(0.5),
 
             nn.Linear(in_features=64, out_features=128),
             nn.LeakyReLU(0.2),
-            # nn.Dropout(0.5),
 
             nn.Linear(in_features=128, out_features=64),
             nn.LeakyReLU(0.2),
-            # nn.Dropout(0.5),
-            #
-            # # TODO this Layer was additionally added to the model
-            # nn.Linear(in_features=128, out_features=256),
-            # nn.LeakyReLU(0.2),
-            #
-            # nn.Linear(in_features=256, out_features=128),
-            # nn.LeakyReLU(0.2),
-            #
-            # nn.Linear(in_features=128, out_features=64),
-            # nn.LeakyReLU(0.2),
-            # # TODO this Layer was additionally added to the model
 
             nn.Linear(in_features=64, out_features=32),
             nn.LeakyReLU(0.2),
@@ -216,7 +202,7 @@ class gaNdalFClassifier(nn.Module):
 
         # Fit calibration model
         calibration_model = LogisticRegression()
-        calibration_model.fit(np.array(predictions).reshape(-1, 1), tsr_output.numpy())
+        calibration_model.fit(np.array(predictions).reshape(-1, 1), tsr_output.numpy().ravel())
         return calibration_model
 
     def predict_calibrated(self, y_pred):
@@ -229,7 +215,11 @@ class gaNdalFClassifier(nn.Module):
         self.model.eval()
         tsr_input, tsr_output = self.dataset_to_tensor(self.test_loader.dataset)
         input_data = tsr_input.numpy()
-        df_test_data = pd.DataFrame(input_data, columns=self.cfg['INPUT_COLS_MAG_CLASSF'])
+        arr_flow_output = np.ones((len(input_data), len(self.cfg["OUTPUT_COLS_MAG_FLOW"])))
+        df_test_data = pd.DataFrame(
+            np.concatenate((input_data, arr_flow_output), axis=1),
+            columns=self.cfg['INPUT_COLS_MAG_CLASSF'] + self.cfg['OUTPUT_COLS_MAG_FLOW']
+        )
         if self.cfg['APPLY_SCALER_CLASSF'] is True:
             df_test_data = pd.DataFrame(
                 self.galaxies.scaler.inverse_transform(df_test_data),
