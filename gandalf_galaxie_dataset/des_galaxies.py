@@ -1,15 +1,15 @@
 from torch.utils.data import Dataset, TensorDataset, Subset, DataLoader
 from sklearn.preprocessing import PowerTransformer, MaxAbsScaler, MinMaxScaler, StandardScaler
 from itertools import accumulate
-import joblib
 import numpy as np
 import pandas as pd
 import torch
 import gc
+import joblib
 
 
 class GalaxyDataset(Dataset):
-    def __init__(self, cfg, kind):
+    def __init__(self, cfg, kind, lst_split: list = None):
         df_classf_train_output_cols = None
         df_classf_valid_output_cols = None
         df_classf_test_output_cols = None
@@ -31,6 +31,7 @@ class GalaxyDataset(Dataset):
         else:
             raise TypeError(f"{kind} is no valid kind")
         self.lum_type = self.cfg[f'LUM_TYPE{self.postfix}']
+
         print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']} train data set")
         with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}", 'rb') as file_train:
             df_train = pd.read_pickle(file_train)
@@ -99,12 +100,12 @@ class GalaxyDataset(Dataset):
         elif self.postfix == "_RUN":
             df_run_train_output_cols = df_train[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
             df_train = df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
-                              cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
-                              ]
+                                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
+                                ]
             df_run_valid_output_cols = df_valid[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
             df_valid = df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
-                              cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
-                              ]
+                                cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
+                                ]
             df_run_test_output_cols = df_test[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]]
             df_test = df_test[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
                               cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
@@ -124,7 +125,6 @@ class GalaxyDataset(Dataset):
                 cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
 
-        self.applied_yj_transform = False
         if cfg[f"APPLY_YJ_TRANSFORM{self.postfix}"] is True:
             if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
                 df_train, self.dict_pt = self.yj_transform_data(
@@ -152,7 +152,7 @@ class GalaxyDataset(Dataset):
                     data_frame=df_test,
                     columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
                 )
-            self.applied_yj_transform = True
+            self.applied_yj_transform = "_YJ"
 
         self.applied_scaler = False
         if cfg[f"APPLY_SCALER{self.postfix}"] is True:
@@ -280,10 +280,12 @@ class GalaxyDataset(Dataset):
 
     def scale_data(self, data_frame):
         """"""
+        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
+
         scaler = joblib.load(
-            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}']}"
+            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
         )
-        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}']
+
         print(f"Use {self.name_scaler} to scale data")
         data_frame_scaled = None
         if scaler is not None:

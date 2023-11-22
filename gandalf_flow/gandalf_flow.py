@@ -12,7 +12,6 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import os
-import joblib
 torch.set_default_dtype(torch.float64)
 
 
@@ -78,7 +77,7 @@ class gaNdalFFlow(object):
         self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
         self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{self.cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
         self.cfg['PATH_WRITER'] = (f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_WRITER']}/"
-                              f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
+                                   f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
         self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_PLOTS']}"
         self.cfg['PATH_SAVE_NN'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_SAVE_NN']}"
 
@@ -341,12 +340,14 @@ class gaNdalFFlow(object):
 
         with torch.no_grad():
             arr_gandalf_output = self.model.sample(len(tsr_input), cond_inputs=tsr_input).detach().cpu().numpy()
+
         df_gandalf = pd.DataFrame(
             np.concatenate(
                 (tsr_input.cpu().numpy(), arr_gandalf_output),
                 axis=1
             ),
-            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[
+                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
         )
         df_balrog = pd.DataFrame(
             np.concatenate(
@@ -386,8 +387,12 @@ class gaNdalFFlow(object):
             df_gandalf = df_gandalf.dropna()
 
         for b in self.cfg['BANDS_FLOW']:
-            df_gandalf[f"meas {b} - true {b}"] = df_gandalf[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - df_gandalf[f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
-            df_balrog[f"meas {b} - true {b}"] = df_balrog[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - df_balrog[f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
+            df_gandalf[f"meas {b} - true {b}"] = df_gandalf[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - \
+                                                 df_gandalf[
+                                                     f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
+            df_balrog[f"meas {b} - true {b}"] = df_balrog[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - \
+                                                df_balrog[
+                                                    f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
 
         df_balrog_cut = df_balrog.copy()
 
@@ -455,7 +460,7 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf,
                     data_frame_true=df_balrog,
                     dict_delta=self.dict_delta_color_color,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                     title=f"color-color plot",
                     columns=["r-i", "i-z"],
                     labels=["r-i", "i-z"],
@@ -464,7 +469,7 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png",
                     ranges=[(-4, 4), (-4, 4)]
                 )
-                self.writer.add_image("color color plot", img_grid, epoch+1)
+                self.writer.add_image("color color plot", img_grid, epoch + 1)
             except Exception as e:
                 print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png")
             try:
@@ -472,7 +477,7 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf_cut,
                     data_frame_true=df_balrog_cut,
                     dict_delta=self.dict_delta_color_color_mcal,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                     title=f"mcal color-color plot",
                     columns=["r-i", "i-z"],
                     labels=["r-i", "i-z"],
@@ -481,16 +486,17 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_COLOR_PLOT']}/mcal_color_color_{epoch + 1}.png",
                     ranges=[(-1.2, 1.8), (-1.5, 1.5)]
                 )
-                self.writer.add_image("color color plot mcal", img_grid, epoch+1)
+                self.writer.add_image("color color plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_COLOR_PLOT']}/mcal_color_color_{epoch + 1}.png")
+                print(
+                    f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_COLOR_PLOT']}/mcal_color_color_{epoch + 1}.png")
         if self.cfg['PLOT_RESIDUAL_FLOW']:
             try:
                 img_grid = residual_plot(
                     data_frame_generated=df_gandalf,
                     data_frame_true=df_balrog,
                     luminosity_type=self.cfg['LUM_TYPE_FLOW'],
-                    plot_title=f"residual, epoch {epoch+1}",
+                    plot_title=f"residual, epoch {epoch + 1}",
                     bands=self.cfg['BANDS_FLOW'],
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
@@ -505,7 +511,7 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf_cut,
                     data_frame_true=df_balrog_cut,
                     luminosity_type=self.cfg['LUM_TYPE_FLOW'],
-                    plot_title=f"mcal residual, epoch {epoch+1}",
+                    plot_title=f"mcal residual, epoch {epoch + 1}",
                     bands=self.cfg['BANDS_FLOW'],
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
@@ -513,7 +519,8 @@ class gaNdalFFlow(object):
                 )
                 self.writer.add_image("residual plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_RESIDUAL_PLOT']}/mcal_residual_plot_{epoch + 1}.png")
+                print(
+                    f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_RESIDUAL_PLOT']}/mcal_residual_plot_{epoch + 1}.png")
 
         if self.cfg['PLOT_CHAIN_FLOW'] is True:
             try:
@@ -521,7 +528,7 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf,
                     data_frame_true=df_balrog,
                     dict_delta=self.dict_delta_unsheared,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                     title=f"chain plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
@@ -553,7 +560,7 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf_cut,
                     data_frame_true=df_balrog_cut,
                     dict_delta=self.dict_delta_unsheared_mcal,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                     title=f"mcal chain plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
@@ -585,7 +592,7 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf,
                     data_frame_true=df_balrog,
                     dict_delta=self.dict_delta_color_diff,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                     title=f"color diff plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
@@ -611,11 +618,11 @@ class gaNdalFFlow(object):
                     data_frame_generated=df_gandalf_cut,
                     data_frame_true=df_balrog_cut,
                     dict_delta=self.dict_delta_color_diff_mcal,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                     title=f"mcal color diff plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT_FLOW']}/mcal_color_diff_{epoch + 1}.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png",
                     columns=[
                         "meas r - true r",
                         "meas i - true i",
@@ -630,7 +637,8 @@ class gaNdalFFlow(object):
                 )
                 self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png")
+                print(
+                    f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png")
 
         if self.cfg['PLOT_MEAN_FLOW'] is True:
             try:
@@ -670,7 +678,7 @@ class gaNdalFFlow(object):
                     plot_title="mean ratio",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch+1}.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch + 1}.png",
                     statistic_type="mean"
                 )
                 self.writer.add_image("mean plot", img_grid, epoch + 1)
@@ -678,9 +686,11 @@ class gaNdalFFlow(object):
                     lst_plot = lists_mean_to_plot_updated[idx_plot]
 
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch+1}.png")
-                print(f"Mean shapes: \t epoch \t {self.cfg['LUM_TYP_FLOWE'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r)} \t {len(self.lst_mean_mag_i)} \t {len(self.lst_mean_mag_z)} \t {len(self.lst_mean_snr)} \t {len(self.lst_mean_size_ratio)} \t {len(self.lst_mean_t)}")
+                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch + 1}.png")
+                print(
+                    f"Mean shapes: \t epoch \t {self.cfg['LUM_TYP_FLOWE'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
+                print(
+                    f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r)} \t {len(self.lst_mean_mag_i)} \t {len(self.lst_mean_mag_z)} \t {len(self.lst_mean_snr)} \t {len(self.lst_mean_size_ratio)} \t {len(self.lst_mean_t)}")
 
             try:
                 lists_mean_to_plot_cut = [
@@ -727,8 +737,10 @@ class gaNdalFFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_MEAN_PLOT']}/mcal_mean_{epoch + 1}.png")
-                print(f"Mean mcal shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r_cut)} \t {len(self.lst_mean_mag_i_cut)} \t {len(self.lst_mean_mag_z_cut)} \t {len(self.lst_mean_snr_cut)} \t {len(self.lst_mean_size_ratio_cut)} \t {len(self.lst_mean_t_cut)}")
+                print(
+                    f"Mean mcal shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
+                print(
+                    f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r_cut)} \t {len(self.lst_mean_mag_i_cut)} \t {len(self.lst_mean_mag_z_cut)} \t {len(self.lst_mean_snr_cut)} \t {len(self.lst_mean_size_ratio_cut)} \t {len(self.lst_mean_t_cut)}")
 
         if self.cfg['PLOT_STD_FLOW'] is True:
             try:
@@ -776,8 +788,10 @@ class gaNdalFFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['STD_PLOT']}/std_{epoch + 1}.png")
-                print(f"Std shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r)} \t {len(self.lst_std_mag_i)} \t {len(self.lst_std_mag_z)} \t {len(self.lst_std_snr)} \t {len(self.lst_std_size_ratio)} \t {len(self.lst_std_t)}")
+                print(
+                    f"Std shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
+                print(
+                    f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r)} \t {len(self.lst_std_mag_i)} \t {len(self.lst_std_mag_z)} \t {len(self.lst_std_snr)} \t {len(self.lst_std_size_ratio)} \t {len(self.lst_std_t)}")
 
             try:
                 lists_std_to_plot_cut = [
@@ -824,6 +838,7 @@ class gaNdalFFlow(object):
 
             except Exception as e:
                 print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_STD_PLOT']}/mcal_std_{epoch + 1}.png")
-                print(f"Std mcal shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r_cut)} \t {len(self.lst_std_mag_i_cut)} \t {len(self.lst_std_mag_z_cut)} \t {len(self.lst_std_snr_cut)} \t {len(self.lst_std_size_ratio_cut)} \t {len(self.lst_std_t_cut)}")
-
+                print(
+                    f"Std mcal shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
+                print(
+                    f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r_cut)} \t {len(self.lst_std_mag_i_cut)} \t {len(self.lst_std_mag_z_cut)} \t {len(self.lst_std_snr_cut)} \t {len(self.lst_std_size_ratio_cut)} \t {len(self.lst_std_t_cut)}")
