@@ -151,6 +151,8 @@ class gaNdalF(object):
             print(f"Number of detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
             print(f"Number of NOT detected galaxies balrog: {balrog_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
             print(f"Number of detected galaxies balrog: {balrog_detected} of {self.cfg['NUMBER_SAMPLES']}")
+            print(arr_gandalf_detected_calib.shape)
+            print(arr_true_detected.shape)
             df_classf_plot = pd.DataFrame({
                 "gandalf_detected": arr_gandalf_detected_calib,
                 "balrog_detected": arr_true_detected,
