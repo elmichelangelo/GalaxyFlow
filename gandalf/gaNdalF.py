@@ -1,7 +1,7 @@
 from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader, RandomSampler
 from scipy.stats import binned_statistic, median_abs_deviation
-from Handler import calc_color, plot_compare_corner
+from Handler import calc_color, plot_compare_corner, plot_confusion_matrix_gandalf
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -105,8 +105,6 @@ class gaNdalF(object):
                     self.cfg[f'CUT_COLS_RUN']
         )
 
-        print(df_balrog)
-
         if self.cfg['CLASSF_GALAXIES'] is True:
             with torch.no_grad():
                 arr_classf_gandalf_output = self.gandalf_classifier(tsr_input).squeeze().numpy()
@@ -153,6 +151,12 @@ class gaNdalF(object):
             print(f"Number of detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
             print(f"Number of NOT detected galaxies balrog: {balrog_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
             print(f"Number of detected galaxies balrog: {balrog_detected} of {self.cfg['NUMBER_SAMPLES']}")
+            df_classf_plot = pd.DataFrame({
+                "gandalf_detected": arr_gandalf_detected_calib,
+                "balrog_detected": arr_true_detected,
+            })
+            self.plot_classf_data(df_classf_plot=df_classf_plot)
+
             if self.cfg['EMULATE_GALAXIES'] is False:
                 exit()
 
@@ -177,9 +181,6 @@ class gaNdalF(object):
                 )
                 self.galaxies.name_yj_transformer = self.cfg['FILENAME_YJ_TRANSFORMER_ODET']
 
-                print(df_flow_input)
-                print(df_balrog)
-
                 if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
                     df_flow_input = self.galaxies.yj_transform_data_on_fly(
                         data_frame=df_flow_input,
@@ -187,15 +188,11 @@ class gaNdalF(object):
                         dict_pt=self.galaxies.dict_pt
                     )
 
-                print(df_flow_input)
-
                 if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
                     df_flow_input = self.galaxies.scale_data_on_fly(
                         data_frame=df_flow_input,
                         scaler=self.galaxies.scaler
                     )
-
-                print(df_flow_input)
 
                 tsr_masked_input = torch.from_numpy(
                     df_flow_input[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
@@ -337,6 +334,19 @@ class gaNdalF(object):
         tsr_output_classf = torch.stack(output_data_classf)
         tsr_cut_cols = torch.stack(cut_cols)
         return tsr_input, tsr_output_flow, tsr_output_classf, tsr_cut_cols
+
+    def plot_classf_data(self, df_classf_plot):
+        """"""
+        print("Start plotting classf data")
+        if self.cfg['PLOT_MATRIX_RUN'] is True:
+            plot_confusion_matrix_gandalf(
+                df_classf_plot=df_classf_plot,
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch.png",
+                title=f"Confusion Matrix"
+            )
+
 
     def plot_data(self, df_gandalf, df_balrog, mcal=''):
         if self.cfg['PLOT_COLOR_COLOR_RUN'] is True:
