@@ -104,7 +104,7 @@ class GalaxyDataset(Dataset):
                 cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
-        print(df_run)
+
         if self.postfix == "_RUN":
             if cfg[f"APPLY_YJ_TRANSFORM_CLASSF{self.postfix}"] is True:
                 if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
@@ -147,7 +147,7 @@ class GalaxyDataset(Dataset):
                         columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
-        print(df_run)
+
         self.applied_scaler = False
         if self.postfix == "_RUN":
             if cfg[f"APPLY_SCALER_CLASSF{self.postfix}"] is True:
@@ -159,17 +159,17 @@ class GalaxyDataset(Dataset):
                 df_valid, self.scaler = self.scale_data(data_frame=df_valid)
                 df_test, self.scaler = self.scale_data(data_frame=df_test)
                 self.applied_scaler = True
-        print(df_run)
+
         # Test #########################################################################################################
-        if cfg[f"APPLY_SCALER_FLOW{self.postfix}"] is True:
-            df_run_is = self.inverse_scale_data(data_frame=df_run)
-            print(df_run_is)
-        if cfg[f"APPLY_YJ_TRANSFORM_FLOW{self.postfix}"] is True:
-            df_run_yj = self.yj_inverse_transform_data(
-                data_frame=df_run_is,
-                columns=df_run_is.keys()
-            )
-            print(df_run_yj)
+        # if cfg[f"APPLY_SCALER_FLOW{self.postfix}"] is True:
+        #     df_run_is = self.inverse_scale_data(data_frame=df_run)
+        #     print(df_run_is)
+        # if cfg[f"APPLY_YJ_TRANSFORM_FLOW{self.postfix}"] is True:
+        #     df_run_yj = self.yj_inverse_transform_data(
+        #         data_frame=df_run_is,
+        #         columns=df_run_is.keys()
+        #     )
+        #     print(df_run_yj)
         # Test #########################################################################################################
         if self.postfix == "_CLASSF":
             df_train = df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
