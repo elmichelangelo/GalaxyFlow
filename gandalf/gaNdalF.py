@@ -154,8 +154,8 @@ class gaNdalF(object):
             print(arr_gandalf_detected_calib.shape)
             print(arr_true_detected.shape)
             df_classf_plot = pd.DataFrame({
-                "gandalf_detected": arr_gandalf_detected_calib,
-                "balrog_detected": arr_true_detected,
+                "gandalf_detected": arr_gandalf_detected_calib.ravel(),
+                "balrog_detected": arr_true_detected.ravel(),
             })
             self.plot_classf_data(df_classf_plot=df_classf_plot)
             exit()
