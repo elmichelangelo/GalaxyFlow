@@ -156,7 +156,7 @@ class gaNdalF(object):
                 "balrog_detected": arr_true_detected,
             })
             self.plot_classf_data(df_classf_plot=df_classf_plot)
-
+            exit()
             if self.cfg['EMULATE_GALAXIES'] is False:
                 exit()
 
