@@ -1,7 +1,7 @@
 from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader, RandomSampler
 from scipy.stats import binned_statistic, median_abs_deviation
-from Handler import calc_color, plot_compare_corner, plot_confusion_matrix_gandalf
+from Handler import calc_color, plot_compare_corner, plot_confusion_matrix_gandalf, plot_roc_curve_gandalf
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -346,6 +346,16 @@ class gaNdalF(object):
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch.png",
                 title=f"Confusion Matrix"
+            )
+
+        # ROC und AUC
+        if self.cfg['PLOT_ROC_CURVE_RUN'] is True:
+            plot_roc_curve_gandalf(
+                data_frame=df_classf_plot,
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
+                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
             )
 
 

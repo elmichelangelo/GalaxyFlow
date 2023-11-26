@@ -921,6 +921,30 @@ def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver 
     plt.close(fig_roc_curve)
 
 
+def plot_roc_curve_gandalf(data_frame, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
+    """"""
+    fpr, tpr, thresholds = roc_curve(
+        data_frame['balrog_detected'].ravel(),
+        data_frame['gandalf_detected'].ravel()
+    )
+    roc_auc = auc(fpr, tpr)
+
+    fig_roc_curve = plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(title)
+    plt.legend(loc="lower right")
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_roc_curve)
+
+
 def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precision-Recall Curve'):
     """"""
     precision, recall, thresholds = precision_recall_curve(
