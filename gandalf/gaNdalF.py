@@ -354,8 +354,8 @@ class gaNdalF(object):
                 data_frame=df_classf_plot,
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
-                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve.png",
+                title=f"Receiver Operating Characteristic (ROC) Curve"
             )
 
 
