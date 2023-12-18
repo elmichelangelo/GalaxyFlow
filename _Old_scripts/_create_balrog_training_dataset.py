@@ -242,7 +242,7 @@ if __name__ == "__main__":
         detection_cols=[
             'bal_id',
             'true_id',
-            'detected',
+            'true_detected',
             'true_ra',
             'true_dec',
         ],

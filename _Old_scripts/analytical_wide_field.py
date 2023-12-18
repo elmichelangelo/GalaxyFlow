@@ -1183,7 +1183,7 @@ def survey_conditions(dict_wide_field_data, data_frame, detected_length, columns
     }
 
     for col in columns_survey_conditions:
-        if col == "detected":
+        if col == "true_detected":
             if only_detected_objects is True:
                 dict_data[f"{col}"] = np.ones(len(dict_wide_field_data[f"generated flux z deep field"]))
             else:
@@ -1228,7 +1228,7 @@ def survey_conditions(dict_wide_field_data, data_frame, detected_length, columns
 
         # if plot_data is True:
 
-        # if col not in ["detected", "unsheared/flags"]:
+        # if col not in ["true_detected", "unsheared/flags"]:
         #     sns.histplot(
         #         x=data_frame[col],
         #         kde=True,
@@ -1488,7 +1488,7 @@ def write_data_2_file(df_generated_data, df_data, save_path, number_of_sources, 
             'MAGLIM_I',
             'MAGLIM_Z',
             'EBV_SFD98',
-            'detected']]
+            'true_detected']]
         xspace = np.arange(len(df_data))
         random_choice_idx = np.random.choice(xspace, size=int(only_balrog[1]))
         arr_training_data = df_data.to_numpy()
@@ -1500,7 +1500,7 @@ def write_data_2_file(df_generated_data, df_data, save_path, number_of_sources, 
             df_generated_data = pd.DataFrame(data=arr_training_data, columns=df_data.columns)
 
     if pickle_2 is True:
-        only_detected = (df_generated_data["detected"] == 1)
+        only_detected = (df_generated_data["true_detected"] == 1)
         df_generated_data = df_generated_data[only_detected]
 
         df_generated_data["BDF_FLUX_DERED_CALIB_U"] = mag2flux(df_generated_data["BDF_MAG_DERED_CALIB_U"])
@@ -1532,9 +1532,9 @@ def main(path_to_data, size, save_path, save_plot, plot_fit_parameter, plot_gene
     # Load deep field catalog (a pkl file)
     df_data = load_data(path_to_data, "pkl")
     # df_data = cut_i_band_mag(df_data, column_flux_i_band)
-    data_detected = len(df_data[df_data["detected"] == 1])
-    data_undetected = len(df_data[df_data["detected"] == 0])
-    print(f"length detected = {data_detected} \t length not detected = {data_undetected}")
+    data_detected = len(df_data[df_data["true_detected"] == 1])
+    data_undetected = len(df_data[df_data["true_detected"] == 0])
+    print(f"length true_detected = {data_detected} \t length not true_detected = {data_undetected}")
 
     length_gen_detected = int(size * (data_detected / (data_detected + data_undetected)))
     length_gen_undetected = int(size * (data_undetected / (data_detected + data_undetected)))
@@ -1543,12 +1543,12 @@ def main(path_to_data, size, save_path, save_plot, plot_fit_parameter, plot_gene
             length_gen_detected += 1
         elif length_gen_detected + length_gen_undetected > size:
             length_gen_detected -= 1
-    print(f"length generated detected = {length_gen_detected} \t length generated not detected = {length_gen_undetected}")
+    print(f"length generated true_detected = {length_gen_detected} \t length generated not true_detected = {length_gen_undetected}")
     tpl_detected_length = (length_gen_detected, length_gen_undetected)
 
     print(f"Length of data set is {len(df_data)}")
-    df_data = df_data[df_data["detected"] == 1]
-    print(f"Length of data set for use detected objects only: {len(df_data)}")
+    df_data = df_data[df_data["true_detected"] == 1]
+    print(f"Length of data set for use true_detected objects only: {len(df_data)}")
     set_plot_settings()
 
     df_data = make_some_cuts(data_frame=df_data, columns_riz=columns_flux_riz_band)
@@ -1722,6 +1722,6 @@ if __name__ == "__main__":
             "MAGLIM_I",
             "MAGLIM_Z",
             "EBV_SFD98",
-            "detected"
+            "true_detected"
         ]
     )

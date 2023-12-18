@@ -65,11 +65,16 @@ if __name__ == '__main__':
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()
+    prefix_mock = ""
+
+    if cfg['TRAIN_ON_MOCK_FLOW'] is True:
+        prefix_mock = "_mock"
+
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}{prefix_mock}"
     if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):
         os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
-    cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/flow_training_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/flow_training_{cfg['RUN_DATE']}{prefix_mock}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
     if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):

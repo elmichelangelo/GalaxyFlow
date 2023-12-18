@@ -376,7 +376,7 @@ if __name__ == "__main__":
         detection_cols=[
             'bal_id',
             'true_id',
-            'detected',
+            'true_detected',
             'flags_footprint',
             'flags_foreground',
             'flags_badregions',
@@ -392,7 +392,7 @@ if __name__ == "__main__":
         cols_of_interrest=[
             'bal_id',
             'true_id',
-            'detected',
+            'true_detected',
             "BDF_FLUX_DERED_CALIB_I",
             "BDF_FLUX_DERED_CALIB_R",
             "BDF_FLUX_DERED_CALIB_Z",

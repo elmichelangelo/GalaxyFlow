@@ -248,7 +248,7 @@ class gaNdalFClassifier(nn.Module):
         print(f"Accuracy for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%")
         print(f"Accuracy calibrated for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%")
 
-        df_test_data['detected'] = detected
+        df_test_data['true_detected'] = detected
         df_test_data['detected_calibrated'] = detected_calibrated
         df_test_data['probability'] = probability
         df_test_data['probability_calibrated'] = probability_calibrated

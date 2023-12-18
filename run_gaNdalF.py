@@ -12,9 +12,33 @@ plt.rcParams["figure.figsize"] = (16, 9)
 
 def main(cfg):
     """"""
-    gandalf = gaNdalF(cfg=cfg)
 
-    gandalf.run()
+    cfg = make_dirs(cfg)
+
+    for i in range(1):
+        print(f"Run {i + 1} of 10")
+        cfg['RUN_NUMBER'] = i+1
+        gandalf = gaNdalF(cfg=cfg)
+        gandalf.run()
+
+
+def make_dirs(cfg):
+    """"""
+    cfg['PATH_PLOTS_FOLDER'] = {}
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}"
+    cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
+    cfg['PATH_CATALOGS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_CATALOGS']}"
+    if not os.path.exists(cfg['PATH_OUTPUT']):
+        os.mkdir(cfg['PATH_OUTPUT'])
+    if not os.path.exists(cfg['PATH_PLOTS']):
+        os.mkdir(cfg['PATH_PLOTS'])
+    if not os.path.exists(cfg['PATH_CATALOGS']):
+        os.mkdir(cfg['PATH_CATALOGS'])
+    for plot in cfg['PLOTS_RUN']:
+        cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
+        if not os.path.exists(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()]):
+            os.mkdir(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()])
+    return cfg
 
 
 if __name__ == '__main__':

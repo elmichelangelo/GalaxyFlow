@@ -252,3 +252,20 @@ def count_parameters(model):
 def string_to_tuple(s):
     matches = re.findall(r'\(([^,]+), ([^)]+)\)', s)
     return [tuple(map(str.strip, match)) for match in matches]
+
+
+def calculate_percentage_of_outliers(data_frame, column_name, lower_bound, upper_bound):
+    total_count = len(data_frame)
+
+    lower_outliers = (data_frame[column_name] < lower_bound).sum()
+    upper_outliers = (data_frame[column_name] > upper_bound).sum()
+
+    lower_outliers_percentage = (lower_outliers / total_count) * 100
+    upper_outliers_percentage = (upper_outliers / total_count) * 100
+
+    print(f"Number of datapoints smaller than {lower_bound}: {lower_outliers} "
+          f"({lower_outliers_percentage:.2f}%)")
+    print(f"Number of datapoints bigger than {upper_bound}: {upper_outliers} "
+          f"({upper_outliers_percentage:.2f}%)")
+
+    return lower_outliers_percentage, upper_outliers_percentage

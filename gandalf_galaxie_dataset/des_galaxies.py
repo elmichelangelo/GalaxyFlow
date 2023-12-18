@@ -7,6 +7,8 @@ import torch
 import gc
 import joblib
 
+from Handler.helper_functions import calculate_percentage_of_outliers
+
 
 class GalaxyDataset(Dataset):
     def __init__(self, cfg, kind, lst_split: list = None):
@@ -17,9 +19,12 @@ class GalaxyDataset(Dataset):
         self.name_yj_transformer = ""
         self.name_scaler = ""
         self.cfg = cfg
+        self.mock_postfix = ""
         if kind == "flow_training":
             self.postfix = "_FLOW"
             self.data_set_type = "ODET"
+            if self.cfg["TRAIN_ON_MOCK_FLOW"] is True:
+                self.mock_postfix = "_MOCK"
         elif kind == "classifier_training":
             self.postfix = "_CLASSF"
             self.data_set_type = "ALL"
@@ -29,19 +34,22 @@ class GalaxyDataset(Dataset):
                 self.data_set_type = "ALL"
             else:
                 self.data_set_type = "ODET"
+            if self.cfg["TRAIN_ON_MOCK_FLOW"] is True:
+                self.mock_postfix = "_MOCK"
+                self.data_set_type = "ODET"
         else:
             raise TypeError(f"{kind} is no valid kind")
         self.lum_type = self.cfg[f'LUM_TYPE{self.postfix}']
 
         if self.postfix == "_RUN":
             if self.cfg["DATASET_TYPE"] == "All":
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_DATA_{self.data_set_type}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_DATA_{self.data_set_type}{self.mock_postfix}']}"
             elif self.cfg["DATASET_TYPE"] == "Train":
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}{self.mock_postfix}']}"
             elif self.cfg["DATASET_TYPE"] == "Valid":
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}{self.mock_postfix}']}"
             else:
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}{self.mock_postfix}']}"
             print(f"Load {filename}  data set")
             with open(f"{filename}", 'rb') as file_run:
                 df_data = pd.read_pickle(file_run)
@@ -49,18 +57,18 @@ class GalaxyDataset(Dataset):
             df_run = self.sample_random_data_from_dataframe(df_data)
             del df_data
         else:
-            print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']} train data set")
-            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}", 'rb') as file_train:
+            print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}{self.mock_postfix}']} train data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}{self.mock_postfix}']}", 'rb') as file_train:
                 df_train = pd.read_pickle(file_train)
             file_train.close()
             print(f"shape train dataset: {df_train.shape}")
-            print(f"Load {cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']} validation data set")
-            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']}", 'rb') as file_valid:
+            print(f"Load {cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}{self.mock_postfix}']} validation data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}{self.mock_postfix}']}", 'rb') as file_valid:
                 df_valid = pd.read_pickle(file_valid)
             file_valid.close()
             print(f"shape valid dataset: {df_valid.shape}")
-            print(f"Load {cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']} test data set")
-            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']}", 'rb') as file_test:
+            print(f"Load {cfg[f'FILENAME_TEST_DATA_{self.data_set_type}{self.mock_postfix}']} test data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}{self.mock_postfix}']}", 'rb') as file_test:
                 df_test = pd.read_pickle(file_test)
             file_test.close()
             print(f"shape test dataset: {df_test.shape}")
@@ -107,7 +115,7 @@ class GalaxyDataset(Dataset):
 
         if self.postfix == "_RUN":
             if cfg[f"APPLY_YJ_TRANSFORM_CLASSF{self.postfix}"] is True:
-                if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
+                if cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"] is None:
                     df_run, self.dict_pt = self.yj_transform_data(
                         data_frame=df_run,
                         columns=df_run.keys()
@@ -115,12 +123,12 @@ class GalaxyDataset(Dataset):
                 else:
                     df_run, self.dict_pt = self.yj_transform_data(
                         data_frame=df_run,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
         else:
             if cfg[f"APPLY_YJ_TRANSFORM{self.postfix}"] is True:
-                if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
+                if cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"] is None:
                     df_train, self.dict_pt = self.yj_transform_data(
                         data_frame=df_train,
                         columns=df_train.keys()
@@ -136,15 +144,15 @@ class GalaxyDataset(Dataset):
                 else:
                     df_train, self.dict_pt = self.yj_transform_data(
                         data_frame=df_train,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
                     )
                     df_valid, self.dict_pt = self.yj_transform_data(
                         data_frame=df_valid,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
                     )
                     df_test, self.dict_pt = self.yj_transform_data(
                         data_frame=df_test,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
 
@@ -275,7 +283,7 @@ class GalaxyDataset(Dataset):
 
     def scale_data(self, data_frame):
         """"""
-        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
+        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}{self.mock_postfix}']
 
         scaler = joblib.load(
             filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
@@ -314,9 +322,9 @@ class GalaxyDataset(Dataset):
     def yj_transform_data(self, data_frame, columns):
         """"""
         dict_pt = joblib.load(
-            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
+            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}{self.mock_postfix}']}"
         )
-        self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
+        self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}{self.mock_postfix}']
         print(f"Use {self.name_yj_transformer} to transform data")
         for col in columns:
             pt = dict_pt[f"{col} pt"]
@@ -393,6 +401,29 @@ class GalaxyDataset(Dataset):
         data_frame = data_frame[cuts]
         data_frame = data_frame[~((2 < data_frame["unsheared/T"]) & (data_frame["unsheared/snr"] < 30))]
         print('Length of catalog after applying unsheared shear cuts: {}'.format(len(data_frame)))
+        return data_frame
+
+    @staticmethod
+    def remove_outliers(data_frame):
+        print("Remove outliers...")
+        not_outliers = (
+            ~((data_frame["unsheared/mag_r"] <= 7.812946519176684) |
+              (data_frame["unsheared/mag_r"] >= 37.5) |
+              (data_frame["unsheared/mag_i"] <= 7.342380502886332) |
+              (data_frame["unsheared/mag_i"] >= 37.5) |
+              (data_frame["unsheared/mag_z"] <= 7.69900077218967) |
+              (data_frame["unsheared/mag_z"] >= 37.5) |
+              (data_frame["unsheared/snr"] <= 0) |
+              (data_frame["unsheared/snr"] >= 200) |
+              (data_frame["unsheared/size_ratio"] <= -1) |
+              (data_frame["unsheared/size_ratio"] >= 4) |
+              (data_frame["unsheared/T"] <= -1) |
+              (data_frame["unsheared/T"] >= 4) |
+              (data_frame["unsheared/weight"] <= 10.0) |
+              (data_frame["unsheared/weight"] >= 77.58102207403836))
+        )
+        data_frame = data_frame[not_outliers]
+        print('Length of catalog after removing outliers: {}'.format(len(data_frame)))
         return data_frame
 
     def get_dict_pt(self):

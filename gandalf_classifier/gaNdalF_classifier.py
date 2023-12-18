@@ -99,7 +99,7 @@ class gaNdalFClassifier(object):
         print(f"Accuracy for lr={self.lr}: {validation_accuracy * 100.0:.2f}%")
         print(f"Accuracy stochastic for lr={self.lr}: {validation_accuracy_stochastic * 100.0:.2f}%")
 
-        df_test_data['detected'] = predictions
+        df_test_data['true_detected'] = predictions
         df_test_data['detected_calibrated'] = predictions
         df_test_data['probability'] = y_pred_prob
         df_test_data['probability_calibrated'] = y_pred_prob

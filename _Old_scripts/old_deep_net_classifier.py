@@ -188,12 +188,12 @@ class TrainDet(object):
                 lst_y.append(int(lst_y_full[idx]))
 
             df_y = pd.DataFrame({
-                "detected": lst_y + lst_y_pred,
+                "true_detected": lst_y + lst_y_pred,
                 "type": ["true" for _ in range(len(lst_y))] + ["predicted" for _ in range(len(lst_y_pred))],
                 "id": [i for i in range(len(lst_y))] + [j for j in range(len(lst_y_pred))]
             })
 
-            sns.histplot(data=df_y, x="detected", hue="type")
+            sns.histplot(data=df_y, x="true_detected", hue="type")
             plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER_CLASSF']['Y_PRED']}/y_pred_{e}.png")
             plt.clf()
 

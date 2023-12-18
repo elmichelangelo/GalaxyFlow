@@ -148,8 +148,8 @@ def create_balrog_subset(path_all_balrog_data, path_save, name_save_file, number
     df_balrog = open_all_balrog_dataset(path_all_balrog_data)
 
     if only_detected is True:
-        df_balrog = df_balrog[df_balrog["detected"] == 1]
-        print(f"length of only detected balrog objects {len(df_balrog)}")
+        df_balrog = df_balrog[df_balrog["true_detected"] == 1]
+        print(f"length of only true_detected balrog objects {len(df_balrog)}")
     df_balrog = rename_cols(data_frame=df_balrog)
     df_balrog = unsheared_mag_cut(data_frame=df_balrog)
     print(f"length of catalog after applying cuts {len(df_balrog)}")

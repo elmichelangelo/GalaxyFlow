@@ -5,17 +5,18 @@ import numpy as np
 import imageio
 import os
 from natsort import natsorted
-from chainconsumer import ChainConsumer
+from chainconsumer import ChainConsumer, Chain, PlotConfig, ChainConfig
 from scipy.stats import gaussian_kde
 from torchvision.transforms import ToTensor
-from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
+from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, brier_score_loss
+from sklearn.calibration import calibration_curve
 from io import BytesIO
 import corner
 from Handler.helper_functions import string_to_tuple
 import time
 import matplotlib
 # matplotlib.use('Agg')
-
+plt.style.use('seaborn-white')
 
 def plot_to_tensor():
     buf = BytesIO()  # Ein Zwischenspeicher, um das Bild zu speichern
@@ -113,21 +114,22 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     corner.corner(
         arr_generated,
         fig=fig,
-        bins=20,
+        bins=100,
         range=ranges,
         color='#ff8c00',
-        smooth=True,
-        smooth1d=True,
+        smooth=.8,
+        smooth1d=.8,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
         title_kwargs={"fontsize": 12},
-        hist_kwargs={'alpha': 0},
+        hist_kwargs={'alpha': 1},
         scale_hist=True,
         quantiles=[0.16, 0.5, 0.84],
+        levels=[0.393, 0.865, 0.989],  #, 0.989
         density=True,
         plot_datapoints=True,
-        plot_density=False,
+        plot_density=True,
         plot_contours=True,
         fill_contours=True
     )
@@ -136,21 +138,22 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     corner.corner(
         arr_true,
         fig=fig,
-        bins=20,
+        bins=100,
         range=ranges,
         color='#51a6fb',
-        smooth=True,
-        smooth1d=True,
+        smooth=.8,
+        smooth1d=.8,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
         title_kwargs={"fontsize": 12},
-        hist_kwargs={'alpha': 0},
+        hist_kwargs={'alpha': 1},
         scale_hist=True,
         quantiles=[0.16, 0.5, 0.84],
+        levels=[0.393, 0.865, 0.989],  #, 0.989
         density=True,
         plot_datapoints=True,
-        plot_density=False,
+        plot_density=True,
         plot_contours=True,
         fill_contours=True
     )
@@ -163,10 +166,11 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
     for i in range(ndim):
         ax = axes[i, i]
-        sns.histplot(arr_generated[:, i], ax=ax, color='#ff8c00', stat='density', bins=20, alpha=0.5)
-        sns.histplot(arr_true[:, i], ax=ax, color='#51a6fb', stat='density', bins=20, alpha=0.5)
-        sns.kdeplot(arr_generated[:, i], ax=ax, color='#ff8c00', fill=True, levels=[0.16, 0.5, 0.84])
-        sns.kdeplot(arr_true[:, i], ax=ax, color='#51a6fb', fill=True, levels=[0.16, 0.5, 0.84])
+        # sns.histplot(arr_generated[:, i], ax=ax, color='#ff8c00', bins=100, alpha=0.5)
+        # sns.histplot(arr_true[:, i], ax=ax, color='#51a6fb', bins=100, alpha=0.5)
+        # sns.kdeplot(arr_generated[:, i], ax=ax, color='#ff8c00', fill=True, levels=[0.393, 0.865, 0.989])
+        # sns.kdeplot(arr_true[:, i], ax=ax, color='#51a6fb', fill=True, levels=[0.393, 0.865, 0.989])
+
         # ax.set_xlim(ranges[i])  # Setzen Sie die Achsenlimits entsprechend Ihren ranges
         ax.set_yticklabels(ax.get_yticks(), rotation=45)
 
@@ -182,17 +186,17 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
             dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
             dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
         else:
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta mean {labels[i]}: {delta_mean}'), )
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta median {labels[i]}: {delta_median}'), )
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta q16 {labels[i]}: {delta_q16}'), )
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'Delta q84 {labels[i]}: {delta_q84}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: mean={delta_mean:.5f}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: median={delta_median:.5f}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q16={delta_q16:.5f}'), )
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q84={delta_q84:.5f}'), )
 
-    if ranges is not None:
-        for i in range(ndim):
-            for j in range(ndim):
-                ax = axes[i, j]
-                ax.set_xlim(ranges[j])
-                ax.set_ylim(ranges[i])
+    # if ranges is not None:
+    #     for i in range(ndim):
+    #         for j in range(ndim):
+    #             ax = axes[i, j]
+    #             ax.set_xlim(ranges[j])
+    #             ax.set_ylim(ranges[i])
 
     if epoch is not None:
         fig.suptitle(f'{title}, epoch {epoch}', fontsize=16)
@@ -314,8 +318,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 #     plt.clf()
 #     plt.close()
 #     return img_tensor
-
-
+#
+#
 def loss_plot(
         epoch,
         lst_train_loss_per_batch,
@@ -406,118 +410,60 @@ def loss_plot(
     return img_tensor
 
 
-# def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, extents=None):
-#     """"""
-#     df_generated_measured = pd.DataFrame({})
-#     df_true_measured = pd.DataFrame({})
-#     for color in colors:
-#         df_generated_measured[f"{color[0]}-{color[1]}"] = \
-#             np.array(data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
-#                 data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
-#         df_true_measured[f"{color[0]}-{color[1]}"] = \
-#             np.array(data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
-#                 data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
-#
-#     arr_true = df_true_measured.to_numpy()
-#     arr_generated = df_generated_measured.to_numpy()
-#     labels = [
-#         f"unsheared/{luminosity_type.lower()} r-i",
-#         f"unsheared/{luminosity_type.lower()} i-z"
-#     ]
-#     chainchat = ChainConsumer()
-#     chainchat.add_chain(arr_true, parameters=labels, name="true observed properties: chat")
-#     chainchat.add_chain(arr_generated, parameters=labels,
-#                         name="generated observed properties: chat*")
-#     chainchat.configure(max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12)
-#     chainchat.plotter.plot(
-#         filename=save_name,
-#         figsize="page",
-#         extents=extents
-#     )
-#     if show_plot is True:
-#         plt.show()
-#     img_tensor = plot_to_tensor()
-#     plt.clf()
-#     plt.close()
-#     return img_tensor
+def plot_chain_compare(data_frame_generated, data_frame_true, columns, labels, title, extents, sigma2d, show_plot, save_name):
+    """"""
 
-
-# def color_color_plot(data_frame_generated, luminosity_type, data_frame_true, colors, show_plot, save_name, save_plot, extents=None):
-#     """"""
-#     df_generated_measured = pd.DataFrame({})
-#     df_true_measured = pd.DataFrame({})
-#     for color in string_to_tuple(str(colors)):
-#         df_generated_measured[f"{color[0]}-{color[1]}"] = \
-#             np.array(data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
-#                 data_frame_generated[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
-#         df_true_measured[f"{color[0]}-{color[1]}"] = \
-#             np.array(data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[0]}"]) - np.array(
-#                 data_frame_true[f"unsheared/{luminosity_type.lower()}_{color[1]}"])
-#
-#     arr_true = df_true_measured.to_numpy()
-#     arr_generated = df_generated_measured.to_numpy()
-#     labels = [
-#         f"unsheared/{luminosity_type.lower()} r-i",
-#         f"unsheared/{luminosity_type.lower()} i-z"
-#     ]
-#     ranges = None
-#     ndim = arr_generated.shape[1]
-#
-#     fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
-#
-#     # Plot data_1
-#     corner.corner(
-#         arr_generated,
-#         fig=fig,
-#         bins=20,
-#         range=ranges,
-#         color='#ff8c00',
-#         smooth=True,
-#         smooth1d=True,
-#         labels=labels,
-#         show_titles=True,
-#         title_fmt=".2f",
-#         title_kwargs={"fontsize": 12},
-#         scale_hist=False,
-#         quantiles=[0.16, 0.5, 0.84],
-#         density=True,
-#         plot_datapoints=True,
-#         plot_density=False,
-#         plot_contours=True,
-#         fill_contours=True,
-#         label="gaNdalF"
-#     )
-#
-#     # Plot data_2
-#     corner.corner(
-#         arr_true,
-#         fig=fig,
-#         bins=20,
-#         range=ranges,
-#         color='#51a6fb',
-#         smooth=True,
-#         smooth1d=True,
-#         labels=labels,
-#         show_titles=True,
-#         title_fmt=".2f",
-#         title_kwargs={"fontsize": 12},
-#         scale_hist=False,
-#         quantiles=[0.16, 0.5, 0.84],
-#         density=True,
-#         plot_datapoints=True,
-#         plot_density=False,
-#         plot_contours=True,
-#         fill_contours=True,
-#         label="Balrog"
-#     )
-#     if show_plot is True:
-#         plt.show()
-#     if save_plot is True:
-#         plt.savefig(save_name, dpi=200)
-#     img_tensor = plot_to_tensor()
-#     plt.clf()
-#     plt.close()
-#     return img_tensor
+    chainchat = ChainConsumer()
+    balrog_chain = Chain(
+        samples=data_frame_true[columns],
+        parameters=labels,
+        name="balrog observed properties: chat",
+        color='#51a6fb',
+        plot_cloud=True,
+        num_cloud=100000,
+        kde=.8,
+        bins=100,
+        smooth=1,
+        shade=True,
+        shade_alpha=.7,
+        show_contour_labels=True
+    )
+    gandalf_chain = Chain(
+        samples=data_frame_generated[columns],
+        parameters=labels,
+        name="generated observed properties: chat*",
+        color='#ff8c00',
+        plot_cloud=True,
+        num_cloud=100000,
+        kde=.8,
+        bins=100,
+        smooth=1,
+        shade=True,
+        shade_alpha=.7,
+        show_contour_labels=True
+    )
+    chainchat.add_chain(balrog_chain)
+    chainchat.add_chain(gandalf_chain)
+    chainchat.set_plot_config(PlotConfig(
+        max_ticks=5,
+        shade_alpha=0.8,
+        tick_font_size=12,
+        label_font_size=12,
+        sigma2d=sigma2d,
+        flip=True,
+        show_legend=True,
+        extents=extents
+    ))
+    chainchat.plotter.plot(
+        filename=save_name,
+        figsize="page"
+    )
+    plt.grid(True)
+    plt.title(title)
+    if show_plot is True:
+        plt.show()
+    plt.clf()
+    plt.close()
 
 
 def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands, plot_title, show_plot, save_plot, save_name):
@@ -748,10 +694,10 @@ def plot_2d_kde(x, y, manual_levels, limits=None, x_label="", y_label="", title=
 def plot_classification_results(data_frame, cols, show_plot, save_plot, save_name, title='Classification Results'):
     true_galaxy_values = data_frame[cols].values
 
-    true_positives = (data_frame['detected'] == 1) & (data_frame['detected_true'] == 1)
-    true_negatives = (data_frame['detected'] == 0) & (data_frame['detected_true'] == 0)
-    false_positives = (data_frame['detected'] == 1) & (data_frame['detected_true'] == 0)
-    false_negatives = (data_frame['detected'] == 0) & (data_frame['detected_true'] == 1)
+    true_positives = (data_frame['true_detected'] == 1) & (data_frame['detected_true'] == 1)
+    true_negatives = (data_frame['true_detected'] == 0) & (data_frame['detected_true'] == 0)
+    false_positives = (data_frame['true_detected'] == 1) & (data_frame['detected_true'] == 0)
+    false_negatives = (data_frame['true_detected'] == 0) & (data_frame['detected_true'] == 1)
     colors = np.empty(true_galaxy_values.shape[0], dtype='object')
     colors[true_positives] = 'True Positives'
     colors[true_negatives] = 'True Negatives'
@@ -848,7 +794,7 @@ def plot_confusion_matrix(data_frame, show_plot, save_plot, save_name, title='Co
     """"""
     matrix = confusion_matrix(
         data_frame['detected_true'].ravel(),
-        data_frame['detected'].ravel()
+        data_frame['true_detected'].ravel()
     )
     df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
 
@@ -868,6 +814,36 @@ def plot_confusion_matrix(data_frame, show_plot, save_plot, save_name, title='Co
         plt.savefig(save_name, dpi=200)
     plt.clf()
     plt.close(fig_matrix)
+
+
+def plot_calibration_curve_gandalf(true_detected, probability, n_bins=10, show_plot=True, save_plot=False,
+                                   save_name="calibration_curve.png", title='Calibration Curve'):
+    """
+    Plot a calibration curve for the given data.
+    """
+    y_true = true_detected.ravel()
+    y_prob = probability.ravel()
+    prob_true, prob_pred = calibration_curve(y_true, y_prob, n_bins=n_bins)
+
+    # Calculate Brier Score
+    brier = brier_score_loss(y_true, y_prob)
+
+    # Calculate ECE
+    ece = np.sum(np.abs(prob_true - prob_pred) * (np.histogram(y_prob, bins=n_bins, range=(0, 1))[0] / len(y_prob)))
+
+    fig, ax = plt.subplots()
+    ax.plot(prob_pred, prob_true, marker='o', linewidth=1, label=f'Calibration plot (Brier={brier:.4f}, ECE={ece:.4f})')
+    ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfectly calibrated')
+    ax.set_xlabel('Mean predicted probability')
+    ax.set_ylabel('Fraction of positives')
+    ax.set_title(title)
+    ax.legend(loc='best')
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    plt.clf()
+    plt.close(fig)
 
 
 def plot_confusion_matrix_gandalf(df_classf_plot, show_plot, save_plot, save_name, title='Confusion matrix'):
@@ -893,7 +869,7 @@ def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver 
     """"""
     fpr, tpr, thresholds = roc_curve(
         data_frame['detected_true'].ravel(),
-        data_frame['detected'].ravel()
+        data_frame['true_detected'].ravel()
     )
     roc_auc = auc(fpr, tpr)
     fpr_calib, tpr_calib, thresholds_calib = roc_curve(
@@ -949,7 +925,7 @@ def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precis
     """"""
     precision, recall, thresholds = precision_recall_curve(
         data_frame['detected_true'].ravel(),
-        data_frame['detected'].ravel()
+        data_frame['true_detected'].ravel()
     )
     precision_calib, recall_calib, thresholds_calib = precision_recall_curve(
         data_frame['detected_true'].ravel(),
@@ -1042,6 +1018,66 @@ def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", 
     plt.clf()
     plt.close()
     return img_tensor
+
+
+def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_plot, save_name, title='Histogram'):
+    """
+    Plot histograms for each feature in the given columns of df_balrog and df_gandalf.
+    """
+    df_gandalf_detected = df_gandalf[df_gandalf['true_detected'] == 1]
+    df_balrog_detected = df_balrog[df_balrog['true_detected'] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf['true_detected'] == 0]
+    df_balrog_not_detected = df_balrog[df_balrog['true_detected'] == 0]
+
+    df_gandalf_detected = df_gandalf_detected[columns]
+    df_balrog_detected = df_balrog_detected[columns]
+    df_gandalf_not_detected = df_gandalf_not_detected[columns]
+    df_balrog_not_detected = df_balrog_not_detected[columns]
+
+    # Number of features/variables in your datasets (columns)
+    num_features = len(columns)
+
+    # Grid dimensions (5x5 for 25 features)
+    grid_size = int(np.ceil(np.sqrt(num_features)))
+
+    # Create a figure and a grid of subplots
+    fig_hist, axes = plt.subplots(grid_size, grid_size, figsize=(15, 15))
+    axes = axes.flatten()  # Flatten the 2D array of axes for easy iteration
+
+    # Iterate over each feature and plot the histograms
+    for i in range(num_features):
+        ax = axes[i]
+        # Extracting the ith feature/column from each dataset
+        feature_gandalf_detected = df_gandalf_detected.iloc[:, i]
+        feature_balrog_detected = df_balrog_detected.iloc[:, i]
+        feature_gandalf_not_detected = df_gandalf_not_detected.iloc[:, i]
+        feature_balrog_not_detected = df_balrog_not_detected.iloc[:, i]
+
+        # Plot histograms for the ith feature from each dataset
+        # Gandalf: Not filled, with specific color
+        ax.hist(feature_gandalf_detected, bins=100, alpha=0.5, label='Gandalf true_detected', color='#ff8c00', histtype='step')
+        ax.hist(feature_gandalf_not_detected, bins=100, alpha=0.5, label='Gandalf not true_detected', color='darkgrey', histtype='step')
+        # Balrog: Filled, with specific color
+        ax.hist(feature_balrog_detected, bins=100, alpha=0.5, label='Balrog true_detected', color='#51a6fb')
+        ax.hist(feature_balrog_not_detected, bins=100, alpha=0.5, label='Balrog not true_detected', color='lightgrey')
+
+        # Set titles, labels, etc.
+        ax.set_xlabel(f'{columns[i]}')
+        ax.set_ylabel('Counts')
+        ax.legend()
+
+    # Set overall title
+    plt.suptitle(title)
+
+    # Show or save plot based on arguments
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+
+    # Clear the figure to free memory
+    plt.clf()
+    plt.close(fig_hist)
 
 
 def make_gif(frame_folder, name_save_folder, fps=10):
