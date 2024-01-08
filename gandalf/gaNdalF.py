@@ -1,7 +1,7 @@
 from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader, RandomSampler
 from scipy.stats import binned_statistic, median_abs_deviation
-from Handler import calc_color, plot_compare_corner, plot_confusion_matrix_gandalf, plot_roc_curve_gandalf, plot_chain_compare, plot_classifier_histogram, plot_calibration_curve_gandalf
+from Handler import calc_color, plot_compare_corner, plot_confusion_matrix_gandalf, plot_roc_curve_gandalf, plot_classifier_histogram, plot_calibration_curve_gandalf
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -500,20 +500,20 @@ class gaNdalF(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color.png",
                     ranges=[(-8, 8), (-8, 8)]
                 )
-                plot_chain_compare(
-                    data_frame_generated=df_gandalf,
-                    data_frame_true=df_balrog,
-                    title=f"{mcal} color-color plot",
-                    columns=["r-i", "i-z"],
-                    labels=["r-i", "i-z"],
-                    sigma2d=True,
-                    extents={
-                        "r-i": (-4, 4),
-                        "i-z": (-4, 4)
-                    },
-                    show_plot=self.cfg['SHOW_PLOT_RUN'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color_chain.png"
-                )
+                # plot_chain_compare(
+                #     data_frame_generated=df_gandalf,
+                #     data_frame_true=df_balrog,
+                #     title=f"{mcal} color-color plot",
+                #     columns=["r-i", "i-z"],
+                #     labels=["r-i", "i-z"],
+                #     sigma2d=True,
+                #     extents={
+                #         "r-i": (-4, 4),
+                #         "i-z": (-4, 4)
+                #     },
+                #     show_plot=self.cfg['SHOW_PLOT_RUN'],
+                #     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color_chain.png"
+                # )
             except Exception as e:
                 print(e)
 
