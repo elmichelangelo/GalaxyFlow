@@ -6,7 +6,6 @@ import pandas as pd
 import torch
 import gc
 import joblib
-
 from Handler.helper_functions import calculate_percentage_of_outliers
 
 
@@ -19,12 +18,9 @@ class GalaxyDataset(Dataset):
         self.name_yj_transformer = ""
         self.name_scaler = ""
         self.cfg = cfg
-        self.mock_postfix = ""
         if kind == "flow_training":
             self.postfix = "_FLOW"
             self.data_set_type = "ODET"
-            if self.cfg["TRAIN_ON_MOCK_FLOW"] is True:
-                self.mock_postfix = "_MOCK"
         elif kind == "classifier_training":
             self.postfix = "_CLASSF"
             self.data_set_type = "ALL"
@@ -34,22 +30,19 @@ class GalaxyDataset(Dataset):
                 self.data_set_type = "ALL"
             else:
                 self.data_set_type = "ODET"
-            if self.cfg["TRAIN_ON_MOCK_FLOW"] is True:
-                self.mock_postfix = "_MOCK"
-                self.data_set_type = "ODET"
         else:
             raise TypeError(f"{kind} is no valid kind")
         self.lum_type = self.cfg[f'LUM_TYPE{self.postfix}']
 
         if self.postfix == "_RUN":
             if self.cfg["DATASET_TYPE"] == "All":
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_DATA_{self.data_set_type}{self.mock_postfix}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_DATA_{self.data_set_type}']}"
             elif self.cfg["DATASET_TYPE"] == "Train":
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}{self.mock_postfix}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}"
             elif self.cfg["DATASET_TYPE"] == "Valid":
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}{self.mock_postfix}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']}"
             else:
-                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}{self.mock_postfix}']}"
+                filename = f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']}"
             print(f"Load {filename}  data set")
             with open(f"{filename}", 'rb') as file_run:
                 df_data = pd.read_pickle(file_run)
@@ -57,18 +50,18 @@ class GalaxyDataset(Dataset):
             df_run = self.sample_random_data_from_dataframe(df_data)
             del df_data
         else:
-            print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}{self.mock_postfix}']} train data set")
-            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}{self.mock_postfix}']}", 'rb') as file_train:
+            print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']} train data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']}", 'rb') as file_train:
                 df_train = pd.read_pickle(file_train)
             file_train.close()
             print(f"shape train dataset: {df_train.shape}")
-            print(f"Load {cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}{self.mock_postfix}']} validation data set")
-            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}{self.mock_postfix}']}", 'rb') as file_valid:
+            print(f"Load {cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']} validation data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_VALIDATION_DATA_{self.data_set_type}']}", 'rb') as file_valid:
                 df_valid = pd.read_pickle(file_valid)
             file_valid.close()
             print(f"shape valid dataset: {df_valid.shape}")
-            print(f"Load {cfg[f'FILENAME_TEST_DATA_{self.data_set_type}{self.mock_postfix}']} test data set")
-            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}{self.mock_postfix}']}", 'rb') as file_test:
+            print(f"Load {cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']} test data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_TEST_DATA_{self.data_set_type}']}", 'rb') as file_test:
                 df_test = pd.read_pickle(file_test)
             file_test.close()
             print(f"shape test dataset: {df_test.shape}")
@@ -115,7 +108,7 @@ class GalaxyDataset(Dataset):
 
         if self.postfix == "_RUN":
             if cfg[f"APPLY_YJ_TRANSFORM_CLASSF{self.postfix}"] is True:
-                if cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"] is None:
+                if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
                     df_run, self.dict_pt = self.yj_transform_data(
                         data_frame=df_run,
                         columns=df_run.keys()
@@ -123,12 +116,12 @@ class GalaxyDataset(Dataset):
                 else:
                     df_run, self.dict_pt = self.yj_transform_data(
                         data_frame=df_run,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
         else:
             if cfg[f"APPLY_YJ_TRANSFORM{self.postfix}"] is True:
-                if cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"] is None:
+                if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
                     df_train, self.dict_pt = self.yj_transform_data(
                         data_frame=df_train,
                         columns=df_train.keys()
@@ -144,15 +137,15 @@ class GalaxyDataset(Dataset):
                 else:
                     df_train, self.dict_pt = self.yj_transform_data(
                         data_frame=df_train,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                     df_valid, self.dict_pt = self.yj_transform_data(
                         data_frame=df_valid,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                     df_test, self.dict_pt = self.yj_transform_data(
                         data_frame=df_test,
-                        columns=cfg[f"TRANSFORM_COLS{self.postfix}{self.mock_postfix}"]
+                        columns=cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
 
@@ -283,7 +276,7 @@ class GalaxyDataset(Dataset):
 
     def scale_data(self, data_frame):
         """"""
-        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}{self.mock_postfix}']
+        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
 
         scaler = joblib.load(
             filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
@@ -322,9 +315,9 @@ class GalaxyDataset(Dataset):
     def yj_transform_data(self, data_frame, columns):
         """"""
         dict_pt = joblib.load(
-            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}{self.mock_postfix}']}"
+            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
         )
-        self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}{self.mock_postfix}']
+        self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
         print(f"Use {self.name_yj_transformer} to transform data")
         for col in columns:
             pt = dict_pt[f"{col} pt"]
@@ -432,4 +425,3 @@ class GalaxyDataset(Dataset):
 
 if __name__ == '__main__':
     pass
-

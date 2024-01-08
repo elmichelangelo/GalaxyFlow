@@ -20,10 +20,6 @@ class gaNdalF(object):
         """"""
         self.cfg = cfg
         self.lum_type = self.cfg['LUM_TYPE_RUN']
-        if self.cfg['RUN_ON_MOCK'] is True:
-            self.prefix_mock = "_mock"
-        if "mock" in self.cfg['FILENAME_NN_FLOW']:
-            self.cfg['RUN_ON_MOCK'] = True
         if "yjt_True" in self.cfg['FILENAME_NN_FLOW']:
             self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] = True
         if "scr_True" in self.cfg['FILENAME_NN_FLOW']:
