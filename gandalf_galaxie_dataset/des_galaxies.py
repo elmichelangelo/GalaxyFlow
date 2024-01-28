@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset, TensorDataset, Subset, DataLoader
-from sklearn.preprocessing import PowerTransformer, MaxAbsScaler, MinMaxScaler, StandardScaler
+from sklearn.preprocessing import PowerTransformer, MaxAbsScaler, MinMaxScaler, StandardScaler, QuantileTransformer
 from itertools import accumulate
 import numpy as np
 import pandas as pd
@@ -65,12 +65,18 @@ class GalaxyDataset(Dataset):
                 df_test = pd.read_pickle(file_test)
             file_test.close()
             print(f"shape test dataset: {df_test.shape}")
+        if cfg[f"SILVAN_RUN"] is True:
+            print(f"Load {cfg[f'FILENAME_DATA_{self.data_set_type}']} silvan data set")
+            with open(f"{cfg[f'PATH_DATA']}/{cfg[f'FILENAME_DATA_{self.data_set_type}']}", 'rb') as file_silvan:
+                df_data = pd.read_pickle(file_silvan)
+            file_silvan.close()
+            print(f"shape silvan dataset: {df_data.shape}")
         if self.postfix == "_RUN":
             self.df_run_cut_cols = df_run[cfg[f'CUT_COLS{self.postfix}']]
-        else:
-            self.df_train_cut_cols = df_train[cfg[f'CUT_COLS{self.postfix}']]
-            self.df_valid_cut_cols = df_valid[cfg[f'CUT_COLS{self.postfix}']]
-            self.df_test_cut_cols = df_test[cfg[f'CUT_COLS{self.postfix}']]
+        # else:
+        #     self.df_train_cut_cols = df_train[cfg[f'CUT_COLS{self.postfix}']]
+        #     self.df_valid_cut_cols = df_valid[cfg[f'CUT_COLS{self.postfix}']]
+        #     self.df_test_cut_cols = df_test[cfg[f'CUT_COLS{self.postfix}']]
 
         if self.postfix == "_CLASSF":
             arr_classf_train_output_cols = df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values
@@ -105,6 +111,11 @@ class GalaxyDataset(Dataset):
                 cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
                 cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
+            if cfg[f"SILVAN_RUN"] is True:
+                df_data = df_data[
+                    cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] +
+                    cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
+                    ]
 
         if self.postfix == "_RUN":
             if cfg[f"APPLY_YJ_TRANSFORM_CLASSF{self.postfix}"] is True:
@@ -276,11 +287,17 @@ class GalaxyDataset(Dataset):
 
     def scale_data(self, data_frame):
         """"""
-        self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
+        if self.cfg[f"SILVAN_RUN"] is True:
+            scaler = QuantileTransformer()
+            scaler = MaxAbsScaler()
+            scaler.fit(data_frame)
+            self.name_scaler = "silvan scaler"
+        else:
+            self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
 
-        scaler = joblib.load(
-            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
-        )
+            scaler = joblib.load(
+                filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
+            )
 
         print(f"Use {self.name_scaler} to scale data")
         data_frame_scaled = None
@@ -314,14 +331,32 @@ class GalaxyDataset(Dataset):
 
     def yj_transform_data(self, data_frame, columns):
         """"""
-        dict_pt = joblib.load(
-            filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
-        )
-        self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
-        print(f"Use {self.name_yj_transformer} to transform data")
-        for col in columns:
-            pt = dict_pt[f"{col} pt"]
-            data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+        if self.cfg[f"SILVAN_RUN"] is True:
+            dict_pt = {}
+            # def get_yj_transformer(data_frame, columns):
+            #     """"""
+            #     dict_pt = {}
+            #     for col in columns:
+            #         pt = PowerTransformer(method="yeo-johnson")
+            #         pt.fit(np.array(data_frame[col]).reshape(-1, 1))
+            #         data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+            #         dict_pt[f"{col} pt"] = pt
+            #     return data_frame, dict_pt
+            #
+            # data_frame, dict_pt = get_yj_transformer(data_frame, data_frame.keys())
+            # self.name_yj_transformer = "silvan yj transformer"
+            # for col in columns:
+            #     pt = dict_pt[f"{col} pt"]
+            #     data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+        else:
+            dict_pt = joblib.load(
+                filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
+            )
+            self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
+            print(f"Use {self.name_yj_transformer} to transform data")
+            for col in columns:
+                pt = dict_pt[f"{col} pt"]
+                data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
         return data_frame, dict_pt
 
     def yj_transform_data_on_fly(self, data_frame, columns, dict_pt):

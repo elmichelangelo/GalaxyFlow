@@ -35,7 +35,8 @@ if __name__ == '__main__':
     path = os.path.abspath(sys.path[-1])
     if get_os() == "Mac":
         print("load mac config-file")
-        config_file_name = "mac.cfg"
+        # config_file_name = "mac.cfg"
+        config_file_name = "silvan.cfg"
     elif get_os() == "Windows":
         print("load windows config-file")
         config_file_name = "windows.cfg"
@@ -67,8 +68,8 @@ if __name__ == '__main__':
     now = datetime.now()
     prefix_mock = ""
 
-    if cfg['TRAIN_ON_MOCK_FLOW'] is True:
-        prefix_mock = "_mock"
+    # if cfg['TRAIN_ON_MOCK_FLOW'] is True:
+    #     prefix_mock = "_mock"
 
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}{prefix_mock}"

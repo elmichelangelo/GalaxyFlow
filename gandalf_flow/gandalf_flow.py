@@ -192,8 +192,8 @@ class gaNdalFFlow(object):
                 self.best_train_epoch = epoch
                 self.best_train_loss = train_loss_epoch
 
-            # if epoch - self.best_validation_epoch >= 30:
-            #     break
+            if epoch - self.best_validation_epoch >= 30:
+                break
 
             print(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
                   f"best validation loss: {-self.best_validation_loss}\t"
@@ -346,16 +346,16 @@ class gaNdalFFlow(object):
                 (tsr_input.cpu().numpy(), arr_gandalf_output),
                 axis=1
             ),
-            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[
-                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW'] + self.cfg[
+                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW']
         )
         df_balrog = pd.DataFrame(
             np.concatenate(
                 (tsr_input.cpu().numpy(), arr_true_output),
                 axis=1
             ),
-            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[
-                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW'] + self.cfg[
+                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW']
         )
         df_gandalf = df_gandalf.astype('float64')
         df_balrog = df_balrog.astype('float64')
@@ -364,82 +364,82 @@ class gaNdalFFlow(object):
             df_gandalf = self.galaxies.inverse_scale_data(data_frame=df_gandalf)
             df_balrog = self.galaxies.inverse_scale_data(data_frame=df_balrog)
 
-        if self.cfg['APPLY_YJ_TRANSFORM_FLOW'] is True:
-            if self.cfg['TRANSFORM_COLS_FLOW'] is None:
-                trans_col = df_balrog.keys()
-            else:
-                trans_col = self.cfg['TRANSFORM_COLS_FLOW']
-            df_balrog = self.galaxies.yj_inverse_transform_data(
-                data_frame=df_balrog,
-                columns=trans_col
-            )
-            df_gandalf = self.galaxies.yj_inverse_transform_data(
-                data_frame=df_gandalf,
-                columns=trans_col
-            )
+        # if self.cfg['APPLY_YJ_TRANSFORM_FLOW'] is True:
+        #     if self.cfg['TRANSFORM_COLS_FLOW'] is None:
+        #         trans_col = df_balrog.keys()
+        #     else:
+        #         trans_col = self.cfg['TRANSFORM_COLS_FLOW']
+        #     df_balrog = self.galaxies.yj_inverse_transform_data(
+        #         data_frame=df_balrog,
+        #         columns=trans_col
+        #     )
+        #     df_gandalf = self.galaxies.yj_inverse_transform_data(
+        #         data_frame=df_gandalf,
+        #         columns=trans_col
+        #     )
 
-        df_gandalf[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
-        df_balrog[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
+        # df_gandalf[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
+        # df_balrog[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
 
-        for col in self.cfg['FILL_NA_FLOW'].keys():
-            df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA_FLOW'][col])
+        # for col in self.cfg['FILL_NA_FLOW'].keys():
+        #     df_gandalf[col] = df_gandalf[col].fillna(self.cfg['FILL_NA_FLOW'][col])
         if self.cfg['DROP_NA_FLOW'] is True:
             df_gandalf = df_gandalf.dropna()
 
-        for b in self.cfg['BANDS_FLOW']:
-            df_gandalf[f"meas {b} - true {b}"] = df_gandalf[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - \
-                                                 df_gandalf[
-                                                     f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
-            df_balrog[f"meas {b} - true {b}"] = df_balrog[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - \
-                                                df_balrog[
-                                                    f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
+        # for b in self.cfg['BANDS_FLOW']:
+        #     df_gandalf[f"meas {b} - true {b}"] = df_gandalf[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - \
+        #                                          df_gandalf[
+        #                                              f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
+        #     df_balrog[f"meas {b} - true {b}"] = df_balrog[f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_{b}"] - \
+        #                                         df_balrog[
+        #                                             f"BDF_{self.cfg['LUM_TYPE_FLOW'].upper()}_DERED_CALIB_{b.upper()}"]
 
         df_balrog_cut = df_balrog.copy()
 
-        if self.cfg['APPLY_OBJECT_CUT_FLOW'] is not True:
-            df_balrog_cut = self.galaxies.unsheared_object_cuts(data_frame=df_balrog_cut)
-        if self.cfg['APPLY_FLAG_CUT_FLOW'] is not True:
-            df_balrog_cut = self.galaxies.flag_cuts(data_frame=df_balrog_cut)
-        if self.cfg['APPLY_UNSHEARED_MAG_CUT_FLOW'] is not True:
-            df_balrog_cut = self.galaxies.unsheared_mag_cut(data_frame=df_balrog_cut)
-        if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_FLOW'] is not True:
-            df_balrog_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_balrog_cut)
-        if self.cfg['APPLY_AIRMASS_CUT_FLOW'] is not True:
-            df_balrog_cut = self.galaxies.airmass_cut(data_frame=df_balrog_cut)
+        # if self.cfg['APPLY_OBJECT_CUT_FLOW'] is not True:
+        #     df_balrog_cut = self.galaxies.unsheared_object_cuts(data_frame=df_balrog_cut)
+        # if self.cfg['APPLY_FLAG_CUT_FLOW'] is not True:
+        #     df_balrog_cut = self.galaxies.flag_cuts(data_frame=df_balrog_cut)
+        # if self.cfg['APPLY_UNSHEARED_MAG_CUT_FLOW'] is not True:
+        #     df_balrog_cut = self.galaxies.unsheared_mag_cut(data_frame=df_balrog_cut)
+        # if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_FLOW'] is not True:
+        #     df_balrog_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_balrog_cut)
+        # if self.cfg['APPLY_AIRMASS_CUT_FLOW'] is not True:
+        #     df_balrog_cut = self.galaxies.airmass_cut(data_frame=df_balrog_cut)
 
         df_gandalf_cut = df_gandalf.copy()
 
-        if self.cfg['APPLY_OBJECT_CUT_FLOW'] is not True:
-            df_gandalf_cut = self.galaxies.unsheared_object_cuts(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_FLAG_CUT_FLOW'] is not True:
-            df_gandalf_cut = self.galaxies.flag_cuts(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_UNSHEARED_MAG_CUT_FLOW'] is not True:
-            df_gandalf_cut = self.galaxies.unsheared_mag_cut(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_FLOW'] is not True:
-            df_gandalf_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_AIRMASS_CUT_FLOW'] is not True:
-            df_gandalf_cut = self.galaxies.airmass_cut(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_OBJECT_CUT_FLOW'] is not True:
+        #     df_gandalf_cut = self.galaxies.unsheared_object_cuts(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_FLAG_CUT_FLOW'] is not True:
+        #     df_gandalf_cut = self.galaxies.flag_cuts(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_UNSHEARED_MAG_CUT_FLOW'] is not True:
+        #     df_gandalf_cut = self.galaxies.unsheared_mag_cut(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_FLOW'] is not True:
+        #     df_gandalf_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_AIRMASS_CUT_FLOW'] is not True:
+        #     df_gandalf_cut = self.galaxies.airmass_cut(data_frame=df_gandalf_cut)
 
-        df_gandalf = calc_color(
-            data_frame=df_gandalf,
-            colors=self.cfg['COLORS_FLOW'],
-            column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
-        )
-        df_balrog = calc_color(
-            data_frame=df_balrog,
-            colors=self.cfg['COLORS_FLOW'],
-            column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
-        )
-        df_gandalf_cut = calc_color(
-            data_frame=df_gandalf_cut,
-            colors=self.cfg['COLORS_FLOW'],
-            column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
-        )
-        df_balrog_cut = calc_color(
-            data_frame=df_balrog_cut,
-            colors=self.cfg['COLORS_FLOW'],
-            column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
-        )
+        # df_gandalf = calc_color(
+        #     data_frame=df_gandalf,
+        #     colors=self.cfg['COLORS_FLOW'],
+        #     column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
+        # )
+        # df_balrog = calc_color(
+        #     data_frame=df_balrog,
+        #     colors=self.cfg['COLORS_FLOW'],
+        #     column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
+        # )
+        # df_gandalf_cut = calc_color(
+        #     data_frame=df_gandalf_cut,
+        #     colors=self.cfg['COLORS_FLOW'],
+        #     column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
+        # )
+        # df_balrog_cut = calc_color(
+        #     data_frame=df_balrog_cut,
+        #     colors=self.cfg['COLORS_FLOW'],
+        #     column_name=f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}"
+        # )
 
         if self.cfg['PLOT_LOSS_FLOW'] is True:
             img_grid = loss_plot(
@@ -532,28 +532,26 @@ class gaNdalFFlow(object):
                     title=f"chain plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['CHAIN_PLOT']}/chainplot_{epoch + 1}.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MAG_AUTO']}/mag_auto_{epoch + 1}.png",
                     columns=[
-                        f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_r",
-                        f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_i",
-                        f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_z",
-                        "unsheared/snr",
-                        "unsheared/size_ratio",
-                        "unsheared/T"
+                        f"MAG_AUTO_g",
+                        f"MAG_AUTO_r",
+                        f"MAG_AUTO_i",
+                        f"MAG_AUTO_z",
+                        f"MAG_AUTO_y"
                     ],
                     labels=[
-                        f"{self.cfg['LUM_TYPE_FLOW'].lower()}_r",
-                        f"{self.cfg['LUM_TYPE_FLOW'].lower()}_i",
-                        f"{self.cfg['LUM_TYPE_FLOW'].lower()}_z",
-                        "snr",
-                        "size_ratio",
-                        "T",
+                        f"mag auto g",
+                        f"mag auto r",
+                        f"mag auto i",
+                        "mag auto z",
+                        "mag auto y"
                     ],
-                    ranges=[(15, 30), (15, 30), (15, 30), (-15, 75), (-1.5, 4), (-1.5, 2)]
+                    ranges=[(17.5, 30), (17.5, 30), (17.5, 30), (17.5, 30), (17.5, 30)]
                 )
-                self.writer.add_image("chain plot", img_grid, epoch + 1)
+                # self.writer.add_image("chain plot", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['CHAIN_PLOT']}/chainplot_{epoch + 1}.png")
+                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MAG_AUTO']}/mag_auto_{epoch + 1}.png")
 
             try:
                 img_grid, self.dict_delta_unsheared_mcal = plot_compare_corner(
@@ -564,28 +562,26 @@ class gaNdalFFlow(object):
                     title=f"mcal chain plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_CHAIN_PLOT']}/mcal_chainplot_{epoch + 1}.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['FLUX_RADIUS']}/flux_radius_{epoch + 1}.png",
                     columns=[
-                        f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_r",
-                        f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_i",
-                        f"unsheared/{self.cfg['LUM_TYPE_FLOW'].lower()}_z",
-                        "unsheared/snr",
-                        "unsheared/size_ratio",
-                        "unsheared/T",
+                        "FLUX_RADIUS_g",
+                        "FLUX_RADIUS_r",
+                        "FLUX_RADIUS_i",
+                        "FLUX_RADIUS_z",
+                        "FLUX_RADIUS_y"
                     ],
                     labels=[
-                        f"{self.cfg['LUM_TYPE_FLOW'].lower()}_r",
-                        f"{self.cfg['LUM_TYPE_FLOW'].lower()}_i",
-                        f"{self.cfg['LUM_TYPE_FLOW'].lower()}_z",
-                        "snr",
-                        "size_ratio",
-                        "T",
+                        "flux radius g",
+                        "flux radius r",
+                        "flux radius i",
+                        "flux radius z",
+                        "flux radius y"
                     ],
-                    ranges=[(15, 30), (15, 30), (15, 30), (-75, 200), (-1.5, 6), (-1, 4)]
+                    ranges=None,
                 )
                 self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_CHAIN_PLOT']}/mcal_chainplot_{epoch + 1}.png")
+                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['FLUX_RADIUS']}/flux_radius_{epoch + 1}.png")
 
             try:
                 img_grid, self.dict_delta_color_diff = plot_compare_corner(
@@ -596,22 +592,26 @@ class gaNdalFFlow(object):
                     title=f"color diff plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['ABSOLUTE_ELLIPTICITY']}/absolute_ellipticity_{epoch + 1}.png",
                     columns=[
-                        "meas r - true r",
-                        "meas i - true i",
-                        "meas z - true z"
+                        "absolute_ellipticity_g",
+                        "absolute_ellipticity_r",
+                        "absolute_ellipticity_i",
+                        "absolute_ellipticity_z",
+                        "absolute_ellipticity_y"
                     ],
                     labels=[
-                        "meas r - true r",
-                        "meas i - true i",
-                        "meas z - true z"
+                        "abs_ell_g",
+                        "abs_ell_r",
+                        "abs_ell_i",
+                        "abs_ell_z",
+                        "abs_ell_y"
                     ],
-                    ranges=[(-4, 4), (-4, 4), (-4, 4)]
+                    ranges=None
                 )
                 self.writer.add_image("color diff plot", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png")
+                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['ABSOLUTE_ELLIPTICITY']}/absolute_ellipticity_{epoch + 1}.png")
 
             try:
                 img_grid, self.dict_delta_color_diff_mcal = plot_compare_corner(
@@ -622,23 +622,27 @@ class gaNdalFFlow(object):
                     title=f"mcal color diff plot",
                     show_plot=self.cfg['SHOW_PLOT_FLOW'],
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['LOG10_SNR']}/log10_snr{epoch + 1}.png",
                     columns=[
-                        "meas r - true r",
-                        "meas i - true i",
-                        "meas z - true z"
+                        "log10_snr_g",
+                        "log10_snr_r",
+                        "log10_snr_i",
+                        "log10_snr_z",
+                        "log10_snr_y"
                     ],
                     labels=[
-                        "meas r - true r",
-                        "meas i - true i",
-                        "meas z - true z"
+                        "log10 snr g",
+                        "log10 snr r",
+                        "log10 snr i",
+                        "log10 snr z",
+                        "log10 snr y"
                     ],
-                    ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]
+                    ranges=None  # [(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]
                 )
                 self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:
                 print(
-                    f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png")
+                    f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['LOG10_SNR']}/log10_snr{epoch + 1}.png")
 
         if self.cfg['PLOT_MEAN_FLOW'] is True:
             try:
