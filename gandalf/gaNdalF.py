@@ -32,22 +32,22 @@ class gaNdalF(object):
         self.run_loader, self.galaxies = self.init_dataset()
         self.gandalf_flow, self.gandalf_classifier, self.calibration_model = self.init_trained_models()
 
-    def make_dirs(self):
-        """"""
-        self.cfg['PATH_PLOTS_FOLDER'] = {}
-        self.cfg['PATH_OUTPUT'] = f"{self.cfg['PATH_OUTPUT']}/gandalf_run_{self.cfg['RUN_DATE']}"
-        self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT']}/{self.cfg['FOLDER_PLOTS']}"
-        self.cfg['PATH_CATALOGS'] = f"{self.cfg['PATH_OUTPUT']}/{self.cfg['FOLDER_CATALOGS']}"
-        if not os.path.exists(self.cfg['PATH_OUTPUT']):
-            os.mkdir(self.cfg['PATH_OUTPUT'])
-        if not os.path.exists(self.cfg['PATH_PLOTS']):
-            os.mkdir(self.cfg['PATH_PLOTS'])
-        if not os.path.exists(self.cfg['PATH_CATALOGS']):
-            os.mkdir(self.cfg['PATH_CATALOGS'])
-        for plot in self.cfg['PLOTS_RUN']:
-            self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{self.cfg['PATH_PLOTS']}/{plot}"
-            if not os.path.exists(self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()]):
-                os.mkdir(self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()])
+    # def make_dirs(self):
+    #     """"""
+    #     self.cfg['PATH_PLOTS_FOLDER'] = {}
+    #     self.cfg['PATH_OUTPUT'] = f"{self.cfg['PATH_OUTPUT']}/gandalf_run_{self.cfg['RUN_DATE']}"
+    #     self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT']}/{self.cfg['FOLDER_PLOTS']}"
+    #     self.cfg['PATH_CATALOGS'] = f"{self.cfg['PATH_OUTPUT']}/{self.cfg['FOLDER_CATALOGS']}"
+    #     if not os.path.exists(self.cfg['PATH_OUTPUT']):
+    #         os.mkdir(self.cfg['PATH_OUTPUT'])
+    #     if not os.path.exists(self.cfg['PATH_PLOTS']):
+    #         os.mkdir(self.cfg['PATH_PLOTS'])
+    #     if not os.path.exists(self.cfg['PATH_CATALOGS']):
+    #         os.mkdir(self.cfg['PATH_CATALOGS'])
+    #     for plot in self.cfg['PLOTS_RUN']:
+    #         self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{self.cfg['PATH_PLOTS']}/{plot}"
+    #         if not os.path.exists(self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()]):
+    #             os.mkdir(self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()])
 
     def init_dataset(self):
         galaxies = DESGalaxies(
