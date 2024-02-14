@@ -47,7 +47,13 @@ class GalaxyDataset(Dataset):
             with open(f"{filename}", 'rb') as file_run:
                 df_data = pd.read_pickle(file_run)
             file_run.close()
-            df_run = self.sample_random_data_from_dataframe(df_data)
+            print(f"shape run dataset: {df_data.shape}")
+            print(f"Sample {cfg['NUMBER_SAMPLES']} random data from run data set")
+            if cfg['NUMBER_SAMPLES'] == -1:
+                cfg['NUMBER_SAMPLES'] = len(df_data)
+                df_run = df_data.copy()
+            else:
+                df_run = self.sample_random_data_from_dataframe(df_data)
             del df_data
         else:
             print(f"Load {cfg[f'FILENAME_TRAIN_DATA_{self.data_set_type}']} train data set")

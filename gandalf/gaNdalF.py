@@ -54,6 +54,8 @@ class gaNdalF(object):
             cfg=self.cfg,
             kind="run_gandalf"
         )
+        if self.cfg['NUMBER_SAMPLES'] == -1:
+            self.cfg['NUMBER_SAMPLES'] = len(galaxies.run_dataset)
         run_loader = DataLoader(
             galaxies.run_dataset,
             batch_size=self.cfg['NUMBER_SAMPLES'],
