@@ -1,7 +1,7 @@
 from gandalf_galaxie_dataset import DESGalaxies
 from torch.utils.data import DataLoader, RandomSampler
 from scipy.stats import binned_statistic, median_abs_deviation
-from Handler import calc_color, plot_compare_corner, plot_confusion_matrix_gandalf, plot_roc_curve_gandalf, plot_classifier_histogram, plot_calibration_curve_gandalf
+from Handler import *
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -241,20 +241,41 @@ class gaNdalF(object):
                 arr_gandalf_detected_calib = np.array([True for _ in range(len(df_balrog))])
                 df_balrog = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']+self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
 
-            arr_flow_gandalf_output = self.gandalf_flow.sample(len(tsr_masked_input), cond_inputs=tsr_masked_input).detach().numpy()
-            df_gandalf = pd.DataFrame(
-                np.concatenate(
-                    (tsr_masked_input.numpy(), arr_flow_gandalf_output),
-                    axis=1
-                ),
-                columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']
-            )
+            # arr_flow_gandalf_output = self.gandalf_flow.sample(len(tsr_masked_input), cond_inputs=tsr_masked_input).detach().numpy()
+            # df_gandalf = pd.DataFrame(
+            #     np.concatenate(
+            #         (tsr_masked_input.numpy(), arr_flow_gandalf_output),
+            #         axis=1
+            #     ),
+            #     columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']
+            # )
+            chunk_size = 10000
+            tsr_masked_input_numpy = tsr_masked_input.numpy()
+            chunks = [tsr_masked_input_numpy[i:i + chunk_size] for i in
+                      range(0, len(tsr_masked_input_numpy), chunk_size)]
+
+            df_list = []
+            for chunk in chunks:
+                arr_flow_gandalf_output = self.gandalf_flow.sample(len(chunk), cond_inputs=torch.from_numpy(
+                    chunk)).detach().numpy()
+                df_chunk = pd.DataFrame(
+                    np.concatenate(
+                        (chunk, arr_flow_gandalf_output),
+                        axis=1
+                    ),
+                    columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']
+                )
+                df_list.append(df_chunk)
+
+            df_gandalf = pd.concat(df_list, ignore_index=True)
             print(f"Length gandalf catalog: {len(df_gandalf)}")
             print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
             print(f"Number of NaNs in df_balrog: {df_balrog.isna().sum().sum()}")
+
             if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
                 print("apply scaler on df_gandalf")
                 df_gandalf = self.galaxies.inverse_scale_data(df_gandalf)
+                df_balrog = self.galaxies.inverse_scale_data(df_balrog)
             print(f"Number of NaNs in df_gandalf after scaler: {df_gandalf.isna().sum().sum()}")
             print(f"Number of NaNs in df_balrog after scaler: {df_balrog.isna().sum().sum()}")
             if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
@@ -265,6 +286,10 @@ class gaNdalF(object):
                 print("apply yj transform on df_gandalf")
                 df_gandalf = self.galaxies.yj_inverse_transform_data(
                     data_frame=df_gandalf,
+                    columns=trans_col
+                )
+                df_balrog = self.galaxies.yj_inverse_transform_data(
+                    data_frame=df_balrog,
                     columns=trans_col
                 )
             print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf.isna().sum().sum()}")
@@ -298,36 +323,46 @@ class gaNdalF(object):
                 print(
                     f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
 
-        if self.cfg['APPLY_GANDALF_CUTS'] is True:
-            df_gandalf = self.galaxies.remove_outliers(data_frame=df_gandalf)
-            df_balrog = self.galaxies.remove_outliers(data_frame=df_balrog)
-
-            for col in df_gandalf.keys():
-                if "unsheared" in col:
-                    print(
-                        f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
+        # if self.cfg['APPLY_GANDALF_CUTS'] is True:
+        #     df_gandalf = self.galaxies.remove_outliers(data_frame=df_gandalf)
+        #     df_balrog = self.galaxies.remove_outliers(data_frame=df_balrog)
+        #
+        #     for col in df_gandalf.keys():
+        #         if "unsheared" in col:
+        #             print(
+        #                 f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
 
         # if self.cfg['PLOT_RUN'] is True:
         #     print(f"Start plotting data")
         #     self.plot_data_flow(df_gandalf=df_gandalf, df_balrog=df_balrog)
 
+        df_gandalf["unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
+        df_balrog["unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
+
         df_balrog_cut = df_balrog.copy()
         df_gandalf_cut = df_gandalf.copy()
 
-        if self.cfg['APPLY_OBJECT_CUT_RUN'] is not True:
-            df_balrog_cut = self.galaxies.unsheared_object_cuts(data_frame=df_balrog_cut)
-            df_gandalf_cut = self.galaxies.unsheared_object_cuts(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_FLAG_CUT_RUN'] is not True:
-            df_balrog_cut = self.galaxies.flag_cuts(data_frame=df_balrog_cut)
-            df_gandalf_cut = self.galaxies.flag_cuts(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_UNSHEARED_MAG_CUT_RUN'] is not True:
-            df_balrog_cut = self.galaxies.unsheared_mag_cut(data_frame=df_balrog_cut)
-            df_gandalf_cut = self.galaxies.unsheared_mag_cut(data_frame=df_gandalf_cut)
-        if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_RUN'] is not True:
-            df_balrog_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_balrog_cut)
-            df_gandalf_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_gandalf_cut)
+        df_balrog_cut = self.apply_cuts(self.cfg, df_balrog_cut)
+        df_gandalf_cut = self.apply_cuts(self.cfg, df_gandalf_cut)
 
+        # if self.cfg['APPLY_OBJECT_CUT_RUN'] is not True:
+        #     df_balrog_cut = self.galaxies.unsheared_object_cuts(data_frame=df_balrog_cut)
+        #     df_gandalf_cut = self.galaxies.unsheared_object_cuts(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_FLAG_CUT_RUN'] is not True:
+        #     df_balrog_cut = self.galaxies.flag_cuts(data_frame=df_balrog_cut)
+        #     df_gandalf_cut = self.galaxies.flag_cuts(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_UNSHEARED_MAG_CUT_RUN'] is not True:
+        #     df_balrog_cut = self.galaxies.unsheared_mag_cut(data_frame=df_balrog_cut)
+        #     df_gandalf_cut = self.galaxies.unsheared_mag_cut(data_frame=df_gandalf_cut)
+        # if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_RUN'] is not True:
+        #     df_balrog_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_balrog_cut)
+        #     df_gandalf_cut = self.galaxies.unsheared_shear_cuts(data_frame=df_gandalf_cut)
+
+        print(f"Length gandalf catalog: {len(df_gandalf_cut)}")
+        print(f"Length balrog catalog: {len(df_balrog_cut)}")
         print(f"Length gandalf catalog: {len(df_gandalf)}")
+        print(f"Length balrog catalog: {len(df_balrog)}")
+
         if self.cfg['PLOT_RUN'] is True:
             self.plot_data_flow(df_gandalf=df_gandalf_cut, df_balrog=df_balrog_cut, mcal='mcal_')
 
@@ -362,6 +397,17 @@ class gaNdalF(object):
         tsr_output_classf = torch.stack(output_data_classf)
         tsr_cut_cols = torch.stack(cut_cols)
         return tsr_input, tsr_output_flow, tsr_output_classf, tsr_cut_cols
+
+    @staticmethod
+    def apply_cuts(cfg, data_frame):
+        """"""
+        data_frame = unsheared_object_cuts(data_frame=data_frame)
+        data_frame = flag_cuts(data_frame=data_frame)
+        data_frame = unsheared_shear_cuts(data_frame=data_frame)
+        data_frame = binary_cut(data_frame=data_frame)
+        data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+        data_frame = unsheared_mag_cut(data_frame=data_frame)
+        return data_frame
 
     def plot_classf_data(self, df_classf_plot, df_balrog, df_gandalf):
         """"""
