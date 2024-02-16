@@ -105,6 +105,11 @@ def main(cfg):
 
         print(f"Actual number of samples: {total_number_of_samples}")
 
+        df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
+        df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
+
+        exit()
+
         gandalf.save_data(
             data_frame=df_gandalf_samples,
             file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_gandalf_tmp.pkl",
@@ -135,6 +140,9 @@ def main(cfg):
 
     df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None)
     df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None)
+
+    df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
+    df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
 
     gandalf.plot_data_flow(
         df_gandalf=df_gandalf_samples,
