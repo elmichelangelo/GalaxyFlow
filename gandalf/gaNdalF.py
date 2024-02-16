@@ -157,6 +157,12 @@ class gaNdalF(object):
         #         columns=trans_col
         #     )
 
+        if "unsheared/flux_r" not in df_gandalf.keys():
+            df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
+
+        if "unsheared/flux_r" not in df_balrog.keys():
+            df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
+
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
         print(f"Number of NOT true_detected galaxies gandalf: {gandalf_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
         print(f"Number of true_detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
@@ -317,8 +323,11 @@ class gaNdalF(object):
         #     print(f"Start plotting data")
         #     self.plot_data_flow(df_gandalf=df_gandalf, df_balrog=df_balrog)
 
-        df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
-        df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
+        if "unsheared/flux_r" not in df_gandalf.keys():
+            df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
+
+        if "unsheared/flux_r" not in df_balrog.keys():
+            df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
 
         # df_balrog_cut = df_balrog.copy()
         # df_gandalf_cut = df_gandalf.copy()

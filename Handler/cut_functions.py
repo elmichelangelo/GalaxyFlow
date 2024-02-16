@@ -1,6 +1,9 @@
 from Handler.helper_functions import *
 import pandas as pd
 import numpy as np
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy_healpix import HEALPix
 
 
 def unsheared_object_cuts(data_frame):
@@ -67,16 +70,32 @@ def unsheared_shear_cuts(data_frame):
     return data_frame
 
 
+# def mask_cut(data_frame, master):
+#     """"""
+#     import healpy as hp
+#     import h5py
+#     print("define mask")
+#     f = h5py.File(master)
+#     theta = (np.pi / 180.) * (90. - data_frame['unsheared/dec'].to_numpy())
+#     phi = (np.pi / 180.) * data_frame['unsheared/ra'].to_numpy()
+#     gpix = hp.ang2pix(16384, theta, phi, nest=True)
+#     mask_cut = np.in1d(gpix // (hp.nside2npix(16384) // hp.nside2npix(4096)), f['index/mask/hpix'][:],
+#                        assume_unique=False)
+#     npass = np.sum(mask_cut)
+#     print('pass: ', npass)
+#     print('fail: ', len(mask_cut) - npass)
+#     return data_frame
+
 def mask_cut(data_frame, master):
-    """"""
-    import healpy as hp
     import h5py
     print("define mask")
     f = h5py.File(master)
-    theta = (np.pi / 180.) * (90. - data_frame['unsheared/dec'].to_numpy())
-    phi = (np.pi / 180.) * data_frame['unsheared/ra'].to_numpy()
-    gpix = hp.ang2pix(16384, theta, phi, nest=True)
-    mask_cut = np.in1d(gpix // (hp.nside2npix(16384) // hp.nside2npix(4096)), f['index/mask/hpix'][:],
+    coords = SkyCoord(ra=data_frame['unsheared/ra'].to_numpy() * u.deg,
+                      dec=data_frame['unsheared/dec'].to_numpy() * u.deg,
+                      frame='icrs')
+    hp = HEALPix(nside=16384, order='nested', frame='icrs')
+    gpix = hp.skycoord_to_healpix(coords)
+    mask_cut = np.in1d(gpix // (hp.npix // 4096), f['index/mask/hpix'][:],
                        assume_unique=False)
     npass = np.sum(mask_cut)
     print('pass: ', npass)
