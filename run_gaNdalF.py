@@ -133,6 +133,9 @@ def main(cfg):
     print(f"Number of runs: {run_number - 1}")
     print(df_gandalf_samples)
 
+    df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None)
+    df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None)
+
     gandalf.plot_data_flow(
         df_gandalf=df_gandalf_samples,
         df_balrog=df_balrog_samples,
