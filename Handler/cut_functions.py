@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy_healpix import HEALPix
 
 
 def unsheared_object_cuts(data_frame):
@@ -88,6 +87,7 @@ def mask_cut_healpy(data_frame, master):
 
 
 def mask_cut_astropy(data_frame, master):
+    from astropy_healpix import HEALPix
     import h5py
     print("define mask")
     f = h5py.File(master)
