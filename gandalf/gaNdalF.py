@@ -368,7 +368,7 @@ class gaNdalF(object):
         data_frame = flag_cuts(data_frame=data_frame)
         data_frame = unsheared_shear_cuts(data_frame=data_frame)
         data_frame = binary_cut(data_frame=data_frame)
-        # data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+        data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         data_frame = unsheared_mag_cut(data_frame=data_frame)
         return data_frame
 
