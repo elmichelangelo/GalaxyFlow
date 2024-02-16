@@ -70,23 +70,24 @@ def unsheared_shear_cuts(data_frame):
     return data_frame
 
 
-# def mask_cut(data_frame, master):
-#     """"""
-#     import healpy as hp
-#     import h5py
-#     print("define mask")
-#     f = h5py.File(master)
-#     theta = (np.pi / 180.) * (90. - data_frame['unsheared/dec'].to_numpy())
-#     phi = (np.pi / 180.) * data_frame['unsheared/ra'].to_numpy()
-#     gpix = hp.ang2pix(16384, theta, phi, nest=True)
-#     mask_cut = np.in1d(gpix // (hp.nside2npix(16384) // hp.nside2npix(4096)), f['index/mask/hpix'][:],
-#                        assume_unique=False)
-#     npass = np.sum(mask_cut)
-#     print('pass: ', npass)
-#     print('fail: ', len(mask_cut) - npass)
-#     return data_frame
+def mask_cut_healpy(data_frame, master):
+    """"""
+    import healpy as hp
+    import h5py
+    print("define mask")
+    f = h5py.File(master)
+    theta = (np.pi / 180.) * (90. - data_frame['unsheared/dec'].to_numpy())
+    phi = (np.pi / 180.) * data_frame['unsheared/ra'].to_numpy()
+    gpix = hp.ang2pix(16384, theta, phi, nest=True)
+    mask_cut = np.in1d(gpix // (hp.nside2npix(16384) // hp.nside2npix(4096)), f['index/mask/hpix'][:],
+                       assume_unique=False)
+    npass = np.sum(mask_cut)
+    print('pass: ', npass)
+    print('fail: ', len(mask_cut) - npass)
+    return data_frame
 
-def mask_cut(data_frame, master):
+
+def mask_cut_astropy(data_frame, master):
     import h5py
     print("define mask")
     f = h5py.File(master)
