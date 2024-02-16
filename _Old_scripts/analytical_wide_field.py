@@ -325,15 +325,15 @@ def generate_distribution(dict_fit_params, column, lower_bound, upper_bound, plo
 
 
 def make_some_cuts(data_frame, columns_riz):
-    print("length of data_frame before drop", len(data_frame))
+    print("length of df_balrog before drop", len(data_frame))
     data_frame = data_frame.drop_duplicates()
-    print("length of data_frame droped", len(data_frame))
+    print("length of df_balrog droped", len(data_frame))
 
     bdf_r_mag_cut = (flux2mag(data_frame[columns_riz[0]]) > 17) & (flux2mag(data_frame[columns_riz[0]]) < 26)
     bdf_i_mag_cut = (flux2mag(data_frame[columns_riz[1]]) > 18) & (flux2mag(data_frame[columns_riz[1]]) < 24)
     bdf_z_mag_cut = (flux2mag(data_frame[columns_riz[2]]) > 17) & (flux2mag(data_frame[columns_riz[2]]) < 26)
     data_frame = data_frame[bdf_i_mag_cut & bdf_r_mag_cut & bdf_z_mag_cut]
-    print("length of data_frame cut", len(data_frame))
+    print("length of df_balrog cut", len(data_frame))
     # Todo check these cuts
     without_negative = ((data_frame["AIRMASS_WMEAN_R"] >= 0) &
                         (data_frame["AIRMASS_WMEAN_I"] >= 0) &
@@ -344,7 +344,7 @@ def make_some_cuts(data_frame, columns_riz):
                         (data_frame["unsheared/size_ratio"] >= -10)
                         )
     data_frame = data_frame[without_negative]
-    print("length of data_frame cut", len(data_frame))
+    print("length of df_balrog cut", len(data_frame))
     return data_frame
 
 
@@ -1204,7 +1204,7 @@ def survey_conditions(dict_wide_field_data, data_frame, detected_length, columns
             print(f"gen {col}", gen)
             dict_data[f"{col}"] = gen
         elif col == "BDF_T":
-            # data_frame[f"{col}"] = np.sqrt(data_frame[col])
+            # df_balrog[f"{col}"] = np.sqrt(df_balrog[col])
             print(col, np.array(data_frame[col]))
             print("mean", np.mean(np.array(data_frame[col])))
             print("std", np.std(np.array(data_frame[col])))
@@ -1230,7 +1230,7 @@ def survey_conditions(dict_wide_field_data, data_frame, detected_length, columns
 
         # if col not in ["true_detected", "unsheared/flags"]:
         #     sns.histplot(
-        #         x=data_frame[col],
+        #         x=df_balrog[col],
         #         kde=True,
         #         color="red",
         #         stat="density",

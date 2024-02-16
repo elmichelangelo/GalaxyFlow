@@ -158,7 +158,7 @@ def create_balrog_subset(path_all_balrog_data, path_save, name_save_file, number
     df_balrog_subset = df_balrog.sample(number_of_samples, ignore_index=True, replace=False)
 
     plot_chain(data_frame=df_balrog_subset)
-    # plot_histo(data_frame=df_balrog_subset)
+    # plot_histo(df_balrog=df_balrog_subset)
 
     path_balrog_subset = f"{path_save}/{name_save_file}_{number_of_samples}.pkl"
 

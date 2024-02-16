@@ -238,7 +238,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     return img_tensor, dict_delta
 
 
-# def plot_chain(data_frame, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
+# def plot_chain(df_balrog, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
 #                parameter=None, extends=None, show_plot=False):
 #     """
 #
@@ -255,7 +255,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 #     :param shade_alpha:
 #     :param max_ticks:
 #     :param plot_name: "generated observed properties: chat*"
-#     :param data_frame:
+#     :param df_balrog:
 #     :param columns: Mutable list, default values are columns = [
 #             "unsheared/mag_r",
 #             "unsheared/mag_i",
@@ -297,7 +297,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 #             ]
 #
 #     for col in columns:
-#         df_plot[col] = np.array(data_frame[col])
+#         df_plot[col] = np.array(df_balrog[col])
 #
 #     chain = ChainConsumer()
 #     chain.add_chain(df_plot.to_numpy(), parameters=parameter, name=plot_name)
@@ -821,8 +821,8 @@ def plot_calibration_curve_gandalf(true_detected, probability, n_bins=10, show_p
     """
     Plot a calibration curve for the given data.
     """
-    y_true = true_detected.ravel()
-    y_prob = probability.ravel()
+    y_true = true_detected.to_numpy()
+    y_prob = probability.to_numpy()
     prob_true, prob_pred = calibration_curve(y_true, y_prob, n_bins=n_bins)
 
     # Calculate Brier Score
@@ -846,11 +846,11 @@ def plot_calibration_curve_gandalf(true_detected, probability, n_bins=10, show_p
     plt.close(fig)
 
 
-def plot_confusion_matrix_gandalf(df_classf_plot, show_plot, save_plot, save_name, title='Confusion matrix'):
+def plot_confusion_matrix_gandalf(df_balrog, df_gandalf, show_plot, save_plot, save_name, title='Confusion matrix'):
     """"""
     matrix = confusion_matrix(
-        df_classf_plot['balrog_detected'].ravel(),
-        df_classf_plot['gandalf_detected'].ravel()
+        df_balrog['detected'].to_numpy(),
+        df_gandalf['detected'].to_numpy()
     )
     df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
 
@@ -897,11 +897,11 @@ def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver 
     plt.close(fig_roc_curve)
 
 
-def plot_roc_curve_gandalf(data_frame, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
+def plot_roc_curve_gandalf(df_balrog, df_gandalf, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
     """"""
     fpr, tpr, thresholds = roc_curve(
-        data_frame['balrog_detected'].ravel(),
-        data_frame['gandalf_detected'].ravel()
+        df_balrog['detected'].to_numpy(),
+        df_gandalf['detected'].to_numpy()
     )
     roc_auc = auc(fpr, tpr)
 
@@ -1024,10 +1024,10 @@ def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_pl
     """
     Plot histograms for each feature in the given columns of df_balrog and df_gandalf.
     """
-    df_gandalf_detected = df_gandalf[df_gandalf['true_detected'] == 1]
-    df_balrog_detected = df_balrog[df_balrog['true_detected'] == 1]
-    df_gandalf_not_detected = df_gandalf[df_gandalf['true_detected'] == 0]
-    df_balrog_not_detected = df_balrog[df_balrog['true_detected'] == 0]
+    df_gandalf_detected = df_gandalf[df_gandalf['detected'] == 1]
+    df_balrog_detected = df_balrog[df_balrog['detected'] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf['detected'] == 0]
+    df_balrog_not_detected = df_balrog[df_balrog['detected'] == 0]
 
     df_gandalf_detected = df_gandalf_detected[columns]
     df_balrog_detected = df_balrog_detected[columns]

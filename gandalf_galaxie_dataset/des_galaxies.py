@@ -169,11 +169,11 @@ class GalaxyDataset(Dataset):
 
         # Test #########################################################################################################
         # if cfg[f"APPLY_SCALER_FLOW{self.postfix}"] is True:
-        #     df_run_is = self.inverse_scale_data(data_frame=df_run)
+        #     df_run_is = self.inverse_scale_data(df_balrog=df_run)
         #     print(df_run_is)
         # if cfg[f"APPLY_YJ_TRANSFORM_FLOW{self.postfix}"] is True:
         #     df_run_yj = self.yj_inverse_transform_data(
-        #         data_frame=df_run_is,
+        #         df_balrog=df_run_is,
         #         columns=df_run_is.keys()
         #     )
         #     print(df_run_yj)
@@ -194,13 +194,15 @@ class GalaxyDataset(Dataset):
             df_run[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]] = arr_run_all_output_cols
             df_run[cfg[f"CUT_COLS{self.postfix}"]] = self.df_run_cut_cols
         if self.postfix == "_RUN":
-            self.run_dataset = TensorDataset(
-                torch.tensor(df_run[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
-                torch.tensor(df_run[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values),
-                torch.tensor(df_run[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
-                torch.tensor(df_run[cfg[f"CUT_COLS{self.postfix}"]].values)
+            self.run_dataset = df_run
 
-            )
+            # TensorDataset(
+            #     torch.tensor(df_run[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+            #     torch.tensor(df_run[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values),
+            #     torch.tensor(df_run[cfg[f"OUTPUT_COLS_CLASSF{self.postfix}"]].values),
+            #     torch.tensor(df_run[cfg[f"CUT_COLS{self.postfix}"]].values)
+            #
+            # )
         else:
             self.train_dataset = TensorDataset(
                 torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
@@ -315,7 +317,7 @@ class GalaxyDataset(Dataset):
         print(f"Use {self.name_yj_transformer} to inverse transform data")
         for col in columns:
             pt = self.dict_pt[f"{col} pt"]
-            data_frame[col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
+            data_frame.loc[:, col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
         return data_frame
 
     def yj_transform_data(self, data_frame, columns):
@@ -327,7 +329,7 @@ class GalaxyDataset(Dataset):
         print(f"Use {self.name_yj_transformer} to transform data")
         for col in columns:
             pt = dict_pt[f"{col} pt"]
-            data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+            data_frame.loc[:, col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
         return data_frame, dict_pt
 
     def yj_transform_data_on_fly(self, data_frame, columns, dict_pt):
@@ -335,7 +337,7 @@ class GalaxyDataset(Dataset):
         print(f"Use {self.name_yj_transformer} to transform data")
         for col in columns:
             pt = dict_pt[f"{col} pt"]
-            data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+            data_frame.loc[:, col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
         return data_frame
 
     @staticmethod
