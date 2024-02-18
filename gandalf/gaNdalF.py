@@ -367,8 +367,9 @@ class gaNdalF(object):
             )
         else:
             data_frame.rename(columns={"ID": "true_id"}, inplace=True)
-            with open(f"{self.cfg['PATH_CATALOGS']}/{file_name}", "wb") as f:
-                pickle.dump(data_frame, f, protocol=2)
+            data_frame.to_hdf(f"{self.cfg['PATH_CATALOGS']}/{file_name}", key='df', mode='w')
+            # with open(f"{self.cfg['PATH_CATALOGS']}/{file_name}", "wb") as f:
+            #     pickle.dump(data_frame, f, protocol=2)
 
     @staticmethod
     def apply_cuts(cfg, data_frame):

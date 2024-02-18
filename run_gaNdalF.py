@@ -158,7 +158,7 @@ def main(cfg):
 
     gandalf.save_data(
         data_frame=df_gandalf_samples,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}.pkl",
+        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}.h5",
         tmp_samples=False
     )
     # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl")
