@@ -144,10 +144,19 @@ def main(cfg):
         df_balrog=df_balrog_samples,
         mcal='mcal_'
     )
-    exit()
+
+    nm_emu = ""
+    nm_cls = ""
+
+    if cfg["EMULATE_GALAXIES"] is True:
+        nm_emu = "_Emulated"
+    if cfg["EMULATE_GALAXIES"] is True:
+        nm_cls = "Classified_"
+    gandalf_sample_name = f"gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}"
+
     gandalf.save_data(
         data_frame=df_gandalf_samples,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}.pkl",
+        file_name=f"{gandalf_sample_name}.pkl",
         tmp_samples=False
     )
 
