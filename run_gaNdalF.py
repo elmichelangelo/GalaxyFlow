@@ -161,6 +161,9 @@ def main(cfg):
         tmp_samples=False
     )
 
+    os.remove(f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_gandalf_tmp.pkl")
+    os.remove(f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_balrog_tmp.pkl")
+
 
 def make_dirs(cfg):
     """"""
