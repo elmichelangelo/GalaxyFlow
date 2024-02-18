@@ -133,8 +133,8 @@ def main(cfg):
     print(f"Number of runs: {run_number - 1}")
     print(df_gandalf_samples)
 
-    df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None)
-    df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None)
+    df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
+    df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
 
     df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
     df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
@@ -144,7 +144,7 @@ def main(cfg):
         df_balrog=df_balrog_samples,
         mcal='mcal_'
     )
-
+    exit()
     gandalf.save_data(
         data_frame=df_gandalf_samples,
         file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}.pkl",
