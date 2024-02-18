@@ -18,6 +18,7 @@ def load_tmp_data(cfg, file_name):
     """"""
     if os.path.exists(f"{cfg['PATH_CATALOGS']}/{file_name}"):
         data_frame = pd.read_pickle(f"{cfg['PATH_CATALOGS']}/{file_name}")
+        os.remove(f"{cfg['PATH_CATALOGS']}/{file_name}")
     else:
         data_frame = pd.DataFrame()
     if isinstance(data_frame, dict):
@@ -100,11 +101,11 @@ def main(cfg):
 
         df_gandalf_samples = load_tmp_data(
             cfg=cfg,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_gandalf_tmp.pkl"
+            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl"
         )
         df_balrog_samples = load_tmp_data(
             cfg=cfg,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_balrog_tmp.pkl"
+            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
         )
 
         df_gandalf_samples = pd.concat([df_gandalf_samples, df_gandalf_cut], ignore_index=True)
@@ -117,13 +118,13 @@ def main(cfg):
 
         gandalf.save_data(
             data_frame=df_gandalf_samples,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_gandalf_tmp.pkl",
+            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl",
             tmp_samples=True
         )
 
         gandalf.save_data(
             data_frame=df_balrog_samples,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_balrog_tmp.pkl",
+            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl",
             tmp_samples=True
         )
 
@@ -132,11 +133,11 @@ def main(cfg):
 
     df_gandalf_samples = load_tmp_data(
         cfg=cfg,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_gandalf_tmp.pkl"
+        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl"
     )
     df_balrog_samples = load_tmp_data(
         cfg=cfg,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_balrog_tmp.pkl"
+        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
     )
 
     print(f"Total number of samples: {total_number_of_samples}")
@@ -160,9 +161,8 @@ def main(cfg):
         file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}.pkl",
         tmp_samples=False
     )
-
-    os.remove(f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_gandalf_tmp.pkl")
-    os.remove(f"{cfg['FILENAME_GANDALF_CATALOG']}_{cfg['NUMBER_SAMPLES']}_balrog_tmp.pkl")
+    # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl")
+    # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl")
 
 
 def make_dirs(cfg):
