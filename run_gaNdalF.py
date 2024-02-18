@@ -152,7 +152,7 @@ def main(cfg):
         nm_emu = "_Emulated"
     if cfg["EMULATE_GALAXIES"] is True:
         nm_cls = "Classified_"
-    gandalf_sample_name = f"gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}"
+    gandalf_sample_name = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}"
 
     gandalf.save_data(
         data_frame=df_gandalf_samples,
