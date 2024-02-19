@@ -36,7 +36,7 @@ def main(cfg):
 
     if cfg["EMULATE_GALAXIES"] is True:
         nm_emu = "_Emulated"
-    if cfg["EMULATE_GALAXIES"] is True:
+    if cfg["CLASSF_GALAXIES"] is True:
         nm_cls = "Classified_"
 
     cfg['FILENAME_GANDALF_CATALOG'] = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}_{cfg['DATASET_TYPE']}"
