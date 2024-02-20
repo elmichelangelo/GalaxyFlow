@@ -80,6 +80,7 @@ def mask_cut_healpy(data_frame, master):
     gpix = hp.ang2pix(16384, theta, phi, nest=True)
     mask_cut = np.in1d(gpix // (hp.nside2npix(16384) // hp.nside2npix(4096)), f['index/mask/hpix'][:],
                        assume_unique=False)
+    data_frame = data_frame[mask_cut]
     npass = np.sum(mask_cut)
     print('pass: ', npass)
     print('fail: ', len(mask_cut) - npass)
@@ -98,6 +99,7 @@ def mask_cut_astropy(data_frame, master):
     gpix = hp.skycoord_to_healpix(coords)
     mask_cut = np.in1d(gpix // (hp.npix // 4096), f['index/mask/hpix'][:],
                        assume_unique=False)
+    data_frame = data_frame[mask_cut]
     npass = np.sum(mask_cut)
     print('pass: ', npass)
     print('fail: ', len(mask_cut) - npass)
