@@ -1,5 +1,5 @@
 from datetime import datetime
-from Handler import get_os
+from Handler import *
 from gandalf import gaNdalF
 import argparse
 from torch.utils.data import DataLoader
@@ -76,6 +76,20 @@ def main(cfg):
 
         df_balrog_cut = df_balrog_detected.copy()
         df_gandalf_cut = df_gandalf_detected.copy()
+
+        for col in cfg[f'SAMPLE_COLUMNS']:
+            df_gandalf_cut = sample_columns(df_balrog=df_balrog_cut, df_gandalf=df_gandalf_cut, column_name=col)
+
+        df_balrog_cut.loc[:, "unsheared/e"] = np.sqrt(df_balrog_cut["unsheared/e_1"] ** 2 + df_balrog_cut["unsheared/e_2"] ** 2)
+
+        for col in cfg[f'SELECT_COLUMNS']:
+            df_gandalf_cut = select_columns(df_balrog_cut, df_gandalf_cut, column_name=col)
+
+        if "unsheared/flux_r" not in df_gandalf.keys():
+            df_gandalf_cut.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_cut["unsheared/mag_r"])
+
+        if "unsheared/flux_r" not in df_balrog.keys():
+            df_balrog_cut.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_cut["unsheared/mag_r"])
 
         del df_balrog_detected, df_gandalf_detected
         gc.collect()
