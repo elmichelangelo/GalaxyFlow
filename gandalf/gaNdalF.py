@@ -242,7 +242,7 @@ class gaNdalF(object):
         data_frame = unsheared_shear_cuts(data_frame=data_frame)
         data_frame = binary_cut(data_frame=data_frame)
         if cfg['MASK_CUT_FUNCTION'] == "HEALPY":
-            data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+            data_frame = mask_cut_healpy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         elif cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
             data_frame = mask_cut_astropy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         else:
