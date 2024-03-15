@@ -77,21 +77,21 @@ def main(cfg):
         df_balrog_cut = df_balrog_detected.copy()
         df_gandalf_cut = df_gandalf_detected.copy()
 
-        for col in cfg[f'SAMPLE_COLUMNS']:
-            df_gandalf_cut = sample_columns(df_balrog=df_balrog_cut, df_gandalf=df_gandalf_cut, column_name=col)
-
-        df_balrog_cut.loc[:, "unsheared/e"] = np.sqrt(df_balrog_cut["unsheared/e_1"] ** 2 + df_balrog_cut["unsheared/e_2"] ** 2)
-
-        for col in cfg[f'SELECT_COLUMNS']:
-            df_gandalf_cut = select_columns(df_balrog_cut, df_gandalf_cut, column_name=col)
-
+        # for col in cfg[f'SAMPLE_COLUMNS']:
+        #     df_gandalf_cut = sample_columns(df_balrog=df_balrog_cut, df_gandalf=df_gandalf_cut, column_name=col)
+        #
+        # df_balrog_cut.loc[:, "unsheared/e"] = np.sqrt(df_balrog_cut["unsheared/e_1"] ** 2 + df_balrog_cut["unsheared/e_2"] ** 2)
+        #
+        # for col in cfg[f'SELECT_COLUMNS']:
+        #     df_gandalf_cut = select_columns(df_balrog_cut, df_gandalf_cut, column_name=col)
+        #
         if "unsheared/flux_r" not in df_gandalf.keys():
             df_gandalf_cut.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_cut["unsheared/mag_r"])
 
         if "unsheared/flux_r" not in df_balrog.keys():
             df_balrog_cut.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_cut["unsheared/mag_r"])
 
-        del df_balrog_detected, df_gandalf_detected
+        # del df_balrog_detected, df_gandalf_detected
         gc.collect()
 
         df_balrog_cut = gandalf.apply_cuts(cfg, df_balrog_cut)
@@ -99,8 +99,8 @@ def main(cfg):
 
         if cfg['PLOT_RUN']:
             gandalf.plot_data_flow(
-                df_gandalf=df_gandalf,
-                df_balrog=df_balrog,
+                df_gandalf=df_gandalf_detected,
+                df_balrog=df_balrog_detected,
                 mcal=''
             )
 
@@ -142,8 +142,10 @@ def main(cfg):
             tmp_samples=True
         )
 
-        del df_gandalf_cut, df_balrog_cut, df_gandalf_samples, df_balrog_samples
+        del df_gandalf_cut, df_balrog_cut  #, df_gandalf_samples, df_balrog_samples
         gc.collect()
+
+    cfg['RUN_NUMBER'] = run_number + 1
 
     df_gandalf_samples = load_tmp_data(
         cfg=cfg,
@@ -161,8 +163,34 @@ def main(cfg):
     df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
     df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
 
-    df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
-    df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
+    # df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
+    # df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
+
+    # plot_compare_corner(
+    #     data_frame_generated=df_gandalf_samples,
+    #     data_frame_true=df_balrog_samples,
+    #     dict_delta=None,
+    #     epoch=None,
+    #     title=f"Observed Properties gaNdalF compared to Balrog",
+    #     show_plot=False,
+    #     save_plot=True,
+    #     save_name=f"{cfg[f'PATH_PLOTS_FOLDER'][f'MCAL_COLOR_COLOR_PLOT']}/mcal_chainplot_slide_new_{cfg['RUN_NUMBER']}.png",
+    #     columns=[
+    #         f"unsheared/mag_r",
+    #         f"unsheared/mag_i",
+    #         f"unsheared/mag_z",
+    #         "unsheared/snr",
+    #         "unsheared/size_ratio"
+    #     ],
+    #     labels=[
+    #         f"mag r",
+    #         f"mag i",
+    #         f"mag z",
+    #         "snr",
+    #         "size_ratio"
+    #     ],
+    #     ranges=[(17, 25), (17, 25), (17, 25), (-2, 300), (0, 6)]
+    # )
 
     gandalf.plot_data_flow(
         df_gandalf=df_gandalf_samples,

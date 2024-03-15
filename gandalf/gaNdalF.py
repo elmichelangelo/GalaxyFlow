@@ -100,8 +100,6 @@ class gaNdalF(object):
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected_calib.astype(int)
         df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
 
-
-
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
         print(f"Number of NOT true_detected galaxies gandalf: {gandalf_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
         print(f"Number of true_detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
@@ -184,7 +182,7 @@ class gaNdalF(object):
                 data_frame=df_gandalf_flow,
                 columns=trans_col
             )
-        print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf.isna().sum().sum()}")
+        print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf_flow.isna().sum().sum()}")
 
         df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
         df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
@@ -194,12 +192,12 @@ class gaNdalF(object):
         if df_gandalf.isna().sum().sum() > 0:
             print("Warning: NaNs in df_gandalf_rescaled")
             print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
-            # df_gandalf.dropna(inplace=True)
+            df_gandalf.dropna(inplace=True)
 
         if df_balrog.isna().sum().sum() > 0:
             print("Warning: NaNs in df_gandalf_rescaled")
             print(f"Number of NaNs in df_gandalf: {df_balrog.isna().sum().sum()}")
-            # df_balrog.dropna(inplace=True)
+            df_balrog.dropna(inplace=True)
 
         print(f"Length gandalf catalog: {len(df_gandalf)}")
         print(f"Length balrog catalog: {len(df_balrog)}")
@@ -244,7 +242,9 @@ class gaNdalF(object):
         if cfg['MASK_CUT_FUNCTION'] == "HEALPY":
             data_frame = mask_cut_healpy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         elif cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
-            data_frame = mask_cut_astropy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+            # Todo there is a bug here, I cutout to many galaxies
+            pass
+            # data_frame = mask_cut_astropy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         else:
             print("No mask cut function defined!!!")
             exit()
@@ -295,7 +295,34 @@ class gaNdalF(object):
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_HIST']}/All.png",
-                title=f"All"
+                xlim=[
+                    (15, 30),
+                    (15, 30),
+                    (15, 30),
+                    (24, 30),
+                    (24, 30),
+                    (24, 30),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-0.1, 1.25),
+                    (0.5, 1.4),
+                    (0.5, 1.25),
+                    (0.5, 1.25),
+                    (1, 1.5),
+                    (1, 1.5),
+                    (1, 1.5),
+                    (22.5, 24.5),
+                    (22.5, 24.5),
+                    (20.5, 23.5),
+                    (0, 0.1),
+                ],
+                title=f"Classifier detection histogram"
             )
 
             plot_classifier_histogram(
@@ -361,10 +388,10 @@ class gaNdalF(object):
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_HIST']}/MAGLIM.png",
                 title=f"MAGLIM"
             )
+        print("End plotting classf data")
 
     def plot_data_flow(self, df_gandalf, df_balrog, mcal=''):
         """"""
-
         if self.cfg['PLOT_COLOR_COLOR_RUN'] is True:
             try:
                 plot_compare_corner(
@@ -377,7 +404,7 @@ class gaNdalF(object):
                     labels=["r-i", "i-z"],
                     show_plot=self.cfg['SHOW_PLOT_RUN'],
                     save_plot=self.cfg['SAVE_PLOT_RUN'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color_{self.cfg['RUN_NUMBER']}.png",
                     ranges=[(-8, 8), (-8, 8)]
                 )
             except Exception as e:
@@ -456,7 +483,7 @@ class gaNdalF(object):
                         lst_axis_res[idx].legend([], [], frameon=False)
                 hist_figure.tight_layout()
                 if self.cfg['SAVE_PLOT_RUN'] is True:
-                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}RESIDUAL_PLOT']}/{mcal}residual_plot.png")
+                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}RESIDUAL_PLOT']}/{mcal}residual_plot_{self.cfg['RUN_NUMBER']}.png")
                 if self.cfg['SHOW_PLOT_RUN'] is True:
                     plt.show()
                 plt.clf()
@@ -464,6 +491,38 @@ class gaNdalF(object):
             except Exception as e:
                 print(e)
         if self.cfg['PLOT_CHAIN_RUN'] is True:
+            try:
+
+                # for b in ["r", "i", "z"]:
+                #     df_gandalf[f"unsheared/mag_{b}"] = flux2mag(df_gandalf[f"unsheared/flux_{b}"])
+
+                plot_compare_corner(
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
+                    dict_delta=None,
+                    epoch=None,
+                    title=f"Observed Properties gaNdalF compared to Balrog",
+                    show_plot=False,
+                    save_plot=True,
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot_slide_{self.cfg['RUN_NUMBER']}.png",
+                    columns=[
+                        f"unsheared/{self.lum_type.lower()}_r",
+                        f"unsheared/{self.lum_type.lower()}_i",
+                        f"unsheared/{self.lum_type.lower()}_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio"
+                    ],
+                    labels=[
+                        f"{self.lum_type.lower()}_r",
+                        f"{self.lum_type.lower()}_i",
+                        f"{self.lum_type.lower()}_z",
+                        "snr",
+                        "size_ratio"
+                    ],
+                    ranges=[(17, 25), (17, 25), (17, 25), (-2, 300), (0, 6)]
+                )
+            except Exception as e:
+                print(e)
             try:
                 plot_compare_corner(
                     data_frame_generated=df_gandalf,
@@ -473,7 +532,7 @@ class gaNdalF(object):
                     title=f"{mcal} chain plot",
                     show_plot=self.cfg['SHOW_PLOT_RUN'],
                     save_plot=self.cfg['SAVE_PLOT_RUN'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot_{self.cfg['RUN_NUMBER']}.png",
                     columns=[
                         f"unsheared/{self.lum_type.lower()}_r",
                         f"unsheared/{self.lum_type.lower()}_i",
@@ -520,7 +579,7 @@ class gaNdalF(object):
                         print("df_balrog[condition] empty")
                     else:
                         cond_lims = np.percentile(df_balrog[condition], [2, 98])
-                        standard_levels = 10  # [0.393, 0.865, 0.989]
+                        standard_levels = 10 #  [0.393, 0.865, 0.989]
 
                     for idx, out in enumerate(zip(outputs, output_errs, true_outputs)):
                         output_ = out[0]
@@ -569,8 +628,9 @@ class gaNdalF(object):
                             y=f"residual band {self.cfg['BANDS_RUN'][idx]}",
                             fill=True,
                             thresh=0,
+                            alpha=.4,
                             levels=standard_levels,  # 10
-                            color="dodgerblue",
+                            color="limegreen",
                             legend="Balrog",
                             ax=lst_axis_con[idx]
                         )
@@ -581,8 +641,8 @@ class gaNdalF(object):
                             fill=False,
                             thresh=0,
                             levels=standard_levels,  # 10
-                            alpha=.5,
-                            color="darkorange",
+                            alpha=.8,
+                            color="orangered",
                             legend="gaNdalF",
                             ax=lst_axis_con[idx]
                         )
@@ -597,7 +657,7 @@ class gaNdalF(object):
                     lst_axis_con[0].legend()
                     cond_figure.tight_layout()
                     if self.cfg['SAVE_PLOT_RUN'] is True:
-                        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}CONDITIONS_PLOT']}/{mcal}{condition}_plot.png")
+                        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}CONDITIONS_PLOT']}/{mcal}{condition}_plot_{self.cfg['RUN_NUMBER']}.png")
                     if self.cfg['SHOW_PLOT_RUN'] is True:
                         plt.show()
                     plt.clf()
@@ -660,12 +720,14 @@ class gaNdalF(object):
                     )
                 plt.legend()
                 if self.cfg['SAVE_PLOT_RUN'] == True:
-                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}HIST_PLOT']}/{mcal}magnitude_histogram.png")
+                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}HIST_PLOT']}/{mcal}magnitude_histogram_{self.cfg['RUN_NUMBER']}.png")
                 if self.cfg['SHOW_PLOT_RUN'] == True:
                     plt.show()
                 plt.clf()
                 plt.close()
             except Exception as e:
                 print(e)
+
+            print("End plotting data flow")
 
         return df_balrog, df_gandalf
