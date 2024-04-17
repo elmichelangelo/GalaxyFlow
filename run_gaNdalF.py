@@ -262,4 +262,4 @@ if __name__ == '__main__':
     now = datetime.now()
     for i in range(1, 101):
         cfg['RUN_DATE'] = i  # now.strftime('%Y-%m-%d_%H-%M')
-    main(cfg)
+        main(cfg)
