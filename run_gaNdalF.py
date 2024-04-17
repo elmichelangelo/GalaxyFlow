@@ -261,5 +261,6 @@ if __name__ == '__main__':
 
     now = datetime.now()
     for i in range(1, 101):
+        cfg["PATH_OUTPUT"] = "/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF"
         cfg['RUN_DATE'] = i  # now.strftime('%Y-%m-%d_%H-%M')
         main(cfg)
