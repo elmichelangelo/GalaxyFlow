@@ -260,5 +260,6 @@ if __name__ == '__main__':
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()
-    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    for i in range(1, 101):
+        cfg['RUN_DATE'] = i  # now.strftime('%Y-%m-%d_%H-%M')
     main(cfg)
