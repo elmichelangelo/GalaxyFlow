@@ -243,8 +243,7 @@ class gaNdalF(object):
             data_frame = mask_cut_healpy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         elif cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
             # Todo there is a bug here, I cutout to many galaxies
-            pass
-            # data_frame = mask_cut_astropy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+            data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         else:
             print("No mask cut function defined!!!")
             exit()

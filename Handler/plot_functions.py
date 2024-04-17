@@ -11,7 +11,7 @@ from torchvision.transforms import ToTensor
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, brier_score_loss
 from sklearn.calibration import calibration_curve
 from io import BytesIO
-import corner
+
 from Handler.helper_functions import string_to_tuple
 import time
 import matplotlib
@@ -29,6 +29,7 @@ def plot_to_tensor():
 
 def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_plot=False, save_name=None):
     """"""
+    import corner
     data = data_frame[columns].values
     ndim = data.shape[1]
 
@@ -83,6 +84,7 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
 
 def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
                         show_plot=False, save_plot=False, save_name=None):
+    import corner
     if epoch == 1:
         for label in labels:
             dict_delta[f"delta mean {label}"] = []

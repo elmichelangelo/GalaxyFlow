@@ -117,6 +117,7 @@ def mask_cut_astropy(data_frame, master):
     mask_cut = np.in1d(gpix // (hp.npix // 4096), f['index/mask/hpix'][:],
                        assume_unique=False)
     data_frame = data_frame[mask_cut]
+    # data_frame = data_frame[~mask_cut]
     npass = np.sum(mask_cut)
     print('pass: ', npass)
     print('fail: ', len(mask_cut) - npass)
