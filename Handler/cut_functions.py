@@ -26,12 +26,12 @@ def flag_cuts(data_frame):
     return data_frame
 
 
-def airmass_cut(data_frame):
-    """"""
-    print('Cut mcal_detect_df_survey catalog so that AIRMASS_WMEAN_R is not null')
-    data_frame = data_frame[pd.notnull(data_frame["AIRMASS_WMEAN_R"])]
-    print('Length of catalog after applying AIRMASS_WMEAN_R cuts: {}'.format(len(data_frame)))
-    return data_frame
+# def airmass_cut(data_frame):
+#     """"""
+#     print('Cut mcal_detect_df_survey catalog so that AIRMASS_WMEAN_R is not null')
+#     data_frame = data_frame[pd.notnull(data_frame["AIRMASS_WMEAN_R"])]
+#     print('Length of catalog after applying AIRMASS_WMEAN_R cuts: {}'.format(len(data_frame)))
+#     return data_frame
 
 
 def unsheared_mag_cut(data_frame):
@@ -87,6 +87,23 @@ def mask_cut_healpy(data_frame, master):
     return data_frame
 
 
+def mask_cut(data_frame, master, prob=False):
+    """"""
+    import h5py
+    print("define mask")
+    f = h5py.File(master)
+    hpix = data_frame['HPIX_4096'].to_numpy()
+    mask_cut = np.in1d(hpix, f['index/mask/hpix'][:], assume_unique=False)
+    if prob:
+        data_frame.loc[~mask_cut, 'is_in'] = 0
+    else:
+        data_frame = data_frame[mask_cut]
+    npass = np.sum(mask_cut)
+    print('pass: ', npass)
+    print('fail: ', len(mask_cut) - npass)
+    return data_frame
+
+
 def mask_cut_astropy(data_frame, master):
     from astropy_healpix import HEALPix
     import h5py
@@ -100,6 +117,7 @@ def mask_cut_astropy(data_frame, master):
     mask_cut = np.in1d(gpix // (hp.npix // 4096), f['index/mask/hpix'][:],
                        assume_unique=False)
     data_frame = data_frame[mask_cut]
+    # data_frame = data_frame[~mask_cut]
     npass = np.sum(mask_cut)
     print('pass: ', npass)
     print('fail: ', len(mask_cut) - npass)

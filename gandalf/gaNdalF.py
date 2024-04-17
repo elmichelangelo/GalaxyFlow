@@ -96,72 +96,9 @@ class gaNdalF(object):
         df_balrog.loc[:, self.cfg["CUT_COLS_RUN"]] = data_frame[self.cfg["CUT_COLS_RUN"]].values
 
         df_gandalf = df_balrog.copy()
+
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected_calib.astype(int)
         df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
-
-        # df_balrog_detected = df_balrog[df_balrog[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values == 1].copy()
-        # df_gandalf_detected = df_gandalf[arr_gandalf_detected_calib].copy()
-        # arr_masked_input = tsr_input.numpy()[arr_gandalf_detected_calib]
-        # arr_masked_output = arr_flow_true_output[arr_gandalf_detected_calib]
-        # arr_masked_cut_cols = arr_cut_cols[arr_gandalf_detected_calib]
-        # df_balrog_all = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] +
-        #                           self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
-        # df_gandalf_all = pd.DataFrame(np.concatenate((tsr_input.numpy(), arr_flow_true_output), axis=1),
-        #                               columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] +
-        #                                       self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN'])
-        # df_balrog_true = df_balrog[arr_true_detected.astype(bool)]
-        # df_balrog_true = df_balrog_true[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
-        # df_balrog_detected.reset_index(drop=True, inplace=True)
-        # df_gandalf_detected.reset_index(drop=True, inplace=True)
-
-
-        # df_balrog = df_balrog[arr_gandalf_detected_calib]
-        # df_balrog = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
-        # df_balrog.reset_index(drop=True, inplace=True)
-
-        # df_flow_input = pd.DataFrame(
-        #     np.concatenate((arr_masked_input, arr_masked_output), axis=1),
-        #     columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']
-        # )
-
-        # if self.cfg['APPLY_SCALER_CLASSF_RUN'] is True:
-        #     df_flow_input = self.galaxies.inverse_scale_data(df_flow_input)
-        #     df_balrog = self.galaxies.inverse_scale_data(df_balrog)
-        #     # df_balrog_true = self.galaxies.inverse_scale_data(df_balrog_true)
-        #     df_balrog_all = self.galaxies.inverse_scale_data(df_balrog_all)
-        #     df_gandalf_all = self.galaxies.inverse_scale_data(df_gandalf_all)
-
-        # if self.cfg['APPLY_YJ_TRANSFORM_CLASSF_RUN'] is True:
-        #     if self.cfg['TRANSFORM_COLS_RUN'] is None:
-        #         trans_col = df_flow_input.keys()
-        #     else:
-        #         trans_col = self.cfg['TRANSFORM_COLS_RUN']
-        #     df_flow_input = self.galaxies.yj_inverse_transform_data(
-        #         data_frame=df_flow_input,
-        #         columns=trans_col
-        #     )
-        #     df_balrog = self.galaxies.yj_inverse_transform_data(
-        #         data_frame=df_balrog,
-        #         columns=trans_col
-        #     )
-        #     # df_balrog_true = self.galaxies.yj_inverse_transform_data(
-        #     #     df_balrog=df_balrog_true,
-        #     #     columns=trans_col
-        #     # )
-        #     df_balrog_all = self.galaxies.yj_inverse_transform_data(
-        #         data_frame=df_balrog_all,
-        #         columns=trans_col
-        #     )
-        #     df_gandalf_all = self.galaxies.yj_inverse_transform_data(
-        #         data_frame=df_gandalf_all,
-        #         columns=trans_col
-        #     )
-
-        if "unsheared/flux_r" not in df_gandalf.keys():
-            df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
-
-        if "unsheared/flux_r" not in df_balrog.keys():
-            df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
 
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
         print(f"Number of NOT true_detected galaxies gandalf: {gandalf_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
@@ -171,15 +108,6 @@ class gaNdalF(object):
 
         return df_balrog, df_gandalf
 
-        # df_classf_plot = pd.DataFrame({
-        #     "gandalf_detected": arr_gandalf_detected_calib.ravel(),
-        #     "balrog_detected": arr_true_detected.ravel(),
-        # })
-        #
-        # df_balrog_all["true_detected"] = arr_true_detected
-        # df_gandalf_all["true_detected"] = arr_gandalf_detected_calib
-        # df_gandalf_all["probability"] = arr_gandalf_prob_calib
-
     def run_emulator(self, df_balrog, df_gandalf):
         """"""
         if self.cfg['CLASSF_GALAXIES'] is True:
@@ -187,10 +115,6 @@ class gaNdalF(object):
                 self.galaxies.applied_yj_transform = "_YJ"
             else:
                 self.galaxies.applied_yj_transform = ""
-            # if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
-            #     self.galaxies.applied_yj_transform = "_YJ"
-            # else:
-            #     self.galaxies.applied_yj_transform = ""
             filename = self.cfg[f'FILENAME_SCALER_ODET_{self.lum_type}{self.galaxies.applied_yj_transform}']
             self.galaxies.scaler = joblib.load(
                 f"{self.cfg['PATH_TRANSFORMERS']}/{filename}"
@@ -236,40 +160,12 @@ class gaNdalF(object):
             print(f"Number of NaNs in df_balrog after yj inverse transformation: {df_balrog_flow.isna().sum().sum()}")
             df_balrog.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_balrog_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
             df_balrog.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_balrog_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
-        #     tsr_masked_input = torch.from_numpy(
-        #         df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
-        #     arr_masked_output = df_balrog[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
-        #     arr_masked_cut_cols = df_balrog[self.cfg[f'CUT_COLS_RUN']].values
-        #     arr_gandalf_prob_calib = np.ones(len(df_balrog))
-        #     arr_gandalf_detected_calib = np.array([True for _ in range(len(df_balrog))])
-        #     df_balrog = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']+self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
-
-        # arr_flow_gandalf_output = self.gandalf_flow.sample(len(tsr_masked_input), cond_inputs=tsr_masked_input).detach().numpy()
-        # df_gandalf = pd.DataFrame(
-        #     np.concatenate(
-        #         (tsr_masked_input.numpy(), arr_flow_gandalf_output),
-        #         axis=1
-        #     ),
-        #     columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']
-        # )
-        # tsr_masked_input = torch.from_numpy(
-        #     df_flow_input[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
-        # chunk_size = 1000000
-        # tsr_masked_input_numpy = tsr_masked_input.numpy()
-        # chunks = [tsr_masked_input_numpy[i:i + chunk_size] for i in range(0, len(tsr_masked_input_numpy), chunk_size)]
-
-        # df_list = []
-        # for chunk in chunks:
         arr_flow_gandalf_output = self.gandalf_flow.sample(
             len(df_gandalf_flow),
             cond_inputs=torch.from_numpy(df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
         ).detach().numpy()
 
         df_gandalf_flow.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = arr_flow_gandalf_output
-        # df_gandalf = pd.DataFrame(np.concatenate((chunk, arr_flow_gandalf_output),  axis=1), columns=self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN'])
-        # df_list.append(df_chunk)
-
-        # df_gandalf = pd.concat(df_list, ignore_index=True)
         print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
         print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
         if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
@@ -286,7 +182,7 @@ class gaNdalF(object):
                 data_frame=df_gandalf_flow,
                 columns=trans_col
             )
-        print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf.isna().sum().sum()}")
+        print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf_flow.isna().sum().sum()}")
 
         df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
         df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
@@ -296,12 +192,12 @@ class gaNdalF(object):
         if df_gandalf.isna().sum().sum() > 0:
             print("Warning: NaNs in df_gandalf_rescaled")
             print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
-            # df_gandalf.dropna(inplace=True)
+            df_gandalf.dropna(inplace=True)
 
         if df_balrog.isna().sum().sum() > 0:
             print("Warning: NaNs in df_gandalf_rescaled")
             print(f"Number of NaNs in df_gandalf: {df_balrog.isna().sum().sum()}")
-            # df_balrog.dropna(inplace=True)
+            df_balrog.dropna(inplace=True)
 
         print(f"Length gandalf catalog: {len(df_gandalf)}")
         print(f"Length balrog catalog: {len(df_balrog)}")
@@ -310,46 +206,11 @@ class gaNdalF(object):
             if "unsheared" in col:
                 print(f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
 
-        # if self.cfg['APPLY_GANDALF_CUTS'] is True:
-        #     df_gandalf = self.galaxies.remove_outliers(df_balrog=df_gandalf)
-        #     df_balrog = self.galaxies.remove_outliers(df_balrog=df_balrog)
+        # if "unsheared/flux_r" not in df_gandalf.keys():
+        #     df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
         #
-        #     for col in df_gandalf.keys():
-        #         if "unsheared" in col:
-        #             print(
-        #                 f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
-
-        # if self.cfg['PLOT_RUN'] is True:
-        #     print(f"Start plotting data")
-        #     self.plot_data_flow(df_gandalf=df_gandalf, df_balrog=df_balrog)
-
-        if "unsheared/flux_r" not in df_gandalf.keys():
-            df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
-
-        if "unsheared/flux_r" not in df_balrog.keys():
-            df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
-
-        # df_balrog_cut = df_balrog.copy()
-        # df_gandalf_cut = df_gandalf.copy()
-        #
-        # df_balrog_cut = self.apply_cuts(self.cfg, df_balrog_cut)
-        # df_gandalf_cut = self.apply_cuts(self.cfg, df_gandalf_cut)
-
-        # if self.cfg['APPLY_OBJECT_CUT_RUN'] is not True:
-        #     df_balrog_cut = self.galaxies.unsheared_object_cuts(df_balrog=df_balrog_cut)
-        #     df_gandalf_cut = self.galaxies.unsheared_object_cuts(df_balrog=df_gandalf_cut)
-        # if self.cfg['APPLY_FLAG_CUT_RUN'] is not True:
-        #     df_balrog_cut = self.galaxies.flag_cuts(df_balrog=df_balrog_cut)
-        #     df_gandalf_cut = self.galaxies.flag_cuts(df_balrog=df_gandalf_cut)
-        # if self.cfg['APPLY_UNSHEARED_MAG_CUT_RUN'] is not True:
-        #     df_balrog_cut = self.galaxies.unsheared_mag_cut(df_balrog=df_balrog_cut)
-        #     df_gandalf_cut = self.galaxies.unsheared_mag_cut(df_balrog=df_gandalf_cut)
-        # if self.cfg['APPLY_UNSHEARED_SHEAR_CUT_RUN'] is not True:
-        #     df_balrog_cut = self.galaxies.unsheared_shear_cuts(df_balrog=df_balrog_cut)
-        #     df_gandalf_cut = self.galaxies.unsheared_shear_cuts(df_balrog=df_gandalf_cut)
-
-        # print(f"Length gandalf catalog: {len(df_gandalf_cut)}")
-        # print(f"Length balrog catalog: {len(df_balrog_cut)}")
+        # if "unsheared/flux_r" not in df_balrog.keys():
+        #     df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
         print(f"Length gandalf catalog: {len(df_gandalf)}")
         print(f"Length balrog catalog: {len(df_balrog)}")
 
@@ -381,7 +242,8 @@ class gaNdalF(object):
         if cfg['MASK_CUT_FUNCTION'] == "HEALPY":
             data_frame = mask_cut_healpy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         elif cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
-            data_frame = mask_cut_astropy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+            # Todo there is a bug here, I cutout to many galaxies
+            data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
         else:
             print("No mask cut function defined!!!")
             exit()
@@ -432,7 +294,34 @@ class gaNdalF(object):
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_HIST']}/All.png",
-                title=f"All"
+                xlim=[
+                    (15, 30),
+                    (15, 30),
+                    (15, 30),
+                    (24, 30),
+                    (24, 30),
+                    (24, 30),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-5, 5),
+                    (-0.1, 1.25),
+                    (0.5, 1.4),
+                    (0.5, 1.25),
+                    (0.5, 1.25),
+                    (1, 1.5),
+                    (1, 1.5),
+                    (1, 1.5),
+                    (22.5, 24.5),
+                    (22.5, 24.5),
+                    (20.5, 23.5),
+                    (0, 0.1),
+                ],
+                title=f"Classifier detection histogram"
             )
 
             plot_classifier_histogram(
@@ -498,10 +387,10 @@ class gaNdalF(object):
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_HIST']}/MAGLIM.png",
                 title=f"MAGLIM"
             )
+        print("End plotting classf data")
 
     def plot_data_flow(self, df_gandalf, df_balrog, mcal=''):
         """"""
-
         if self.cfg['PLOT_COLOR_COLOR_RUN'] is True:
             try:
                 plot_compare_corner(
@@ -514,7 +403,7 @@ class gaNdalF(object):
                     labels=["r-i", "i-z"],
                     show_plot=self.cfg['SHOW_PLOT_RUN'],
                     save_plot=self.cfg['SAVE_PLOT_RUN'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}COLOR_COLOR_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}color_color_{self.cfg['RUN_NUMBER']}.png",
                     ranges=[(-8, 8), (-8, 8)]
                 )
             except Exception as e:
@@ -593,7 +482,7 @@ class gaNdalF(object):
                         lst_axis_res[idx].legend([], [], frameon=False)
                 hist_figure.tight_layout()
                 if self.cfg['SAVE_PLOT_RUN'] is True:
-                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}RESIDUAL_PLOT']}/{mcal}residual_plot.png")
+                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}RESIDUAL_PLOT']}/{mcal}residual_plot_{self.cfg['RUN_NUMBER']}.png")
                 if self.cfg['SHOW_PLOT_RUN'] is True:
                     plt.show()
                 plt.clf()
@@ -601,6 +490,38 @@ class gaNdalF(object):
             except Exception as e:
                 print(e)
         if self.cfg['PLOT_CHAIN_RUN'] is True:
+            try:
+
+                # for b in ["r", "i", "z"]:
+                #     df_gandalf[f"unsheared/mag_{b}"] = flux2mag(df_gandalf[f"unsheared/flux_{b}"])
+
+                plot_compare_corner(
+                    data_frame_generated=df_gandalf,
+                    data_frame_true=df_balrog,
+                    dict_delta=None,
+                    epoch=None,
+                    title=f"Observed Properties gaNdalF compared to Balrog",
+                    show_plot=False,
+                    save_plot=True,
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot_slide_{self.cfg['RUN_NUMBER']}.png",
+                    columns=[
+                        f"unsheared/{self.lum_type.lower()}_r",
+                        f"unsheared/{self.lum_type.lower()}_i",
+                        f"unsheared/{self.lum_type.lower()}_z",
+                        "unsheared/snr",
+                        "unsheared/size_ratio"
+                    ],
+                    labels=[
+                        f"{self.lum_type.lower()}_r",
+                        f"{self.lum_type.lower()}_i",
+                        f"{self.lum_type.lower()}_z",
+                        "snr",
+                        "size_ratio"
+                    ],
+                    ranges=[(17, 25), (17, 25), (17, 25), (-2, 300), (0, 6)]
+                )
+            except Exception as e:
+                print(e)
             try:
                 plot_compare_corner(
                     data_frame_generated=df_gandalf,
@@ -610,7 +531,7 @@ class gaNdalF(object):
                     title=f"{mcal} chain plot",
                     show_plot=self.cfg['SHOW_PLOT_RUN'],
                     save_plot=self.cfg['SAVE_PLOT_RUN'],
-                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot.png",
+                    save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}CHAIN_PLOT']}/{mcal}chainplot_{self.cfg['RUN_NUMBER']}.png",
                     columns=[
                         f"unsheared/{self.lum_type.lower()}_r",
                         f"unsheared/{self.lum_type.lower()}_i",
@@ -657,7 +578,7 @@ class gaNdalF(object):
                         print("df_balrog[condition] empty")
                     else:
                         cond_lims = np.percentile(df_balrog[condition], [2, 98])
-                        standard_levels = 10  # [0.393, 0.865, 0.989]
+                        standard_levels = 10 #  [0.393, 0.865, 0.989]
 
                     for idx, out in enumerate(zip(outputs, output_errs, true_outputs)):
                         output_ = out[0]
@@ -706,8 +627,9 @@ class gaNdalF(object):
                             y=f"residual band {self.cfg['BANDS_RUN'][idx]}",
                             fill=True,
                             thresh=0,
+                            alpha=.4,
                             levels=standard_levels,  # 10
-                            color="dodgerblue",
+                            color="limegreen",
                             legend="Balrog",
                             ax=lst_axis_con[idx]
                         )
@@ -718,8 +640,8 @@ class gaNdalF(object):
                             fill=False,
                             thresh=0,
                             levels=standard_levels,  # 10
-                            alpha=.5,
-                            color="darkorange",
+                            alpha=.8,
+                            color="orangered",
                             legend="gaNdalF",
                             ax=lst_axis_con[idx]
                         )
@@ -734,7 +656,7 @@ class gaNdalF(object):
                     lst_axis_con[0].legend()
                     cond_figure.tight_layout()
                     if self.cfg['SAVE_PLOT_RUN'] is True:
-                        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}CONDITIONS_PLOT']}/{mcal}{condition}_plot.png")
+                        plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}CONDITIONS_PLOT']}/{mcal}{condition}_plot_{self.cfg['RUN_NUMBER']}.png")
                     if self.cfg['SHOW_PLOT_RUN'] is True:
                         plt.show()
                     plt.clf()
@@ -797,12 +719,14 @@ class gaNdalF(object):
                     )
                 plt.legend()
                 if self.cfg['SAVE_PLOT_RUN'] == True:
-                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}HIST_PLOT']}/{mcal}magnitude_histogram.png")
+                    plt.savefig(f"{self.cfg['PATH_PLOTS_FOLDER'][f'{mcal.upper()}HIST_PLOT']}/{mcal}magnitude_histogram_{self.cfg['RUN_NUMBER']}.png")
                 if self.cfg['SHOW_PLOT_RUN'] == True:
                     plt.show()
                 plt.clf()
                 plt.close()
             except Exception as e:
                 print(e)
+
+            print("End plotting data flow")
 
         return df_balrog, df_gandalf

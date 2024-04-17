@@ -11,7 +11,7 @@ from torchvision.transforms import ToTensor
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, brier_score_loss
 from sklearn.calibration import calibration_curve
 from io import BytesIO
-import corner
+
 from Handler.helper_functions import string_to_tuple
 import time
 import matplotlib
@@ -29,6 +29,7 @@ def plot_to_tensor():
 
 def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_plot=False, save_name=None):
     """"""
+    import corner
     data = data_frame[columns].values
     ndim = data.shape[1]
 
@@ -83,6 +84,7 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
 
 def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
                         show_plot=False, save_plot=False, save_name=None):
+    import corner
     if epoch == 1:
         for label in labels:
             dict_delta[f"delta mean {label}"] = []
@@ -166,12 +168,6 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
     for i in range(ndim):
         ax = axes[i, i]
-        # sns.histplot(arr_generated[:, i], ax=ax, color='#ff8c00', bins=100, alpha=0.5)
-        # sns.histplot(arr_true[:, i], ax=ax, color='#51a6fb', bins=100, alpha=0.5)
-        # sns.kdeplot(arr_generated[:, i], ax=ax, color='#ff8c00', fill=True, levels=[0.393, 0.865, 0.989])
-        # sns.kdeplot(arr_true[:, i], ax=ax, color='#51a6fb', fill=True, levels=[0.393, 0.865, 0.989])
-
-        # ax.set_xlim(ranges[i])  # Setzen Sie die Achsenlimits entsprechend Ihren ranges
         ax.set_yticklabels(ax.get_yticks(), rotation=45)
 
         # Titel mit Quantilen manuell hinzufügen
@@ -186,22 +182,15 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
             dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
             dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
         else:
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: mean={delta_mean:.5f}'), )
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: median={delta_median:.5f}'), )
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q16={delta_q16:.5f}'), )
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q84={delta_q84:.5f}'), )
-
-    # if ranges is not None:
-    #     for i in range(ndim):
-    #         for j in range(ndim):
-    #             ax = axes[i, j]
-    #             ax.set_xlim(ranges[j])
-    #             ax.set_ylim(ranges[i])
+            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: $\Delta$ mean = {np.abs(delta_mean):.5f}'), )
+            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: median={delta_median:.5f}'), )
+            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q16={delta_q16:.5f}'), )
+            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q84={delta_q84:.5f}'), )
 
     if epoch is not None:
-        fig.suptitle(f'{title}, epoch {epoch}', fontsize=16)
+        fig.suptitle(f'{title}, epoch {epoch}', fontsize=20)
     else:
-        fig.suptitle(f'{title}', fontsize=16)
+        fig.suptitle(f'{title}', fontsize=20)
 
     if dict_delta is not None:
         delta_legend_elements = []
@@ -226,13 +215,13 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
 
         fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
     else:
-        fig.legend(handles=legend_elements, loc='upper right', fontsize=12)
+        fig.legend(handles=legend_elements, loc='upper right', fontsize=16)
 
     img_tensor = plot_to_tensor()
     if show_plot is True:
         plt.show()
     if save_plot is True:
-        plt.savefig(save_name, dpi=200)
+        plt.savefig(save_name, dpi=300)
     plt.clf()
     plt.close(fig)
     return img_tensor, dict_delta
@@ -1020,7 +1009,7 @@ def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", 
     return img_tensor
 
 
-def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_plot, save_name, title='Histogram'):
+def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_plot, save_name, xlim=None, title='Histogram'):
     """
     Plot histograms for each feature in the given columns of df_balrog and df_gandalf.
     """
@@ -1055,19 +1044,26 @@ def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_pl
 
         # Plot histograms for the ith feature from each dataset
         # Gandalf: Not filled, with specific color
-        ax.hist(feature_gandalf_detected, bins=100, alpha=0.5, label='Gandalf true_detected', color='#ff8c00', histtype='step')
-        ax.hist(feature_gandalf_not_detected, bins=100, alpha=0.5, label='Gandalf not true_detected', color='darkgrey', histtype='step')
+        ax.hist(feature_gandalf_detected, bins=100, alpha=1, label='Gandalf detected', color='#ff8c00', histtype='step')
+        ax.hist(feature_gandalf_not_detected, bins=100, alpha=1, label='Gandalf not detected', color='darkgrey', histtype='step')
         # Balrog: Filled, with specific color
-        ax.hist(feature_balrog_detected, bins=100, alpha=0.5, label='Balrog true_detected', color='#51a6fb')
-        ax.hist(feature_balrog_not_detected, bins=100, alpha=0.5, label='Balrog not true_detected', color='lightgrey')
+        ax.hist(feature_balrog_detected, bins=100, alpha=0.5, label='Balrog detected', color='#51a6fb')
+        ax.hist(feature_balrog_not_detected, bins=100, alpha=0.5, label='Balrog not detected', color='lightgrey')
 
         # Set titles, labels, etc.
         ax.set_xlabel(f'{columns[i]}')
         ax.set_ylabel('Counts')
-        ax.legend()
+        if xlim is not None:
+            ax.set_xlim(xlim[i])
+        # ax.legend()
+
+        handles, labels = ax.get_legend_handles_labels()
+
+    by_label = dict(zip(labels, handles))  # Entfernen Sie Duplikate
+    fig_hist.legend(by_label.values(), by_label.keys(), loc='upper right', bbox_to_anchor=(1, 1))
 
     # Set overall title
-    plt.suptitle(title)
+    plt.suptitle(title, fontsize=24)
 
     # Show or save plot based on arguments
     if show_plot:

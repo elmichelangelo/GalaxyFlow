@@ -2,6 +2,7 @@ from sklearn.preprocessing import PowerTransformer
 import numpy as np
 import os
 import re
+import pandas as pd
 """import warnings
 
 warnings.filterwarnings("error")"""
@@ -13,6 +14,44 @@ def calc_color(data_frame, colors, column_name):
         data_frame[f"{color[0]}-{color[1]}"] = \
             np.array(data_frame[f"{column_name}_{color[0]}"]) - np.array(data_frame[f"{column_name}_{color[1]}"])
     return data_frame
+
+
+def sample_columns(df_balrog, df_gandalf, column_name):
+    values_in = df_balrog[column_name]
+    df_gandalf[column_name] = None
+    df_gandalf.loc[:, column_name] = np.random.choice(values_in, size=len(df_gandalf))
+    return df_gandalf
+
+
+def select_columns(df_balrog, df_gandalf, column_name, bin_width=0.25):
+    min_i_mag = min(df_balrog['BDF_MAG_DERED_CALIB_I'].min(), df_gandalf['BDF_MAG_DERED_CALIB_I'].min())
+    max_i_mag = max(df_balrog['BDF_MAG_DERED_CALIB_I'].max(), df_gandalf['BDF_MAG_DERED_CALIB_I'].max())
+    bins = np.arange(min_i_mag, max_i_mag + bin_width, bin_width)
+
+    df_balrog['i_mag_bin'] = pd.cut(df_balrog['BDF_MAG_DERED_CALIB_I'], bins, labels=False, include_lowest=True)
+    df_gandalf['i_mag_bin'] = pd.cut(df_gandalf['BDF_MAG_DERED_CALIB_I'], bins, labels=False, include_lowest=True)
+
+    df_gandalf[column_name] = None
+    for bin in df_gandalf['i_mag_bin'].unique():
+        bin_df_balrog = df_balrog[df_balrog['i_mag_bin'] == bin]
+        bin_df_gandalf = df_gandalf[df_gandalf['i_mag_bin'] == bin]
+        for index in bin_df_gandalf.index:
+            if not bin_df_balrog[column_name].empty:  # Check if the array is not empty
+                df_gandalf.at[index, column_name] = np.random.choice(bin_df_balrog[column_name])
+            else:
+                # Handle the case when the array is empty
+                # Find the neighboring bins
+                lower_bin = bin - 1
+                upper_bin = bin + 1
+                lower_bin_df_balrog = df_balrog[df_balrog['i_mag_bin'] == lower_bin]
+                upper_bin_df_balrog = df_balrog[df_balrog['i_mag_bin'] == upper_bin]
+                # Concatenate the neighboring bins
+                neighbor_bins_df_balrog = pd.concat([lower_bin_df_balrog, upper_bin_df_balrog])
+                # Sample from the neighboring bins
+                if not neighbor_bins_df_balrog[column_name].empty:
+                    df_gandalf.at[index, column_name] = np.random.choice(neighbor_bins_df_balrog[column_name])
+
+    return df_gandalf
 
 
 def change_mean_std_of_dist(dist1, dist2=None, dist3=None):
