@@ -211,9 +211,9 @@ def make_dirs(cfg):
     """"""
     cfg['PATH_PLOTS_FOLDER'] = {}
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}"
-    if not os.path.exists(cfg['PATH_OUTPUT']):
-        os.mkdir(cfg['PATH_OUTPUT'])
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_NUMBER']}"
+    # if not os.path.exists(cfg['PATH_OUTPUT']):
+    #     os.mkdir(cfg['PATH_OUTPUT'])
+    # cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_NUMBER']}"
     cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
     cfg['PATH_CATALOGS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_CATALOGS']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
@@ -259,16 +259,16 @@ if __name__ == '__main__':
     if isinstance(args.config_filename, list):
         args.config_filename = args.config_filename[0]
 
-    # with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
-    #     cfg = yaml.safe_load(fp)
+    with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
+        cfg = yaml.safe_load(fp)
 
     now = datetime.now()
-    # cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
 
-    for i in range(1, 101):
-        with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
-            cfg = yaml.safe_load(fp)
-
-        cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-        cfg['RUN_NUMBER'] = i
-        main(cfg)
+    # for i in range(1, 101):
+    #     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
+    #         cfg = yaml.safe_load(fp)
+    #
+    #     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    #     cfg['RUN_NUMBER'] = i
+    main(cfg)
