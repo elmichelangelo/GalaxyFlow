@@ -213,7 +213,7 @@ def make_dirs(cfg):
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}/{cfg['RUN_NUMBER']}"
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_NUMBER']}"
     cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
     cfg['PATH_CATALOGS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_CATALOGS']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
