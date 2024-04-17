@@ -210,7 +210,8 @@ def main(cfg):
 def make_dirs(cfg):
     """"""
     cfg['PATH_PLOTS_FOLDER'] = {}
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}"
+    # cfg['PATH_OUTPUT'] = f"/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF"
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}/{cfg['RUN_NUMBER']}"
     cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
     cfg['PATH_CATALOGS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_CATALOGS']}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
@@ -256,10 +257,16 @@ if __name__ == '__main__':
     if isinstance(args.config_filename, list):
         args.config_filename = args.config_filename[0]
 
-    with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
-        cfg = yaml.safe_load(fp)
+    # with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
+    #     cfg = yaml.safe_load(fp)
 
     now = datetime.now()
+    # cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+
     for i in range(1, 101):
-        cfg['RUN_DATE'] = i  # now.strftime('%Y-%m-%d_%H-%M')
+        with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
+            cfg = yaml.safe_load(fp)
+
+        cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+        cfg['RUN_NUMBER'] = i
         main(cfg)
