@@ -13,7 +13,7 @@ subdirs = [d for d in os.listdir(bootstrap_dir) if os.path.isdir(os.path.join(bo
 for subdir in subdirs:
     # Construct the full path to the h5 file
     # h5_file_path = os.path.join(bootstrap_dir, subdir, "catalogs", "*.h5")
-    h5_file_path = glob.glob(os.path.join(bootstrap_dir, subdir, "catalogs", "*.pkl"))
+    h5_file_path = glob.glob(os.path.join(bootstrap_dir, subdir, "catalogs", "*.h5"))
 
     try:
         # Check if the h5 file exists

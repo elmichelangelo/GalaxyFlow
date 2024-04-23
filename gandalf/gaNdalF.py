@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import h5py
 import joblib
 import pickle
 import torch
@@ -230,6 +231,12 @@ class gaNdalF(object):
             data_frame.rename(columns={"ID": "true_id"}, inplace=True)
             if "h5" in file_name:
                 data_frame.to_hdf(f"{self.cfg['PATH_CATALOGS']}/{file_name}", key='df', mode='w')
+                # with h5py.File(f"{self.cfg['PATH_CATALOGS']}/{file_name}", 'w') as hf:
+                #     for column in data_frame.columns:
+                #         # Convert the column data to a numpy array
+                #         data = np.array(data_frame[column])
+                #         # Create a dataset in the file and save the numpy array
+                #         hf.create_dataset(column, data=data)
             elif "pkl" in file_name:
                 with open(f"{self.cfg['PATH_CATALOGS']}/{file_name}", "wb") as f:
                     pickle.dump(data_frame, f, protocol=2)
