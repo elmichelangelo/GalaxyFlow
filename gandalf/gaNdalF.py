@@ -141,8 +141,8 @@ class gaNdalF(object):
                 )
 
         else:
-            df_gandalf_flow = df_gandalf[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
-            df_balrog_flow = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
+            df_gandalf_flow = df_gandalf[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].copy()
+            df_balrog_flow = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].copy()
             print(f"Number of NaNs in df_balrog: {df_balrog_flow.isna().sum().sum()}")
             if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
                 print("apply inverse scaler on balrog")
