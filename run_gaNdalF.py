@@ -29,7 +29,7 @@ def load_tmp_data(cfg, file_name):
 def main(cfg):
     """"""
     cfg = make_dirs(cfg)
-    total_number_of_samples = 0
+    total_number_of_samples = -100
     run_number = 1
     nm_emu = ""
     nm_cls = ""
@@ -39,9 +39,14 @@ def main(cfg):
     if cfg["CLASSF_GALAXIES"] is True:
         nm_cls = "Classified_"
 
-    cfg['FILENAME_GANDALF_CATALOG'] = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}_{cfg['DATASET_TYPE']}"
+    # if cfg['NUMBER_SAMPLES'] == -1:
+    #     cfg['NUMBER_SAMPLES'] = 3031255  # int(3254744 * 0.15)
 
+    cfg['FILENAME_GANDALF_CATALOG'] = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}_{cfg['DATASET_TYPE']}"
+    bootsrap = False
     while total_number_of_samples < cfg['NUMBER_SAMPLES']:
+        if cfg['NUMBER_SAMPLES'] == -1:
+            bootsrap = True
         print(f"Run {run_number}")
         cfg['RUN_NUMBER'] = run_number
         gandalf = gaNdalF(cfg=cfg)
@@ -145,6 +150,9 @@ def main(cfg):
         del df_gandalf_cut, df_balrog_cut  #, df_gandalf_samples, df_balrog_samples
         gc.collect()
 
+        if bootsrap is True:
+            cfg['NUMBER_SAMPLES'] = -1
+
     cfg['RUN_NUMBER'] = run_number + 1
 
     df_gandalf_samples = load_tmp_data(
@@ -160,8 +168,8 @@ def main(cfg):
     print(f"Number of runs: {run_number - 1}")
     print(df_gandalf_samples)
 
-    df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
-    df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
+    # df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
+    # df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
 
     # df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
     # df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
