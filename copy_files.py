@@ -3,7 +3,7 @@ import shutil
 import glob
 
 # Specify the directories
-bootstrap_dir = "/Volumes/elmichelangelo_external_ssd_1/Data/Bootstrap/100"
+bootstrap_dir = "/Volumes/elmichelangelo_external_ssd_1/Data/Bootstrap/"
 destination_dir = "/Volumes/elmichelangelo_external_ssd_1/Data/Bootstrap/100"
 
 # Get a list of all subdirectories in the Bootstrap directory
