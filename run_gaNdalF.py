@@ -206,9 +206,9 @@ def main(cfg):
         mcal='mcal_'
     )
 
-    file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5",
+    file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5"
     if cfg["SPATIAL_TEST"] is True:
-        file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5",
+        file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5"
 
     gandalf.save_data(
         data_frame=df_gandalf_samples,
