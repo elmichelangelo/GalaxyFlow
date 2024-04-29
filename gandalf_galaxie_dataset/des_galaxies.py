@@ -56,6 +56,8 @@ class GalaxyDataset(Dataset):
                     for col in cfg['SPATIAL_COLS']:
                         df_data[col] = selected_row[col]
 
+                    print(df_data[cfg['SPATIAL_COLS']])
+
             file_run.close()
             print(f"shape run dataset: {df_data.shape}")
             print(f"Sample {cfg['NUMBER_SAMPLES']} random data from run data set")
