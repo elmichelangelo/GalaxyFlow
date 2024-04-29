@@ -46,6 +46,16 @@ class GalaxyDataset(Dataset):
             print(f"Load {filename}  data set")
             with open(f"{filename}", 'rb') as file_run:
                 df_data = pd.read_pickle(file_run)
+
+                if cfg['SPATIAL_TEST'] is True:
+                    df_spatial = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_SPATIAL']}")
+                    selected_row = df_spatial.iloc[cfg["SPATIAL_NUMBER"]]
+
+                    print(f"Selected  spatial row: {selected_row}")
+
+                    for col in cfg['SPATIAL_COLS']:
+                        df_data[col] = selected_row[col]
+
             file_run.close()
             print(f"shape run dataset: {df_data.shape}")
             print(f"Sample {cfg['NUMBER_SAMPLES']} random data from run data set")

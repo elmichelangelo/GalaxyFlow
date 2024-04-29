@@ -53,35 +53,6 @@ def main(cfg):
 
         df_balrog = gandalf.galaxies.run_dataset
 
-
-
-
-        # Get the duplicated rows
-        duplicated_rows = df_balrog[cfg["SPATIAL_COLS"]].duplicated(keep=False)
-
-        # Create a DataFrame with only the duplicated rows
-        duplicated_df = df_balrog[cfg["SPATIAL_COLS"]][duplicated_rows]
-
-        # Group the DataFrame by all columns
-        groups = duplicated_df.groupby(list(duplicated_df.columns))
-
-        # Initialize a list to hold the DataFrames
-        dfs = []
-
-        # Iterate over each group
-        for name, group in groups:
-            # Create a new DataFrame for this group and add it to the list
-            dfs.append(group)
-
-        # Count the number of DataFrames in dfs where the number of rows is greater than 10
-        count = len([df for df in dfs if len(df) > 18])
-
-        print(count)
-
-        print(len(dfs))
-
-
-
         print(f"Length sample dataset: {len(df_balrog)}")
 
         if cfg['CLASSF_GALAXIES']:
@@ -235,9 +206,13 @@ def main(cfg):
         mcal='mcal_'
     )
 
+    file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5",
+    if cfg["SPATIAL_TEST"] is True:
+        file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5",
+
     gandalf.save_data(
         data_frame=df_gandalf_samples,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}.h5",
+        file_name=file_name,
         tmp_samples=False
     )
     # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl")
@@ -291,6 +266,13 @@ if __name__ == '__main__':
         default=config_file_name,
         help='Name of config file. If not given default.cfg will be used'
     )
+    parser.add_argument(
+        '--spatial',
+        type=int,
+        required=False,
+        help='Run number'
+    )
+
     args = parser.parse_args()
 
     if isinstance(args.config_filename, list):
@@ -301,6 +283,10 @@ if __name__ == '__main__':
 
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    if args.spatial is not None:
+        cfg['SPATIAL_NUMBER'] = args.spatial - 1
+    else:
+        cfg['SPATIAL_NUMBER'] = 0
 
     # for i in range(1, 101):
     #     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
