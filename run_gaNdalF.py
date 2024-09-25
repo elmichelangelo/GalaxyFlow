@@ -66,9 +66,7 @@ def main(cfg):
         if cfg['PLOT_RUN']:
             gandalf.plot_classf_data(
                 df_balrog=df_balrog,
-                df_gandalf=df_gandalf,
-                df_balrog_detected=df_balrog_detected,
-                df_gandalf_detected=df_gandalf_detected
+                df_gandalf=df_gandalf
             )
 
         if cfg['EMULATE_GALAXIES']:
@@ -99,8 +97,8 @@ def main(cfg):
         # del df_balrog_detected, df_gandalf_detected
         gc.collect()
 
-        df_balrog_cut = gandalf.apply_cuts(cfg, df_balrog_cut)
-        df_gandalf_cut = gandalf.apply_cuts(cfg, df_gandalf_cut)
+        df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
+        df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
 
         if cfg['PLOT_RUN']:
             gandalf.plot_data_flow(

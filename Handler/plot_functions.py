@@ -1,5 +1,6 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 import pandas as pd
 import numpy as np
 import imageio
@@ -12,7 +13,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_c
 from sklearn.calibration import calibration_curve
 from io import BytesIO
 
-from Handler.helper_functions import string_to_tuple
+from Handler.helper_functions import string_to_tuple, calculate_kde
 import time
 import matplotlib
 # matplotlib.use('Agg')
@@ -1009,10 +1010,332 @@ def plot_2d_kde_compare(x1, y1, x2, y2, manual_levels, limits=None, x_label="", 
     return img_tensor
 
 
+def plot_violin_classifier(df_balrog, df_gandalf, columns, ranges,  show_plot, save_plot, save_name, title='Histogram'):
+    sns.set_theme(style="whitegrid")
+
+    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+
+    num_rows = len(columns)
+    fig, axes = plt.subplots(nrows=num_rows, figsize=(9, 12))
+    custom_palette = ["#ff8c00", "#51a6fb", "darkgrey", "lightgrey"]
+
+    for i, col in enumerate(columns):
+        ax = axes[i]
+        df_violin = pd.DataFrame({
+            "gandalf detected": df_gandalf_detected[col],
+            "balrog detected": df_balrog_detected[col],
+            "gandalf not detected": df_gandalf_not_detected[col],
+            "balrog not detected": df_balrog_not_detected[col]
+        })
+
+        sns.violinplot(data=df_violin, ax=ax, bw_adjust=.5, cut=1, linewidth=1, palette=custom_palette)
+        ax.set_ylim(ranges[i][0], ranges[i][1])
+        ax.set_title(col)
+
+        # for j, category in enumerate(df_violin.columns):
+        #     mean_val = df_violin[category].mean()
+        #     median_val = df_violin[category].median()
+        #     std_val = df_violin[category].std()
+        #
+        #     # Text auf der rechten Seite des Plots platzieren
+        #     ax.text(1.05, 0.5 - j * 0.2,
+        #             f'{category}:\nMean: {mean_val:.2f}\nMedian: {median_val:.2f}\nStd: {std_val:.2f}',
+        #             transform=ax.transAxes, verticalalignment='center', fontsize=10, color=custom_palette[j])
+
+    sns.despine(left=True, bottom=True)
+
+    plt.suptitle(title, fontsize=18)
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=300)
+    plt.clf()
+    plt.close(fig)
+
+
+def plot_radar_chart(df_balrog, df_gandalf, columns):
+    labels = np.array([f'Dim {i + 1}' for i in range(len(columns))])
+    stats_gandalf = []
+    stats_balrog = []
+    for col in columns:
+        stats_gandalf.append(df_gandalf[col])
+        stats_balrog.append(df_balrog[col])
+
+    angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False)
+    stats_gandalf = np.concatenate((stats_gandalf, [stats_gandalf[0]]))
+    stats_balrog = np.concatenate((stats_balrog, [stats_balrog[0]]))
+    angles = np.concatenate((angles, [angles[0]]))
+
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+    ax.plot(angles, stats_gandalf, 'o-', label='Distribution A')
+    ax.plot(angles, stats_balrog, 'o-', label='Distribution B')
+    ax.fill(angles, stats_gandalf, alpha=0.25)
+    ax.fill(angles, stats_balrog, alpha=0.25)
+    ax.set_thetagrids(angles * 180 / np.pi, labels)
+    ax.set_title('Radar Chart Comparison')
+    ax.legend()
+    plt.show()
+
+
+def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_name, title):
+    fig, axs = plt.subplots(5, 3, figsize=(12, 24))  # Adjust subplots as needed
+    axs = axs.ravel()
+
+    for i, col in enumerate(columns):
+        axs[i].boxplot([df_balrog[col], df_gandalf[col]], labels=['Balrog', 'gaNdalF'])
+        axs[i].set_title(labels[i])
+
+    plt.title(title)
+    plt.tight_layout()
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    plt.clf()
+    plt.close(fig)
+
+
+def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
+                                 title='Corner Plot'):
+    import matplotlib.patches as mpatches
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Prepare the dataframes
+    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+
+    num_cols = len(columns)
+
+    fig, axes = plt.subplots(num_cols, num_cols, figsize=(3 * num_cols, 3 * num_cols))
+
+    for i in range(num_cols):
+        for j in range(num_cols):
+            ax = axes[i, j]
+            if i < j:
+                # Turn off plots in the upper triangle
+                ax.axis('off')
+                continue
+            elif i == j:
+                # Optionally, we can turn off the diagonal subplots
+                ax.axis('off')
+                continue
+            else:
+                col_i = columns[i]
+                col_j = columns[j]
+                # Gandalf detected KDE
+                sns.kdeplot(
+                    x=df_gandalf_detected[col_j],
+                    y=df_gandalf_detected[col_i],
+                    fill=False,
+                    thresh=0,
+                    levels=5,
+                    cmap='Oranges',
+                    alpha=0.5,
+                    ax=ax
+                )
+                # Balrog detected KDE
+                sns.kdeplot(
+                    x=df_balrog_detected[col_j],
+                    y=df_balrog_detected[col_i],
+                    fill=True,
+                    thresh=0,
+                    levels=5,
+                    cmap='Blues',
+                    alpha=0.5,
+                    ax=ax
+                )
+                # Gandalf not detected KDE
+                sns.kdeplot(
+                    x=df_gandalf_not_detected[col_j],
+                    y=df_gandalf_detected[col_i],
+                    fill=False,
+                    thresh=0,
+                    levels=5,
+                    cmap='Purples',
+                    alpha=0.5,
+                    ax=ax
+                )
+                # Balrog not detected KDE
+                sns.kdeplot(
+                    x=df_balrog_not_detected[col_j],
+                    y=df_balrog_not_detected[col_i],
+                    fill=True,
+                    thresh=0,
+                    levels=5,
+                    cmap='Greens',
+                    alpha=0.5,
+                    ax=ax
+                )
+                # Set axis limits
+                xlim = ranges[j]
+                ylim = ranges[i]
+                ax.set_xlim(xlim[0], xlim[1])
+                ax.set_ylim(ylim[0], ylim[1])
+
+                # Set labels
+                if i == num_cols - 1:
+                    ax.set_xlabel(labels[j], fontsize=10)
+                else:
+                    ax.set_xlabel('')
+                if j == 0:
+                    ax.set_ylabel(labels[i], fontsize=10)
+                else:
+                    ax.set_ylabel('')
+                # Adjust tick labels
+                if i != num_cols - 1:
+                    ax.set_xticklabels([])
+                if j != 0:
+                    ax.set_yticklabels([])
+
+        # Turn off plots in the upper triangle and diagonal
+    for i in range(num_cols):
+        for j in range(num_cols):
+            if i <= j:
+                axes[i, j].axis('off')
+
+    # Customize layout and legend
+    legend_elements = [
+        mpatches.Patch(color='orange', label='Gandalf Detected'),
+        mpatches.Patch(color='purple', label='Gandalf Not Detected'),
+        mpatches.Patch(color='blue', label='Balrog Detected'),
+        mpatches.Patch(color='green', label='Balrog Not Detected')
+    ]
+
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=12, bbox_to_anchor=(0.98, 0.95))
+
+    plt.suptitle(title, fontsize=18)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    plt.clf()
+    plt.close(fig)
+
+
+# def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name, title='Histogram'):
+#     import matplotlib.patches as mpatches
+#     num_cols = int(np.round(np.sqrt(len(columns))))
+#
+#     # Prepare the dataframes (assuming you already have df_gandalf and df_balrog)
+#     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+#     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+#     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+#     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+#
+#     # Create the FacetGrid or a pair grid setup
+#     fig, axes = plt.subplots(num_cols, num_cols, figsize=(15, 15))
+#
+#     subplot_idx_x = num_cols - 1
+#     subplot_idx_y = 0
+#
+#     for i, col in enumerate(columns):
+#         try:
+#             ax = axes[subplot_idx_x, subplot_idx_y]
+#         except TypeError:
+#             ax = axes
+#
+#         # Gandalf detected KDE
+#         sns.kdeplot(
+#             x=df_gandalf_detected["BDF_MAG_DERED_CALIB_I"],
+#             y=df_gandalf_detected[col],
+#             fill=False,
+#             thresh=0,
+#             levels=5,
+#             cmap='Oranges',
+#             alpha=0.5,
+#             ax=ax
+#         )
+#         # Balrog detected KDE
+#         sns.kdeplot(
+#             x=df_balrog_detected["BDF_MAG_DERED_CALIB_I"],
+#             y=df_balrog_detected[col],
+#             fill=True,
+#             thresh=0,
+#             levels=5,
+#             cmap='Blues',
+#             alpha=0.5,
+#             ax=ax
+#         )
+#         # Gandalf not detected KDE
+#         sns.kdeplot(
+#             x=df_gandalf_not_detected["BDF_MAG_DERED_CALIB_I"],
+#             y=df_gandalf_not_detected[col],
+#             fill=False,
+#             thresh=0,
+#             levels=5,
+#             cmap='Purples',
+#             alpha=0.5,
+#             ax=ax
+#         )
+#         # Balrog not detected KDE
+#         sns.kdeplot(
+#             x=df_balrog_not_detected["BDF_MAG_DERED_CALIB_I"],
+#             y=df_balrog_not_detected[col],
+#             fill=True,
+#             thresh=0,
+#             levels=5,
+#             cmap='Greens',
+#             alpha=0.5,
+#             ax=ax
+#         )
+#
+#         ax.set_xlim(21, 26)
+#         ax.set_ylim(ranges[i][0], ranges[i][1])
+#         ax.set_ylabel(labels[i], fontsize=10)
+#
+#         # Add axis labels for edge subplots
+#         if subplot_idx_x == num_cols-1:
+#             ax.set_xlabel('BDF Mag I', fontsize=10)
+#         try:
+#             ax.set_ylim(ranges[i][0], ranges[i][1])
+#         except:
+#             pass
+#
+#         subplot_idx_x -= 1
+#         if subplot_idx_x < 0:
+#             subplot_idx_x = num_cols - 1
+#             subplot_idx_y += 1
+#         if subplot_idx_y > num_cols - 1:
+#             break
+#
+#     fig.delaxes(axes[0, 3])
+#     fig.delaxes(axes[1, 3])
+#
+#     # Customize layout and legend
+#     legend_elements = [
+#         mpatches.Patch(color='orange', label='Gandalf Detected'),
+#         mpatches.Patch(color='purple', label='Gandalf Not Detected'),
+#         mpatches.Patch(color='blue', label='Balrog Detected'),
+#         mpatches.Patch(color='green', label='Balrog Not Detected')
+#     ]
+#
+#     fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
+#
+#     plt.suptitle(title, fontsize=18)
+#     plt.tight_layout(rect=[0, 0, 1, 0.95])
+#     if show_plot is True:
+#         plt.show()
+#     if save_plot is True:
+#         plt.savefig(save_name, dpi=300)
+#     plt.clf()
+#     plt.close(fig)
+
+
 def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_plot, save_name, xlim=None, title='Histogram'):
     """
     Plot histograms for each feature in the given columns of df_balrog and df_gandalf.
     """
+    formatter = ScalarFormatter(useMathText=True)
+    formatter.set_scientific(True)
+    formatter.set_powerlimits((-3, 3))
     df_gandalf_detected = df_gandalf[df_gandalf['detected'] == 1]
     df_balrog_detected = df_balrog[df_balrog['detected'] == 1]
     df_gandalf_not_detected = df_gandalf[df_gandalf['detected'] == 0]
@@ -1036,6 +1359,7 @@ def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_pl
     # Iterate over each feature and plot the histograms
     for i in range(num_features):
         ax = axes[i]
+        ax.yaxis.set_major_formatter(formatter)
         # Extracting the ith feature/column from each dataset
         feature_gandalf_detected = df_gandalf_detected.iloc[:, i]
         feature_balrog_detected = df_balrog_detected.iloc[:, i]
@@ -1044,11 +1368,11 @@ def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_pl
 
         # Plot histograms for the ith feature from each dataset
         # Gandalf: Not filled, with specific color
-        ax.hist(feature_gandalf_detected, bins=100, alpha=1, label='Gandalf detected', color='#ff8c00', histtype='step')
-        ax.hist(feature_gandalf_not_detected, bins=100, alpha=1, label='Gandalf not detected', color='darkgrey', histtype='step')
+        ax.hist(feature_gandalf_detected, density=False, bins=100, alpha=1, label='Gandalf detected', color='#ff8c00', histtype='step')
+        ax.hist(feature_gandalf_not_detected, density=False, bins=100, alpha=1, label='Gandalf not detected', color='darkgrey', histtype='step')
         # Balrog: Filled, with specific color
-        ax.hist(feature_balrog_detected, bins=100, alpha=0.5, label='Balrog detected', color='#51a6fb')
-        ax.hist(feature_balrog_not_detected, bins=100, alpha=0.5, label='Balrog not detected', color='lightgrey')
+        ax.hist(feature_balrog_detected, density=False, bins=100, alpha=0.5, label='Balrog detected', color='#51a6fb')
+        ax.hist(feature_balrog_not_detected, density=False, bins=100, alpha=0.5, label='Balrog not detected', color='lightgrey')
 
         # Set titles, labels, etc.
         ax.set_xlabel(f'{columns[i]}')
@@ -1060,10 +1384,12 @@ def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_pl
         handles, labels = ax.get_legend_handles_labels()
 
     by_label = dict(zip(labels, handles))  # Entfernen Sie Duplikate
-    fig_hist.legend(by_label.values(), by_label.keys(), loc='upper right', bbox_to_anchor=(1, 1))
+    fig_hist.legend(by_label.values(), by_label.keys(), loc='upper right', bbox_to_anchor=(1, 1), fontsize=16)
 
     # Set overall title
-    plt.suptitle(title, fontsize=24)
+    plt.suptitle(title, fontsize=26)
+
+    plt.tight_layout(rect=[0, 0, 0.95, 0.95])  # Adjust padding and leave space for the title
 
     # Show or save plot based on arguments
     if show_plot:
@@ -1074,6 +1400,218 @@ def plot_classifier_histogram(df_balrog, df_gandalf, columns, show_plot, save_pl
     # Clear the figure to free memory
     plt.clf()
     plt.close(fig_hist)
+
+
+def plot_balrog_histogram(df_gandalf, df_balrog, columns, labels, ranges, binwidths, title, show_plot, save_plot, save_name):
+    """"""
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+    hist_figure_2, axes = plt.subplots(nrows=3, ncols=4, figsize=(12, 12))
+    axes = axes.flatten()
+    for i, col in enumerate(columns):
+        ax = axes[i]
+        if binwidths[i] is not None:
+            binwidth = binwidths[i]
+        else:
+            binwidth = 0.2
+        sns.histplot(
+            data=df_balrog,
+            x=col,
+            ax=ax,
+            element="step",
+            stat="count",
+            color=color_balrog,
+            fill=False,
+            binwidth=binwidth,
+            log_scale=(False, True),
+            label="balrog"
+        )
+        sns.histplot(
+            data=df_gandalf,
+            x=col,
+            ax=ax,
+            element="step",
+            stat="count",
+            color=color_gandalf,
+            fill=False,
+            binwidth=binwidth,
+            log_scale=(False, True),
+            label="gandalf"
+        )
+        if ranges[i] is not None:
+            ax.set_xlim(ranges[i][0], ranges[i][1])
+        ax.set_xlabel(labels[i])
+        ax.grid(True)
+        ax.legend()
+
+    plt.suptitle(title)
+    plt.tight_layout()
+
+    # Show or save plot based on arguments
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+
+    # Clear the figure to free memory
+    plt.clf()
+    plt.close(hist_figure_2)
+
+
+def plot_balrog_histogram_with_error(
+    df_gandalf, df_balrog, columns, labels, ranges, binwidths,
+    title, show_plot, save_plot, save_name
+):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import matplotlib.gridspec as gridspec
+
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+
+    # Number of columns and rows for subplots
+    ncols = 3
+    nrows = (len(columns) + ncols - 1) // ncols
+
+    # Define height ratios with extra space between groups
+    height_ratios = []
+    total_rows = 0
+    for idx in range(nrows):
+        height_ratios.extend([3, 1])    # Histogram and error plot heights
+        total_rows += 2
+        if idx != nrows - 1:
+            height_ratios.append(0.5)   # Spacer row between groups
+            total_rows += 1
+
+    fig = plt.figure(figsize=(4 * ncols, 2 * nrows))
+
+    # Create GridSpec with specified height ratios
+    gs = gridspec.GridSpec(total_rows, ncols, figure=fig, height_ratios=height_ratios)
+
+    for idx, col in enumerate(columns):
+        col_idx = idx % ncols
+        group_idx = idx // ncols
+
+        # Compute row indices in GridSpec
+        hist_row = group_idx * 3        # Each group consists of 2 plots + spacer
+        error_row = hist_row + 1
+
+        # Create axes without sharing x-axis
+        ax_hist = fig.add_subplot(gs[hist_row, col_idx])
+        ax_error = fig.add_subplot(gs[error_row, col_idx])
+
+        binwidth = binwidths[idx] if binwidths[idx] is not None else 0.2
+
+        # Set range for histogram
+        if ranges[idx] is not None:
+            range_min, range_max = ranges[idx]
+        else:
+            range_min = min(df_gandalf[col].min(), df_balrog[col].min())
+            range_max = max(df_gandalf[col].max(), df_balrog[col].max())
+
+        # Create common bins
+        bins = np.arange(range_min, range_max + binwidth, binwidth)
+
+        # Plot histograms with sns.histplot and specify binrange
+        sns.histplot(
+            data=df_gandalf,
+            x=col,
+            ax=ax_hist,
+            bins=bins,
+            binrange=(range_min, range_max),
+            element="step",
+            stat="count",
+            color=color_gandalf,
+            log_scale=(False, True),
+            fill=False,
+            label="Gandalf"
+        )
+        sns.histplot(
+            data=df_balrog,
+            x=col,
+            ax=ax_hist,
+            bins=bins,
+            binrange=(range_min, range_max),
+            element="step",
+            stat="count",
+            color=color_balrog,
+            log_scale=(False, True),
+            fill=False,
+            label="Balrog"
+        )
+
+        # Extract counts from histograms, specifying the range
+        counts_gandalf, _ = np.histogram(df_gandalf[col], bins=bins, range=(range_min, range_max))
+        counts_balrog, _ = np.histogram(df_balrog[col], bins=bins, range=(range_min, range_max))
+
+        # Calculate percent difference and uncertainty
+        counts_gandalf = counts_gandalf.astype(float)
+        counts_balrog = counts_balrog.astype(float)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            percent_error = 100 * (counts_balrog - counts_gandalf) / counts_gandalf
+            sigma_E = 100 * np.sqrt(counts_balrog + counts_gandalf) / counts_gandalf
+
+        # Handle division by zero
+        percent_error[counts_gandalf == 0] = np.nan
+        sigma_E[counts_gandalf == 0] = np.nan
+
+        # Bin centers for error plot
+        bin_centers = bins[:-1] + binwidth / 2
+
+        # Plot error diagram with percent differences and error bars
+        ax_error.errorbar(
+            bin_centers, percent_error, yerr=sigma_E,
+            fmt='o', color='black', ecolor='black', capsize=2, markersize=2, clip_on=True
+        )
+        ax_error.axhline(0, color='red', linestyle='--')
+
+        # Set x-limits and remove margins
+        ax_hist.set_xlim(range_min, range_max)
+        ax_error.set_xlim(range_min, range_max)
+        ax_hist.margins(x=0)
+        ax_error.margins(x=0)
+
+        ax_error.set_ylabel('% Error')
+        ax_error.set_xlabel(labels[idx])
+
+        # Ensure x-axis labels and tick labels are visible on ax_error
+        ax_error.tick_params(labelbottom=True)
+        plt.setp(ax_error.get_xticklabels(), visible=True)
+
+        # Hide x-axis labels and tick labels on histograms
+        ax_hist.set_xlabel('')
+        ax_hist.tick_params(labelbottom=False)
+        plt.setp(ax_hist.get_xticklabels(), visible=False)
+
+        # Add gridlines
+        ax_hist.grid(True)
+        ax_error.grid(True)
+
+        ax_hist.set_ylabel('Counts')
+        ax_hist.legend()
+
+        # Optionally adjust y-axis limits for better visualization
+        max_percent_error = np.nanmax(np.abs(percent_error + sigma_E))
+        if not np.isnan(max_percent_error):
+            # ax_error.set_ylim(-15, 15)
+            ax_error.set_ylim(-max_percent_error * 1.1, max_percent_error * 1.1)
+
+    # Adjust overall layout
+    plt.subplots_adjust(wspace=0.3, hspace=0.3)  # Adjust horizontal and vertical space
+
+    plt.suptitle(title)
+
+    # Show or save plot
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    if show_plot:
+        plt.show()
+
+    # Clear the figure to free memory
+    plt.clf()
+    plt.close(fig)
 
 
 def make_gif(frame_folder, name_save_folder, fps=10):

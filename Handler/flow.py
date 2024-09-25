@@ -78,42 +78,42 @@ class MADE(nn.Module):
         act_func = activations[act]
 
         input_mask = get_mask(
-            num_inputs,
-            num_hidden,
-            num_inputs,
+            in_features=num_inputs,
+            out_features=num_hidden,
+            in_flow_features=num_inputs,
             mask_type='input'
         )
         hidden_mask = get_mask(
-            num_hidden,
-            num_hidden,
-            num_inputs
+            in_features=num_hidden,
+            out_features=num_hidden,
+            in_flow_features=num_inputs
         )
         output_mask = get_mask(
-            num_hidden,
-            num_inputs * 2,
-            num_inputs,
+            in_features=num_hidden,
+            out_features=num_inputs * 2,
+            in_flow_features=num_inputs,
             mask_type='output'
         )
 
         self.joiner = nn.MaskedLinear(
-            num_inputs,
-            num_hidden,
-            input_mask,
-            num_cond_inputs
+            in_features=num_inputs,
+            out_features=num_hidden,
+            mask=input_mask,
+            cond_in_features=num_cond_inputs
         )
 
         self.trunk = nn.Sequential(
             act_func(),
             nn.MaskedLinear(
-                num_hidden,
-                num_hidden,
-                hidden_mask
+                in_features=num_hidden,
+                out_features=num_hidden,
+                mask=hidden_mask
             ),
             act_func(),
             nn.MaskedLinear(
-                num_hidden,
-                num_inputs * 2,
-                output_mask
+                in_features=num_hidden,
+                out_features=num_inputs * 2,
+                mask=output_mask
             )
         )
 
