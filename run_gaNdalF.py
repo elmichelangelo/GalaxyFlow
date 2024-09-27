@@ -203,7 +203,7 @@ def main(cfg):
         df_balrog=df_balrog_samples,
         mcal='mcal_'
     )
-
+    exit()
     file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5"
     if cfg["SPATIAL_TEST"] is True:
         file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5"

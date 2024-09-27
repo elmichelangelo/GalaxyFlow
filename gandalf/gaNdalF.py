@@ -362,7 +362,127 @@ class gaNdalF(object):
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_BOX']}/boxplot.png",
                 title=f"Box Plot Gandalf vs. Balrog"
             )
-
+        if self.cfg['PLOT_NUMBER_DENSITY_RUN'] is True:
+            plot_number_density_fluctuation(
+                df_balrog=df_balrog,
+                df_gandalf=df_gandalf,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_I",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag I",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                ranges=[
+                    [18, 26],
+                    [18, 26],
+                    [18, 26],
+                    [-1, 1.5],
+                    [-0.1, 0.8],
+                    [0.8, 1.2],
+                    [0.7, 1.1],
+                    [0.7, 1.0],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [23.5, 24.5],
+                    [23, 23.75],
+                    [22, 23],
+                    [0, 0.05]
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_NUMBER_DENSITY']}/number_density_fluctuation.png",
+                title=f"Comparison Between Gandalf and Balrog"
+            )
+            df_balrog_deep_cut = self.apply_deep_cuts(df_balrog)
+            df_gandalf_deep_cut = self.apply_deep_cuts(df_gandalf)
+            plot_number_density_fluctuation(
+                df_balrog=df_balrog_deep_cut,
+                df_gandalf=df_gandalf_deep_cut,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_I",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag I",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                ranges=[
+                    [18, 26],
+                    [18, 26],
+                    [18, 26],
+                    [-1, 1.5],
+                    [-0.1, 0.8],
+                    [0.8, 1.2],
+                    [0.7, 1.1],
+                    [0.7, 1.0],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [23.5, 24.5],
+                    [23, 23.75],
+                    [22, 23],
+                    [0, 0.05]
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_NUMBER_DENSITY']}/number_density_fluctuation_cut.png",
+                title=f"Comparison Between Gandalf and Balrog"
+            )
         # Multivariate classifier
         if self.cfg['PLOT_MULTI_CLASSF_RUN'] is True:
             plot_multivariate_classifier(

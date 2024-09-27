@@ -1158,8 +1158,8 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
                     fill=False,
                     thresh=0,
                     levels=5,
-                    cmap='Purples',
-                    alpha=0.5,
+                    cmap='Oranges',  #'Purples',
+                    alpha=0.2,
                     ax=ax
                 )
                 # Balrog not detected KDE
@@ -1169,8 +1169,8 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
                     fill=True,
                     thresh=0,
                     levels=5,
-                    cmap='Greens',
-                    alpha=0.5,
+                    cmap='Blues',  # 'Greens',
+                    alpha=0.2,
                     ax=ax
                 )
                 # Set axis limits
@@ -1595,8 +1595,8 @@ def plot_balrog_histogram_with_error(
         # Optionally adjust y-axis limits for better visualization
         max_percent_error = np.nanmax(np.abs(percent_error + sigma_E))
         if not np.isnan(max_percent_error):
-            # ax_error.set_ylim(-15, 15)
-            ax_error.set_ylim(-max_percent_error * 1.1, max_percent_error * 1.1)
+            ax_error.set_ylim(-15, 15)
+            # ax_error.set_ylim(-max_percent_error * 1.1, max_percent_error * 1.1)
 
     # Adjust overall layout
     plt.subplots_adjust(wspace=0.3, hspace=0.3)  # Adjust horizontal and vertical space
@@ -1612,6 +1612,195 @@ def plot_balrog_histogram_with_error(
     # Clear the figure to free memory
     plt.clf()
     plt.close(fig)
+
+
+def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, ranges, title, show_plot, save_plot, save_name):
+    """
+    Plots the number density fluctuation (N/<N>) for detected and not detected objects
+    in df_balrog and df_gandalf for specified columns, with histograms in the background.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Create subsets for detected and not detected objects
+    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+
+    ncols = 3
+    nrows = (len(columns) + ncols - 1) // ncols
+
+    fig, axes = plt.subplots(
+        nrows=nrows, ncols=ncols, figsize=(5 * ncols, 4 * nrows)
+    )
+    axes = axes.flatten()
+
+    # Define colors
+    color_balrog_detected = '#51a6fb'       # Blue
+    color_balrog_not_detected = '#add8e6'   # Light Blue
+    color_gandalf_detected = '#ff8c00'      # Orange
+    color_gandalf_not_detected = '#ffcc80'  # Light Orange
+
+    for idx, col in enumerate(columns):
+        ax = axes[idx]
+        bin_range = ranges[idx]
+        label = labels[idx]
+
+        # Set bin edges
+        if bin_range is not None:
+            range_min, range_max = bin_range
+        else:
+            range_min = min(
+                df_balrog[col].min(), df_gandalf[col].min()
+            )
+            range_max = max(
+                df_balrog[col].max(), df_gandalf[col].max()
+            )
+
+        # Decide number of bins or bin width
+        num_bins = 50  # Adjust as needed
+
+        bins = np.linspace(range_min, range_max, num_bins + 1)
+
+        # Compute histograms for detected and not detected objects
+        counts_balrog_detected, _ = np.histogram(
+            df_balrog_detected[col], bins=bins
+        )
+        counts_balrog_not_detected, _ = np.histogram(
+            df_balrog_not_detected[col], bins=bins
+        )
+
+        counts_gandalf_detected, _ = np.histogram(
+            df_gandalf_detected[col], bins=bins
+        )
+        counts_gandalf_not_detected, _ = np.histogram(
+            df_gandalf_not_detected[col], bins=bins
+        )
+
+        # Convert counts to float for accurate division
+        counts_balrog_detected = counts_balrog_detected.astype(float)
+        counts_balrog_not_detected = counts_balrog_not_detected.astype(float)
+        counts_gandalf_detected = counts_gandalf_detected.astype(float)
+        counts_gandalf_not_detected = counts_gandalf_not_detected.astype(float)
+
+        # Compute mean counts for each group
+        mean_counts_balrog_detected = np.mean(
+            counts_balrog_detected[counts_balrog_detected > 0]
+        )
+        mean_counts_balrog_not_detected = np.mean(
+            counts_balrog_not_detected[counts_balrog_not_detected > 0]
+        )
+        mean_counts_gandalf_detected = np.mean(
+            counts_gandalf_detected[counts_gandalf_detected > 0]
+        )
+        mean_counts_gandalf_not_detected = np.mean(
+            counts_gandalf_not_detected[counts_gandalf_not_detected > 0]
+        )
+
+        # Avoid division by zero
+        with np.errstate(divide='ignore', invalid='ignore'):
+            fluctuation_balrog_detected = counts_balrog_detected / mean_counts_balrog_detected
+            fluctuation_balrog_not_detected = counts_balrog_not_detected / mean_counts_balrog_not_detected
+
+            fluctuation_gandalf_detected = counts_gandalf_detected / mean_counts_gandalf_detected
+            fluctuation_gandalf_not_detected = counts_gandalf_not_detected / mean_counts_gandalf_not_detected
+
+        # Handle division by zero and invalid values
+        fluctuation_balrog_detected[mean_counts_balrog_detected == 0] = np.nan
+        fluctuation_balrog_not_detected[mean_counts_balrog_not_detected == 0] = np.nan
+        fluctuation_gandalf_detected[mean_counts_gandalf_detected == 0] = np.nan
+        fluctuation_gandalf_not_detected[mean_counts_gandalf_not_detected == 0] = np.nan
+
+        # Bin centers
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+
+        # Plot histograms in the background
+        ax_bar = ax.twinx()  # Create a twin y-axis sharing the same x-axis
+
+        # Calculate maximum counts for normalization
+        max_count = max(
+            counts_balrog_detected.max(),
+            counts_balrog_not_detected.max(),
+            counts_gandalf_detected.max(),
+            counts_gandalf_not_detected.max()
+        )
+
+        # Normalize counts for background plotting
+        norm_counts_balrog_detected = counts_balrog_detected / max_count
+        norm_counts_balrog_not_detected = counts_balrog_not_detected / max_count
+        norm_counts_gandalf_detected = counts_gandalf_detected / max_count
+        norm_counts_gandalf_not_detected = counts_gandalf_not_detected / max_count
+
+        bar_width = (bins[1] - bins[0]) / 2  # Adjusted bar width
+
+        # Plot the histograms as background
+        ax_bar.bar(
+            bin_centers - bar_width / 2, norm_counts_balrog_detected, width=bar_width / 2,
+            color=color_balrog_detected, alpha=0.5, label='Balrog Detected', align='edge'
+        )
+        ax_bar.bar(
+            bin_centers - bar_width / 2, norm_counts_balrog_not_detected, width=bar_width / 2,
+            color=color_balrog_not_detected, alpha=0.5, label='Balrog Not Detected', align='edge'
+        )
+
+        ax_bar.bar(
+            bin_centers + bar_width / 2, norm_counts_gandalf_detected, width= -bar_width / 2,
+            color=color_gandalf_detected, alpha=0.5, label='Gandalf Detected', align='edge'
+        )
+        ax_bar.bar(
+            bin_centers + bar_width / 2, norm_counts_gandalf_not_detected, width= -bar_width / 2,
+            color=color_gandalf_not_detected, alpha=0.5, label='Gandalf Not Detected', align='edge'
+        )
+
+        ax_bar.set_yticks([])  # Hide y-axis ticks for the background histogram
+        ax_bar.set_zorder(1)   # Set background histogram behind the fluctuation plot
+        ax.set_zorder(2)       # Ensure the fluctuation plot is on top
+        ax.patch.set_visible(False)  # Make the ax background transparent
+
+        # Plot fluctuations on top
+        ax.plot(
+            bin_centers, fluctuation_balrog_detected,
+            marker='o', linestyle='-', color=color_balrog_detected, alpha=1.0, label='Balrog Detected'
+        )
+        ax.plot(
+            bin_centers, fluctuation_balrog_not_detected,
+            marker='o', linestyle='--', color=color_balrog_not_detected, alpha=1.0, label='Balrog Not Detected'
+        )
+
+        ax.plot(
+            bin_centers, fluctuation_gandalf_detected,
+            marker='s', linestyle='-', color=color_gandalf_detected, alpha=1.0, label='Gandalf Detected'
+        )
+        ax.plot(
+            bin_centers, fluctuation_gandalf_not_detected,
+            marker='s', linestyle='--', color=color_gandalf_not_detected, alpha=1.0, label='Gandalf Not Detected'
+        )
+
+        ax.axhline(1, color='red', linestyle='--')
+        ax.set_xlabel(label)
+        ax.set_ylabel(r'$N / \langle N \rangle$')
+        ax.grid(True)
+        ax.set_xlim(range_min, range_max)
+        ax.legend(loc='upper right', fontsize='small', ncol=2)
+
+    # Remove any unused axes
+    total_plots = nrows * ncols
+    if len(columns) < total_plots:
+        for idx in range(len(columns), total_plots):
+            fig.delaxes(axes[idx])
+
+    plt.suptitle(title)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout to make room for the title
+
+    # Show or save plot based on arguments
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    if show_plot:
+        plt.show()
+
+    plt.close(fig)
+
 
 
 def make_gif(frame_folder, name_save_folder, fps=10):
