@@ -63,6 +63,8 @@ class GalaxyDataset(Dataset):
             print(f"Sample {cfg['NUMBER_SAMPLES']} random data from run data set")
             if cfg['NUMBER_SAMPLES'] == -1:
                 cfg['NUMBER_SAMPLES'] = len(df_data)
+            elif cfg['NUMBER_SAMPLES'] == -666:
+                cfg['NUMBER_SAMPLES'] = 20208363
             #     df_run = df_data.copy()
             # else:
             df_run = self.sample_random_data_from_dataframe(df_data)

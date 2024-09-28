@@ -29,7 +29,7 @@ def load_tmp_data(cfg, file_name):
 def main(cfg):
     """"""
     cfg = make_dirs(cfg)
-    total_number_of_samples = -100
+    total_number_of_samples = -1000
     run_number = 1
     nm_emu = ""
     nm_cls = ""
@@ -40,9 +40,9 @@ def main(cfg):
         nm_cls = "Classified_"
 
     # if cfg['NUMBER_SAMPLES'] == -1:
-    #     cfg['NUMBER_SAMPLES'] = 3031255  # int(3254744 * 0.15)
-
+    #     cfg['NUMBER_SAMPLES'] = len(df_balrog)
     cfg['FILENAME_GANDALF_CATALOG'] = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}_{cfg['DATASET_TYPE']}"
+
     bootsrap = False
     while total_number_of_samples < cfg['NUMBER_SAMPLES']:
         if cfg['NUMBER_SAMPLES'] == -1:
@@ -59,6 +59,22 @@ def main(cfg):
             df_balrog, df_gandalf = gandalf.run_classifier(data_frame=df_balrog)
         else:
             df_gandalf = df_balrog.copy()
+
+
+        if cfg["SAVE_CLF_DATA"] is True:
+            gandalf.save_data(
+                data_frame=df_balrog,
+                file_name=f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl",
+                protocol=5,
+                tmp_samples=False
+            )
+
+            gandalf.save_data(
+                data_frame=df_gandalf,
+                file_name=f"{cfg['RUN_DATE']}_gandalf_clf_{cfg['DATASET_TYPE']}_sample.pkl",
+                protocol=5,
+                tmp_samples=False
+            )
 
         df_balrog_detected = df_balrog[df_balrog["detected"] == 1].copy()
         df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1].copy()
@@ -97,6 +113,21 @@ def main(cfg):
         # del df_balrog_detected, df_gandalf_detected
         gc.collect()
 
+        if cfg["SAVE_EMR_DATA"] is True:
+            gandalf.save_data(
+                data_frame=df_balrog,
+                file_name=f"{cfg['RUN_DATE']}_balrog_emr_{cfg['DATASET_TYPE']}_sample.pkl",
+                protocol=5,
+                tmp_samples=False
+            )
+
+            gandalf.save_data(
+                data_frame=df_gandalf,
+                file_name=f"{cfg['RUN_DATE']}_gandalf_emr_{cfg['DATASET_TYPE']}_sample.pkl",
+                protocol=5,
+                tmp_samples=False
+            )
+        exit()
         df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
         df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
 
