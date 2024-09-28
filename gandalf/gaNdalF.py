@@ -221,6 +221,7 @@ class gaNdalF(object):
 
     def save_data(self, data_frame, file_name, protocol=2, tmp_samples=False):
         """"""
+        print(f"Save file to: {self.cfg['PATH_CATALOGS']}/{file_name}")
         if tmp_samples is True:
             duplicates = data_frame.columns[data_frame.columns.duplicated()]
             if len(duplicates) > 0:
