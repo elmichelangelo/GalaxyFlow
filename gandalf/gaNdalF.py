@@ -241,25 +241,49 @@ class gaNdalF(object):
                 with open(f"{self.cfg['PATH_CATALOGS']}/{file_name}", "wb") as f:
                     pickle.dump(data_frame, f, protocol=2)
 
-    @staticmethod
-    def apply_cuts(cfg, data_frame):
+    def apply_cuts(self, data_frame):
         """"""
         data_frame = unsheared_object_cuts(data_frame=data_frame)
         data_frame = flag_cuts(data_frame=data_frame)
         data_frame = unsheared_shear_cuts(data_frame=data_frame)
         data_frame = binary_cut(data_frame=data_frame)
-        if cfg['MASK_CUT_FUNCTION'] == "HEALPY":
-            data_frame = mask_cut_healpy(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
-        elif cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
+        if self.cfg['MASK_CUT_FUNCTION'] == "HEALPY":
+            data_frame = mask_cut_healpy(
+                data_frame=data_frame,
+                master=f"{self.cfg['PATH_DATA']}/{self.cfg['FILENAME_MASTER_CAT']}"
+            )
+        elif self.cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
             # Todo there is a bug here, I cutout to many galaxies
-            data_frame = mask_cut(data_frame=data_frame, master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}")
+            data_frame = mask_cut(
+                data_frame=data_frame,
+                master=f"{self.cfg['PATH_DATA']}/{self.cfg['FILENAME_MASTER_CAT']}"
+            )
         else:
             print("No mask cut function defined!!!")
             exit()
         data_frame = unsheared_mag_cut(data_frame=data_frame)
         return data_frame
 
-    def plot_classf_data(self, df_balrog, df_gandalf, df_balrog_detected, df_gandalf_detected):
+    def apply_deep_cuts(self, data_frame):
+        """"""
+        data_frame = flag_cuts(data_frame=data_frame)
+        if self.cfg['MASK_CUT_FUNCTION'] == "HEALPY":
+            data_frame = mask_cut_healpy(
+                data_frame=data_frame,
+                master=f"{self.cfg['PATH_DATA']}/{self.cfg['FILENAME_MASTER_CAT']}"
+            )
+        elif self.cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
+            # Todo there is a bug here, I cutout to many galaxies
+            data_frame = mask_cut(
+                data_frame=data_frame,
+                master=f"{self.cfg['PATH_DATA']}/{self.cfg['FILENAME_MASTER_CAT']}"
+            )
+        else:
+            print("No mask cut function defined!!!")
+            exit()
+        return data_frame
+
+    def plot_classf_data(self, df_balrog, df_gandalf):
         """"""
 
         print("Start plotting classf data")
@@ -294,6 +318,296 @@ class gaNdalF(object):
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve.png",
                 title=f"Receiver Operating Characteristic (ROC) Curve"
             )
+
+        if self.cfg['PLOT_CLASSF_BOX'] is True:
+            plot_box(
+                df_balrog=df_balrog,
+                df_gandalf=df_gandalf,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_I",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag I",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_BOX']}/boxplot.png",
+                title=f"Box Plot Gandalf vs. Balrog"
+            )
+        if self.cfg['PLOT_NUMBER_DENSITY_RUN'] is True:
+            plot_number_density_fluctuation(
+                df_balrog=df_balrog,
+                df_gandalf=df_gandalf,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_I",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag I",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                ranges=[
+                    [18, 26],
+                    [18, 26],
+                    [18, 26],
+                    [-1, 1.5],
+                    [-0.1, 0.8],
+                    [0.8, 1.2],
+                    [0.7, 1.1],
+                    [0.7, 1.0],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [23.5, 24.5],
+                    [23, 23.75],
+                    [22, 23],
+                    [0, 0.05]
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_NUMBER_DENSITY']}/number_density_fluctuation.png",
+                title=f"Comparison Between Gandalf and Balrog"
+            )
+            df_balrog_deep_cut = self.apply_deep_cuts(df_balrog)
+            df_gandalf_deep_cut = self.apply_deep_cuts(df_gandalf)
+            plot_number_density_fluctuation(
+                df_balrog=df_balrog_deep_cut,
+                df_gandalf=df_gandalf_deep_cut,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_I",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag I",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                ranges=[
+                    [18, 26],
+                    [18, 26],
+                    [18, 26],
+                    [-1, 1.5],
+                    [-0.1, 0.8],
+                    [0.8, 1.2],
+                    [0.7, 1.1],
+                    [0.7, 1.0],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [23.5, 24.5],
+                    [23, 23.75],
+                    [22, 23],
+                    [0, 0.05]
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_NUMBER_DENSITY']}/number_density_fluctuation_cut.png",
+                title=f"Comparison Between Gandalf and Balrog"
+            )
+        # Multivariate classifier
+        if self.cfg['PLOT_MULTI_CLASSF_RUN'] is True:
+            plot_multivariate_classifier(
+                df_balrog=df_balrog,
+                df_gandalf=df_gandalf,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_I",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag I",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                ranges=[
+                    [18, 26],
+                    [18, 26],
+                    [18, 26],
+                    [-1, 1.5],
+                    [-0.1, 0.8],
+                    [0.8, 1.2],
+                    [0.7, 1.1],
+                    [0.7, 1.0],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [23.5, 24.5],
+                    [23, 23.75],
+                    [22, 23],
+                    [0, 0.05]
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_MULTIVARIATE_GAUSSIAN']}/classifier_multiv.png",
+                title=f"Comparison Between Gandalf and Balrog"
+            )
+
+        if self.cfg['PLOT_MULTI_CLASSF_CUT_RUN'] is True:
+            df_balrog_deep_cut = self.apply_deep_cuts(df_balrog)
+            df_gandalf_deep_cut = self.apply_deep_cuts(df_gandalf)
+
+            plot_multivariate_classifier(
+                df_balrog=df_balrog_deep_cut,
+                df_gandalf=df_gandalf_deep_cut,
+                columns=[
+                    "BDF_MAG_DERED_CALIB_R",
+                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_T",
+                    "BDF_G",
+                    "FWHM_WMEAN_R",
+                    "FWHM_WMEAN_I",
+                    "FWHM_WMEAN_Z",
+                    "AIRMASS_WMEAN_R",
+                    "AIRMASS_WMEAN_I",
+                    "AIRMASS_WMEAN_Z",
+                    "MAGLIM_R",
+                    "MAGLIM_I",
+                    "MAGLIM_Z",
+                    "EBV_SFD98"
+                ],
+                labels=[
+                    "BDF Mag R",
+                    "BDF Mag Z",
+                    "BDF T",
+                    "BDF G",
+                    "FWHM R",
+                    "FWHM I",
+                    "FWHM Z",
+                    "AIRMASS R",
+                    "AIRMASS I",
+                    "AIRMASS Z",
+                    "MAGLIM R",
+                    "MAGLIM I",
+                    "MAGLIM Z",
+                    "EBV SFD98"
+                ],
+                ranges=[
+                    [18, 26],
+                    [18, 26],
+                    [-1, 1.5],
+                    [-0.1, 0.8],
+                    [0.8, 1.2],
+                    [0.7, 1.1],
+                    [0.7, 1.0],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [1, 1.4],
+                    [23.5, 24.5],
+                    [23, 23.75],
+                    [22, 23],
+                    [0, 0.05]
+                ],
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_MULTIVARIATE_GAUSSIAN']}/classifier_multiv_cut.png",
+                title=f"Comparison Between Gandalf and Balrog after applying cuts"
+            )
+
+            del df_balrog_deep_cut
+            del df_gandalf_deep_cut
 
         if self.cfg['PLOT_CLASSF_HISTOGRAM'] is True:
             plot_classifier_histogram(
@@ -400,6 +714,60 @@ class gaNdalF(object):
 
     def plot_data_flow(self, df_gandalf, df_balrog, mcal=''):
         """"""
+        if self.cfg['PLOT_BALROG_HIST_RUN'] is True:
+            plot_balrog_histogram_with_error(
+                df_gandalf=df_gandalf,
+                df_balrog=df_balrog,
+                columns=[
+                    "unsheared/mag_r",
+                    "unsheared/mag_i",
+                    "unsheared/mag_z",
+                    "Color unsheared MAG r-i",
+                    "Color unsheared MAG i-z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/weight",
+                    "unsheared/T",
+                ],
+                labels=[
+                    "mag r",
+                    "mag i",
+                    "mag z",
+                    "mag r-i",
+                    "mag i-z",
+                    "snr",
+                    "size ratio",
+                    "weight",
+                    "T",
+                ],
+                ranges=[
+                    [18, 24.5],  # mag r
+                    [18, 24.5],  # mag i
+                    [18, 24.5],  # mag z
+                    [-0.5, 1.5],  # mag r-i
+                    [-0.5, 1.5],  # mag i-z
+                    [2, 100],  # snr
+                    [-0.5, 5],  # size ratio
+                    [10, 80],  # weight
+                    [0, 3.5]  # T
+                ],
+                binwidths=[
+                    None,  # mag r
+                    None,  # mag i
+                    None,  # mag z
+                    0.08,  # mag r-i
+                    0.08,  # mag i-z
+                    2,  # snr
+                    0.2,  # size ratio
+                    2,  # weight
+                    0.2  # T
+                ],
+                title="Hist compare",
+                show_plot=self.cfg['SHOW_PLOT_RUN'],
+                save_plot=self.cfg['SAVE_PLOT_RUN'],
+                save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER'][f'{mcal.upper()}BALROG_HIST_PLOT']}/{self.cfg[f'RUN_NUMBER']}_{mcal}balrog_hist_plot.png"
+            )
+
         if self.cfg['PLOT_COLOR_COLOR_RUN'] is True:
             try:
                 plot_compare_corner(

@@ -152,7 +152,7 @@ class gaNdalFFlow(object):
         modules = []
         for _ in range(self.nb):
             modules += [
-                fnn.MADE(num_outputs, self.nh, num_input, act=self.act),
+                fnn.MADE(num_inputs=num_outputs, num_hidden=self.nh, num_cond_inputs=num_input, act=self.act),
                 fnn.BatchNormFlow(num_outputs),
                 fnn.Reverse(num_outputs)
             ]

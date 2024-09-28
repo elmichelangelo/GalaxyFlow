@@ -67,8 +67,8 @@ if __name__ == '__main__':
     now = datetime.now()
     prefix_mock = ""
 
-    if cfg['TRAIN_ON_MOCK_FLOW'] is True:
-        prefix_mock = "_mock"
+    # if cfg['TRAIN_ON_MOCK_FLOW'] is True:
+    #     prefix_mock = "_mock"
 
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}{prefix_mock}"

@@ -23,6 +23,21 @@ def sample_columns(df_balrog, df_gandalf, column_name):
     return df_gandalf
 
 
+# def calculate_kde(x, y, positions, X):
+#     from scipy.stats import gaussian_kde
+#     xy = np.vstack([x, y])
+#     kde = gaussian_kde(xy, bw_method=0.2)
+#     Z = np.reshape(kde(positions).T, X.shape)
+#     return Z / Z.max()  # Normalize
+
+def calculate_kde(x, y, positions):
+    from scipy.stats import gaussian_kde
+    values = np.vstack([x, y])
+    kernel = gaussian_kde(values)
+    Z = np.reshape(kernel(positions).T, positions.shape[1:])
+    return Z
+
+
 def select_columns(df_balrog, df_gandalf, column_name, bin_width=0.25):
     min_i_mag = min(df_balrog['BDF_MAG_DERED_CALIB_I'].min(), df_gandalf['BDF_MAG_DERED_CALIB_I'].min())
     max_i_mag = max(df_balrog['BDF_MAG_DERED_CALIB_I'].max(), df_gandalf['BDF_MAG_DERED_CALIB_I'].max())
