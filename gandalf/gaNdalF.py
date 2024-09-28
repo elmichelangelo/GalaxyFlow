@@ -41,6 +41,8 @@ class gaNdalF(object):
 
         if self.cfg['NUMBER_SAMPLES'] == -1:
             self.cfg['NUMBER_SAMPLES'] = len(galaxies.run_dataset)
+        elif self.cfg['NUMBER_SAMPLES'] == -666:
+            self.cfg['NUMBER_SAMPLES'] = 20208363
 
         return galaxies
 
@@ -217,7 +219,7 @@ class gaNdalF(object):
 
         return df_balrog, df_gandalf
 
-    def save_data(self, data_frame, file_name, tmp_samples=False):
+    def save_data(self, data_frame, file_name, protocol=2, tmp_samples=False):
         """"""
         if tmp_samples is True:
             duplicates = data_frame.columns[data_frame.columns.duplicated()]
@@ -238,8 +240,11 @@ class gaNdalF(object):
                 #         # Create a dataset in the file and save the numpy array
                 #         hf.create_dataset(column, data=data)
             elif "pkl" in file_name:
-                with open(f"{self.cfg['PATH_CATALOGS']}/{file_name}", "wb") as f:
-                    pickle.dump(data_frame, f, protocol=2)
+                if protocol == 2:
+                    with open(f"{self.cfg['PATH_CATALOGS']}/{file_name}", "wb") as f:
+                        pickle.dump(data_frame, f, protocol=protocol)
+                else:
+                    data_frame.to_pickle(f"{self.cfg['PATH_CATALOGS']}/{file_name}")
 
     def apply_cuts(self, data_frame):
         """"""
