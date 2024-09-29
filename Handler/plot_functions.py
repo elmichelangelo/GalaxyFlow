@@ -1241,7 +1241,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             ax = axes[subplot_idx_x, subplot_idx_y]
         except TypeError:
             ax = axes
-
+        print(f"Plot gandalf detected column: {col} out off {len(columns)-(i+1)}/{len(columns)}")
         # Gandalf detected KDE
         sns.kdeplot(
             x=df_gandalf_detected["BDF_MAG_DERED_CALIB_I"],
@@ -1253,6 +1253,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             alpha=0.5,
             ax=ax
         )
+        print(f"Plot balrog detected column: {col} out off {len(columns) - (i + 1)}/{len(columns)}")
         # Balrog detected KDE
         sns.kdeplot(
             x=df_balrog_detected["BDF_MAG_DERED_CALIB_I"],
@@ -1264,6 +1265,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             alpha=0.5,
             ax=ax
         )
+        print(f"Plot gandalf not detected column: {col} out off {len(columns) - (i + 1)}/{len(columns)}")
         # Gandalf not detected KDE
         sns.kdeplot(
             x=df_gandalf_not_detected["BDF_MAG_DERED_CALIB_I"],
@@ -1275,6 +1277,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             alpha=0.2,
             ax=ax
         )
+        print(f"Plot balrog not detected column: {col} out off {len(columns) - (i + 1)}/{len(columns)}")
         # Balrog not detected KDE
         sns.kdeplot(
             x=df_balrog_not_detected["BDF_MAG_DERED_CALIB_I"],
@@ -1311,10 +1314,10 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
 
     # Customize layout and legend
     legend_elements = [
-        mpatches.Patch(color='orange', label='Gandalf Detected'),
-        mpatches.Patch(color='purple', label='Gandalf Not Detected'),
-        mpatches.Patch(color='blue', label='Balrog Detected'),
-        mpatches.Patch(color='green', label='Balrog Not Detected')
+        mpatches.Patch(color='orange', alpha=0.5, label='Gandalf Detected'),
+        mpatches.Patch(color='orange', alpha=0.2, label='Gandalf Not Detected'),
+        mpatches.Patch(color='blue', alpha=0.5, label='Balrog Detected'),
+        mpatches.Patch(color='blue', alpha=0.2, label='Balrog Not Detected')
     ]
 
     fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
