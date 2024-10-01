@@ -1222,6 +1222,11 @@ def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_
 
 def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name, title='Histogram'):
     import matplotlib.patches as mpatches
+    import time
+
+    # Set the start time
+    start_time = time.time()
+
     num_cols = int(np.round(np.sqrt(len(columns))))
 
     # Prepare the dataframes (assuming you already have df_gandalf and df_balrog)
@@ -1235,12 +1240,28 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
 
     subplot_idx_x = num_cols - 1
     subplot_idx_y = 0
+    
+    def get_elapsed_time(start_time):
+        # Calculate elapsed time
+        elapsed_time = time.time() - start_time
+
+        # Convert to days, hours, minutes, and seconds
+        days = elapsed_time // (24 * 3600)
+        elapsed_time = elapsed_time % (24 * 3600)
+        hours = elapsed_time // 3600
+        elapsed_time %= 3600
+        minutes = elapsed_time // 60
+        seconds = elapsed_time % 60
+
+        # Print the elapsed time
+        print(f"Elapsed time: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s")
 
     for i, col in enumerate(columns):
         try:
             ax = axes[subplot_idx_x, subplot_idx_y]
         except TypeError:
             ax = axes
+        get_elapsed_time(start_time)
         print(f"Plot gandalf detected column: {col} out off {len(columns)-(i+1)}/{len(columns)}")
         # Gandalf detected KDE
         sns.kdeplot(
@@ -1253,6 +1274,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             alpha=0.5,
             ax=ax
         )
+        get_elapsed_time(start_time)
         print(f"Plot balrog detected column: {col} out off {len(columns) - (i + 1)}/{len(columns)}")
         # Balrog detected KDE
         sns.kdeplot(
@@ -1265,6 +1287,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             alpha=0.5,
             ax=ax
         )
+        get_elapsed_time(start_time)
         print(f"Plot gandalf not detected column: {col} out off {len(columns) - (i + 1)}/{len(columns)}")
         # Gandalf not detected KDE
         sns.kdeplot(
@@ -1273,10 +1296,11 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             fill=False,
             thresh=0,
             levels=5,
-            cmap='Oranges',
+            cmap='Reds',
             alpha=0.2,
             ax=ax
         )
+        get_elapsed_time(start_time)
         print(f"Plot balrog not detected column: {col} out off {len(columns) - (i + 1)}/{len(columns)}")
         # Balrog not detected KDE
         sns.kdeplot(
@@ -1285,7 +1309,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             fill=True,
             thresh=0,
             levels=5,
-            cmap='Blues',
+            cmap='Purple',
             alpha=0.2,
             ax=ax
         )
@@ -1315,9 +1339,9 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
     # Customize layout and legend
     legend_elements = [
         mpatches.Patch(color='orange', alpha=0.5, label='Gandalf Detected'),
-        mpatches.Patch(color='orange', alpha=0.2, label='Gandalf Not Detected'),
+        mpatches.Patch(color='red', alpha=0.2, label='Gandalf Not Detected'),
         mpatches.Patch(color='blue', alpha=0.5, label='Balrog Detected'),
-        mpatches.Patch(color='blue', alpha=0.2, label='Balrog Not Detected')
+        mpatches.Patch(color='purple', alpha=0.2, label='Balrog Not Detected')
     ]
 
     fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
