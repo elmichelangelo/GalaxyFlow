@@ -28,6 +28,10 @@ def load_tmp_data(cfg, file_name):
 
 def main(cfg):
     """"""
+    
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_rows', None)
+        
     cfg = make_dirs(cfg)
     total_number_of_samples = -1000
     run_number = 1
@@ -54,12 +58,25 @@ def main(cfg):
         df_balrog = gandalf.galaxies.run_dataset
 
         print(f"Length sample dataset: {len(df_balrog)}")
-
+        print("Balrog start")
+        print("############################################")
+        print(df_balrog.isna().sum())
+        print("############################################")
+        
         if cfg['CLASSF_GALAXIES']:
             df_balrog, df_gandalf = gandalf.run_classifier(data_frame=df_balrog)
         else:
-            df_gandalf = df_balrog.copy()
-
+            df_gandalf = df_balrog.copy()    
+            
+        print("Balrog after classifier")
+        print("############################################")
+        print(df_balrog.isna().sum())
+        print("############################################")
+        
+        print("gaNdalF after classifier")
+        print("############################################")
+        print(df_gandalf.isna().sum())
+        print("############################################")
 
         if cfg["SAVE_CLF_DATA"] is True:
             gandalf.save_data(
@@ -79,6 +96,17 @@ def main(cfg):
         df_balrog_detected = df_balrog[df_balrog["detected"] == 1].copy()
         df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1].copy()
 
+        print("Balrog after classifier detected")
+        print("############################################")
+        print(df_balrog_detected.isna().sum())
+        print("############################################")
+        
+        print("gaNdalF after classifier detected")
+        print("############################################")
+        print(df_gandalf_detected.isna().sum())
+        print("############################################")
+        exit()
+        
         if cfg['PLOT_RUN']:
             gandalf.plot_classf_data(
                 df_balrog=df_balrog,
@@ -113,17 +141,17 @@ def main(cfg):
         # del df_balrog_detected, df_gandalf_detected
         gc.collect()
 
-        if cfg["SAVE_EMR_DATA"] is True:
+        if cfg["SAVE_FLW_DATA"] is True:
             gandalf.save_data(
-                data_frame=df_balrog,
-                file_name=f"{cfg['RUN_DATE']}_balrog_emr_{cfg['DATASET_TYPE']}_sample.pkl",
+                data_frame=df_balrog_detected,
+                file_name=f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl",
                 protocol=5,
                 tmp_samples=False
             )
 
             gandalf.save_data(
-                data_frame=df_gandalf,
-                file_name=f"{cfg['RUN_DATE']}_gandalf_emr_{cfg['DATASET_TYPE']}_sample.pkl",
+                data_frame=df_gandalf_detected,
+                file_name=f"{cfg['RUN_DATE']}_gandalf_flw_{cfg['DATASET_TYPE']}_sample.pkl",
                 protocol=5,
                 tmp_samples=False
             )

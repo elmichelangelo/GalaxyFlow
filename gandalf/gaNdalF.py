@@ -186,21 +186,26 @@ class gaNdalF(object):
                 columns=trans_col
             )
         print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf_flow.isna().sum().sum()}")
+        
+        print(df_gandalf.isna().sum())
 
         df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
         df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
+        
+        print(df_gandalf.isna().sum())
+        exit()
 
         print(f"Length gandalf catalog: {len(df_gandalf)}")
         print(f"Length balrog catalog: {len(df_balrog)}")
         if df_gandalf.isna().sum().sum() > 0:
             print("Warning: NaNs in df_gandalf_rescaled")
             print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
-            df_gandalf.dropna(inplace=True)
+            # df_gandalf.dropna(inplace=True)
 
         if df_balrog.isna().sum().sum() > 0:
             print("Warning: NaNs in df_gandalf_rescaled")
             print(f"Number of NaNs in df_gandalf: {df_balrog.isna().sum().sum()}")
-            df_balrog.dropna(inplace=True)
+            # df_balrog.dropna(inplace=True)
 
         print(f"Length gandalf catalog: {len(df_gandalf)}")
         print(f"Length balrog catalog: {len(df_balrog)}")

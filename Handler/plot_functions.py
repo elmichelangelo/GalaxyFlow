@@ -228,6 +228,193 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     return img_tensor, dict_delta
 
 
+def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
+                        show_plot=False, save_plot=False, save_name=None):
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import matplotlib.gridspec as gridspec
+
+    # Prepare data arrays
+    arr_generated = data_frame_generated[columns].values
+    arr_true = data_frame_true[columns].values
+
+    # Compute quantiles
+    quantiles_generated = np.quantile(arr_generated, q=[0.16, 0.84], axis=0)
+    quantiles_true = np.quantile(arr_true, q=[0.16, 0.84], axis=0)
+
+    delta_names = ["mean", "median", "q16", "q84"]
+    ndim = len(columns)
+
+    # Initialize dict_delta if epoch == 1
+    if epoch == 1 and dict_delta is not None:
+        for label in labels:
+            dict_delta[f"delta mean {label}"] = []
+            dict_delta[f"delta median {label}"] = []
+            dict_delta[f"delta q16 {label}"] = []
+            dict_delta[f"delta q84 {label}"] = []
+
+    # Compute deltas
+    delta_mean_list = []
+    delta_median_list = []
+    delta_q16_list = []
+    delta_q84_list = []
+
+    for i in range(ndim):
+        gen_data = arr_generated[:, i]
+        true_data = arr_true[:, i]
+        delta_mean = np.mean(gen_data) - np.mean(true_data)
+        delta_median = np.median(gen_data) - np.median(true_data)
+        delta_q16 = quantiles_generated[0, i] - quantiles_true[0, i]
+        delta_q84 = quantiles_generated[1, i] - quantiles_true[1, i]
+
+        delta_mean_list.append(delta_mean)
+        delta_median_list.append(delta_median)
+        delta_q16_list.append(delta_q16)
+        delta_q84_list.append(delta_q84)
+
+        if dict_delta is not None:
+            dict_delta[f"delta mean {labels[i]}"].append(delta_mean)
+            dict_delta[f"delta median {labels[i]}"].append(delta_median)
+            dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
+            dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
+
+    # Create combined DataFrame
+    data_frame_generated_copy = data_frame_generated[columns].copy()
+    data_frame_generated_copy['dataset'] = 'generated'
+
+    data_frame_true_copy = data_frame_true[columns].copy()
+    data_frame_true_copy['dataset'] = 'true'
+
+    data_frame_combined = pd.concat([data_frame_generated_copy, data_frame_true_copy], ignore_index=True)
+
+    # Create figure and gridspec
+    if dict_delta is None:
+        fig, axes = plt.subplots(ndim, ndim, figsize=(16, 9))
+    else:
+        fig = plt.figure(figsize=(16, 12))
+        gs = fig.add_gridspec(ndim + 5, ndim, hspace=0.05, wspace=0.1)
+        axes = np.array([[fig.add_subplot(gs[i, j]) for j in range(ndim)] for i in range(ndim)])
+
+    # Plot the pairwise plots
+    for i, x_var in enumerate(columns):
+        for j, y_var in enumerate(columns):
+            ax = axes[i, j]
+            if i == j:
+                # Diagonal: Histograms
+                sns.histplot(
+                    data=data_frame_combined,
+                    x=x_var,
+                    hue='dataset',
+                    ax=ax,
+                    bins=100,
+                    element='step',
+                    stat='density',
+                    common_norm=False,
+                    palette={'generated': '#ff8c00', 'true': '#51a6fb'},
+                    legend=False
+                )
+                # Add delta information in the title
+                delta_mean = delta_mean_list[i]
+                delta_median = delta_median_list[i]
+                ax.set_title(f'Δmean={delta_mean:.2e}\nΔmedian={delta_median:.2e}', fontsize=10)
+            elif i > j:
+                # Lower triangle: KDE plots
+                sns.kdeplot(
+                    data=data_frame_combined[data_frame_combined['dataset'] == 'generated'],
+                    x=y_var,
+                    y=x_var,
+                    ax=ax,
+                    fill=True,
+                    levels=5,
+                    thresh=0,
+                    color='#ff8c00',
+                    alpha=0.5
+                )
+                sns.kdeplot(
+                    data=data_frame_combined[data_frame_combined['dataset'] == 'true'],
+                    x=y_var,
+                    y=x_var,
+                    ax=ax,
+                    fill=True,
+                    levels=5,
+                    thresh=0,
+                    color='#51a6fb',
+                    alpha=0.5
+                )
+            else:
+                # Upper triangle: Hide
+                ax.set_visible(False)
+
+            # Set axis labels
+            if i == ndim - 1:
+                ax.set_xlabel(labels[j])
+            else:
+                ax.set_xlabel('')
+            if j == 0:
+                ax.set_ylabel(labels[i])
+            else:
+                ax.set_ylabel('')
+
+            # Remove ticks where appropriate
+            if i != ndim - 1:
+                ax.set_xticklabels([])
+            if j != 0:
+                ax.set_yticklabels([])
+
+    # Create custom legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='#ff8c00', lw=4, label='gaNdalF'),
+        Line2D([0], [0], color='#51a6fb', lw=4, label='Balrog')
+    ]
+
+    if dict_delta is not None:
+        delta_legend_elements = []
+        epochs = list(range(1, epoch + 1))
+        for idx, delta_name in enumerate(delta_names):
+            delta_ax = fig.add_subplot(gs[ndim + 1 + idx, :])
+            for i, label in enumerate(labels):
+                line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o',
+                                      label=f"Δ {delta_name} {label}")
+                if idx == 0:
+                    delta_legend_elements.append(line)
+
+            delta_ax.axhline(y=0, color='gray', linestyle='--')
+            delta_ax.set_ylim(-0.05, 0.05)
+
+            if idx == len(delta_names) - 1:
+                delta_ax.set_xlabel('Epoch')
+            else:
+                delta_ax.set_xticklabels([])
+
+            delta_ax.set_ylabel(f'Δ {delta_name}')
+
+        # Combine legend elements
+        legend_elements.extend(delta_legend_elements)
+        fig.legend(handles=legend_elements, loc='upper right', fontsize=12)
+    else:
+        fig.legend(handles=legend_elements, loc='upper right', fontsize=16)
+
+    # Set the main title
+    if epoch is not None:
+        fig.suptitle(f'{title}, epoch {epoch}', fontsize=20)
+    else:
+        fig.suptitle(f'{title}', fontsize=20)
+
+    # Optionally show or save the plot
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+
+    plt.close(fig)
+
+    # Return updated dict_delta
+    return dict_delta
+
+
 # def plot_chain(df_balrog, plot_name, max_ticks=5, shade_alpha=0.8, tick_font_size=12, label_font_size=12, columns=None,
 #                parameter=None, extends=None, show_plot=False):
 #     """
@@ -1223,6 +1410,7 @@ def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_
 def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name, title='Histogram'):
     import matplotlib.patches as mpatches
     import time
+    import numpy as np
 
     # Set the start time
     start_time = time.time()
@@ -1255,6 +1443,24 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
 
         # Print the elapsed time
         print(f"Elapsed time: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s")
+    
+    def compute_detection_probabilities(df, bins, feature_column):
+        """Compute detection probabilities for a given feature and set of bins."""
+        detected_count, _ = np.histogram(df[df["detected"] == 1][feature_column], bins=bins)
+        total_count, _ = np.histogram(df[feature_column], bins=bins)
+        detection_prob = detected_count / total_count
+        return detection_prob
+    
+    # Define the bin edges for BDF_MAG_DERED_CALIB_I (adjust range and bin size as needed)
+    bins = np.linspace(21, 26, 10)  # 10 bins from 21 to 26 in i-mag
+
+    # Compute detection probabilities for both gaNdalF and Balrog
+    detection_prob_gandalf = compute_detection_probabilities(df_gandalf, bins, "BDF_MAG_DERED_CALIB_I")
+    detection_prob_balrog = compute_detection_probabilities(df_balrog, bins, "BDF_MAG_DERED_CALIB_I")
+
+    # Compute the absolute difference between the detection probabilities
+    detection_prob_difference = np.abs(detection_prob_gandalf - detection_prob_balrog)
+    print("Detection Probability Difference (absolute):", detection_prob_difference)
 
     for i, col in enumerate(columns):
         try:
@@ -1309,7 +1515,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             fill=True,
             thresh=0,
             levels=5,
-            cmap='Purple',
+            cmap='Purples',
             alpha=0.2,
             ax=ax
         )
@@ -1645,6 +1851,7 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
     """
     Plots the number density fluctuation (N/<N>) for detected and not detected objects
     in df_balrog and df_gandalf for specified columns, with histograms in the background.
+    Also computes and plots the percentage difference between gaNdalF and Balrog.
     """
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1665,9 +1872,9 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
 
     # Define colors
     color_balrog_detected = '#51a6fb'       # Blue
-    color_balrog_not_detected = '#add8e6'   # Light Blue
+    color_balrog_not_detected = '#9933ff'   # Light Blue
     color_gandalf_detected = '#ff8c00'      # Orange
-    color_gandalf_not_detected = '#ffcc80'  # Light Orange
+    color_gandalf_not_detected = '#cc3300'  # Light Orange
 
     for idx, col in enumerate(columns):
         ax = axes[idx]
@@ -1733,11 +1940,18 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
             fluctuation_gandalf_detected = counts_gandalf_detected / mean_counts_gandalf_detected
             fluctuation_gandalf_not_detected = counts_gandalf_not_detected / mean_counts_gandalf_not_detected
 
+            # Calculate percentage difference
+            percentage_diff_detected = 100 * (counts_gandalf_detected - counts_balrog_detected) / counts_balrog_detected
+            percentage_diff_not_detected = 100 * (counts_gandalf_not_detected - counts_balrog_not_detected) / counts_balrog_not_detected
+
         # Handle division by zero and invalid values
         fluctuation_balrog_detected[mean_counts_balrog_detected == 0] = np.nan
         fluctuation_balrog_not_detected[mean_counts_balrog_not_detected == 0] = np.nan
         fluctuation_gandalf_detected[mean_counts_gandalf_detected == 0] = np.nan
         fluctuation_gandalf_not_detected[mean_counts_gandalf_not_detected == 0] = np.nan
+
+        percentage_diff_detected[~np.isfinite(percentage_diff_detected)] = np.nan
+        percentage_diff_not_detected[~np.isfinite(percentage_diff_not_detected)] = np.nan
 
         # Bin centers
         bin_centers = (bins[:-1] + bins[1:]) / 2
@@ -1768,7 +1982,7 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
         )
         ax_bar.bar(
             bin_centers - bar_width / 2, norm_counts_balrog_not_detected, width=bar_width / 2,
-            color=color_balrog_not_detected, alpha=0.5, label='Balrog Not Detected', align='edge'
+            color=color_balrog_not_detected, alpha=0.2, label='Balrog Not Detected', align='edge'
         )
 
         ax_bar.bar(
@@ -1777,7 +1991,7 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
         )
         ax_bar.bar(
             bin_centers + bar_width / 2, norm_counts_gandalf_not_detected, width= -bar_width / 2,
-            color=color_gandalf_not_detected, alpha=0.5, label='Gandalf Not Detected', align='edge'
+            color=color_gandalf_not_detected, alpha=0.2, label='Gandalf Not Detected', align='edge'
         )
 
         ax_bar.set_yticks([])  # Hide y-axis ticks for the background histogram
@@ -1804,12 +2018,25 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
             marker='s', linestyle='--', color=color_gandalf_not_detected, alpha=1.0, label='Gandalf Not Detected'
         )
 
+        # Plot percentage differences on the secondary y-axis
+        ax_bar.plot(
+            bin_centers, percentage_diff_detected, 
+            marker='o', linestyle='-', color='green', alpha=0.7, label='% Diff Detected'
+        )
+        ax_bar.plot(
+            bin_centers, percentage_diff_not_detected, 
+            marker='s', linestyle='--', color='red', alpha=0.7, label='% Diff Not Detected'
+        )
+
         ax.axhline(1, color='red', linestyle='--')
         ax.set_xlabel(label)
         ax.set_ylabel(r'$N / \langle N \rangle$')
         ax.grid(True)
         ax.set_xlim(range_min, range_max)
-        ax.legend(loc='upper right', fontsize='small', ncol=2)
+        ax.legend(loc='upper left', fontsize='small', ncol=2)
+
+        ax_bar.set_ylabel('% Difference', color='green')
+        ax_bar.grid(False)  # Ensure the grid is only on the main axis
 
     # Remove any unused axes
     total_plots = nrows * ncols

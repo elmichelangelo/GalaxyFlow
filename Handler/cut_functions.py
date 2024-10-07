@@ -74,6 +74,12 @@ def mask_cut_healpy(data_frame, master):
     import healpy as hp
     import h5py
     print("define mask")
+    dec = data_frame['unsheared/dec'].to_numpy()
+    invalid_dec_mask = ~np.isfinite(dec) | (dec < -90) | (dec > 90)
+    if invalid_dec_mask.any():
+        print("Invalid dec values detected:")
+        print(dec[invalid_dec_mask])
+    
     f = h5py.File(master)
     theta = (np.pi / 180.) * (90. - data_frame['unsheared/dec'].to_numpy())
     phi = (np.pi / 180.) * data_frame['unsheared/ra'].to_numpy()
