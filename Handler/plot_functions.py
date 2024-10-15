@@ -17,7 +17,7 @@ from Handler.helper_functions import string_to_tuple, calculate_kde
 import time
 import matplotlib
 # matplotlib.use('Agg')
-plt.style.use('seaborn-white')
+# plt.style.use('seaborn-white')
 
 def plot_to_tensor():
     buf = BytesIO()  # Ein Zwischenspeicher, um das Bild zu speichern
@@ -282,10 +282,10 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
 
     # Create combined DataFrame
     data_frame_generated_copy = data_frame_generated[columns].copy()
-    data_frame_generated_copy['dataset'] = 'generated'
+    data_frame_generated_copy['dataset'] = 'gaNdalF'
 
     data_frame_true_copy = data_frame_true[columns].copy()
-    data_frame_true_copy['dataset'] = 'true'
+    data_frame_true_copy['dataset'] = 'Balrog'
 
     data_frame_combined = pd.concat([data_frame_generated_copy, data_frame_true_copy], ignore_index=True)
 
@@ -303,16 +303,17 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
             ax = axes[i, j]
             if i == j:
                 # Diagonal: Histograms
+                print(f"Plot histogram for col {x_var}. Δmean={delta_mean:.2e}\nΔmedian={delta_median:.2e}")
                 sns.histplot(
                     data=data_frame_combined,
                     x=x_var,
                     hue='dataset',
                     ax=ax,
-                    bins=100,
+                    binwidth=0.5,
                     element='step',
                     stat='density',
                     common_norm=False,
-                    palette={'generated': '#ff8c00', 'true': '#51a6fb'},
+                    palette={'gaNdalF': '#ff8c00', 'Balrog': '#51a6fb'},
                     legend=False
                 )
                 # Add delta information in the title
@@ -320,29 +321,42 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
                 delta_median = delta_median_list[i]
                 ax.set_title(f'Δmean={delta_mean:.2e}\nΔmedian={delta_median:.2e}', fontsize=10)
             elif i > j:
-                # Lower triangle: KDE plots
-                sns.kdeplot(
-                    data=data_frame_combined[data_frame_combined['dataset'] == 'generated'],
-                    x=y_var,
-                    y=x_var,
-                    ax=ax,
-                    fill=True,
-                    levels=5,
-                    thresh=0,
-                    color='#ff8c00',
-                    alpha=0.5
-                )
-                sns.kdeplot(
-                    data=data_frame_combined[data_frame_combined['dataset'] == 'true'],
-                    x=y_var,
-                    y=x_var,
-                    ax=ax,
-                    fill=True,
-                    levels=5,
-                    thresh=0,
-                    color='#51a6fb',
-                    alpha=0.5
-                )
+                try:
+                    print(f"Plot gandalf kde for col {x_var} and {y_var}")
+                    # Lower triangle: KDE plots
+                    sns.kdeplot(
+                        data=data_frame_combined,  #[data_frame_combined['dataset'] == 'gaNdalF'],
+                        hue='dataset',
+                        x=y_var,
+                        y=x_var,
+                        ax=ax,
+                        fill=True,
+                        # bw_adjust=1.5,
+                        # gridsize=50,
+                        levels=5,
+                        thresh=0,
+                        # color='#ff8c00',
+                        alpha=0.5
+                    )
+                except ValueError:
+                    pass
+                # try:
+                #     print(f"Plot balrog kde for col {x_var} and {y_var}")
+                #     sns.kdeplot(
+                #         data=data_frame_combined[data_frame_combined['dataset'] == 'Balrog'],
+                #         x=y_var,
+                #         y=x_var,
+                #         ax=ax,
+                #         fill=True,
+                #         # bw_adjust=1.5,
+                #         # gridsize=50,
+                #         levels=5,
+                #         thresh=0,
+                #         color='#51a6fb',
+                #         alpha=0.5
+                #     )
+                # except ValueError:
+                #     pass
             else:
                 # Upper triangle: Hide
                 ax.set_visible(False)
@@ -362,6 +376,12 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
                 ax.set_xticklabels([])
             if j != 0:
                 ax.set_yticklabels([])
+
+            # if isinstance(ranges, dict):
+            #     if isinstance(ranges[x_var], list):
+            #         ax.set_xlim(ranges[x_var][0], ranges[x_var][1])
+            #     if isinstance(ranges[y_var], list):
+            #         ax.set_ylim(ranges[y_var][0], ranges[y_var][1])
 
     # Create custom legend
     from matplotlib.lines import Line2D
