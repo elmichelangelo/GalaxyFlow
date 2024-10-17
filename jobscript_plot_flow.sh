@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=24:00:00
-#SBATCH --mem=256G
+#SBATCH --mem=100G
 #SBATCH --chdir=~/development/GalaxyFlow
 #SBATCH --output=/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_out.log
 #SBATCH --err=/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_err.log
