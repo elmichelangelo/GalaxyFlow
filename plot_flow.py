@@ -15,9 +15,15 @@ df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
 print(f"Length of Balrog objects: {len(df_balrog_flw)}")
 print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
 
+df_gandalf_flw_sub = df_gandalf_flw.sample(n=int(5E5))
+df_balrog_flw_sub = df_balrog_flw.sample(n=int(5E5))
+
+print(f"Length of Balrog sub objects: {len(df_balrog_flw_sub)}")
+print(f"Length of gaNdalF sub objects: {len(df_gandalf_flw_sub)}")
+
 plot_compare_seaborn(
-    data_frame_generated=df_gandalf_flw,
-    data_frame_true=df_balrog_flw,
+    data_frame_generated=df_gandalf_flw_sub,
+    data_frame_true=df_balrog_flw_sub,
     dict_delta=None,
     epoch=None,
     title=f"color-color plot",
