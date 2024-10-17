@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=example
 #SBATCH --time=48:00:00
-#SBATCH --mem=256G
+#SBATCH --mem=16G
 #SBATCH --ntasks=1
 #SBATCH --chdir=~/development/GalaxyFlow
 #SBATCH --output=/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_out.txt
