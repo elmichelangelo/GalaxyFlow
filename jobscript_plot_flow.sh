@@ -8,7 +8,7 @@
 #SBATCH --output=/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_out.txt
 #SBATCH --err=/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_err.txt
 #SBATCH --partition=cip
-#SBATCH --gres=gpu:a40:1
+#SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=8
 
 module load python/3.12-2024.06
