@@ -117,11 +117,11 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     corner.corner(
         arr_generated,
         fig=fig,
-        bins=100,
+        # bins=100,
         range=ranges,
         color='#ff8c00',
-        smooth=.8,
-        smooth1d=.8,
+        # smooth=.8,
+        # smooth1d=.8,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
@@ -131,7 +131,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         quantiles=[0.16, 0.5, 0.84],
         levels=[0.393, 0.865, 0.989],  #, 0.989
         density=True,
-        plot_datapoints=True,
+        plot_datapoints=False,
         plot_density=True,
         plot_contours=True,
         fill_contours=True
@@ -141,11 +141,11 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     corner.corner(
         arr_true,
         fig=fig,
-        bins=100,
+        # bins=100,
         range=ranges,
         color='#51a6fb',
-        smooth=.8,
-        smooth1d=.8,
+        # smooth=.8,
+        # smooth1d=.8,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
@@ -155,7 +155,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         quantiles=[0.16, 0.5, 0.84],
         levels=[0.393, 0.865, 0.989],  #, 0.989
         density=True,
-        plot_datapoints=True,
+        plot_datapoints=False,
         plot_density=True,
         plot_contours=True,
         fill_contours=True
@@ -320,6 +320,7 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
                 delta_mean = delta_mean_list[i]
                 delta_median = delta_median_list[i]
                 ax.set_title(f'Δmean={delta_mean:.2e}\nΔmedian={delta_median:.2e}', fontsize=10)
+                ax.set_xlim(ranges[x_var][0], ranges[x_var][1])
             elif i > j:
                 try:
                     print(f"Plot gandalf kde for col {x_var} and {y_var}")
@@ -336,8 +337,11 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
                         levels=5,
                         thresh=0,
                         # color='#ff8c00',
-                        alpha=0.5
+                        alpha=0.5,
+                        legend=False
                     )
+                    # ax.set_xlim(ranges[y_var][0], ranges[y_var][1])
+                    # ax.set_ylim(ranges[x_var][0], ranges[x_var][1])
                 except ValueError:
                     pass
                 # try:
