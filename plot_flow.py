@@ -26,20 +26,10 @@ def apply_cuts(data_frame, path_master_cat):
     data_frame = flag_cuts(data_frame=data_frame)
     data_frame = unsheared_shear_cuts(data_frame=data_frame)
     data_frame = binary_cut(data_frame=data_frame)
-    # if self.cfg['MASK_CUT_FUNCTION'] == "HEALPY":
     data_frame = mask_cut_healpy(
         data_frame=data_frame,
         master=path_master_cat
     )
-    # elif self.cfg['MASK_CUT_FUNCTION'] == "ASTROPY":
-    #     # Todo there is a bug here, I cutout to many galaxies
-    #     data_frame = mask_cut(
-    #         data_frame=data_frame,
-    #         master=f"{self.cfg['PATH_DATA']}/{self.cfg['FILENAME_MASTER_CAT']}"
-    #     )
-    # else:
-    #     print("No mask cut function defined!!!")
-    #     exit()
     data_frame = unsheared_mag_cut(data_frame=data_frame)
     return data_frame
 
@@ -55,7 +45,7 @@ df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
 df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
 
 df_gandalf_flw_cut = apply_cuts(df_gandalf_flw, f"{path_data_master_cat}/{filename_master_cat}")
-df_balrog_flw_cut = apply_cuts(df_balrog_flw)
+df_balrog_flw_cut = apply_cuts(df_balrog_flw, f"{path_data_master_cat}/{filename_master_cat}")
 
 print(f"Length of Balrog objects: {len(df_balrog_flw)}")
 print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
