@@ -44,6 +44,14 @@ path_save_plots = "../../Output/gaNdalF_paper"
 df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
 df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
 
+df_gandalf_flw["unsheared/flux_r"] = mag2flux(df_gandalf_flw["unsheared/mag_r"])
+df_gandalf_flw["unsheared/flux_i"] = mag2flux(df_gandalf_flw["unsheared/mag_i"])
+df_gandalf_flw["unsheared/flux_z"] = mag2flux(df_gandalf_flw["unsheared/mag_z"])
+
+df_balrog_flw["unsheared/flux_r"] = mag2flux(df_balrog_flw["unsheared/mag_r"])
+df_balrog_flw["unsheared/flux_i"] = mag2flux(df_balrog_flw["unsheared/mag_i"])
+df_balrog_flw["unsheared/flux_z"] = mag2flux(df_balrog_flw["unsheared/mag_z"])
+
 df_gandalf_flw_cut = apply_cuts(df_gandalf_flw, f"{path_data_master_cat}/{filename_master_cat}")
 df_balrog_flw_cut = apply_cuts(df_balrog_flw, f"{path_data_master_cat}/{filename_master_cat}")
 
