@@ -120,8 +120,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         # bins=100,
         range=ranges,
         color='#ff8c00',
-        # smooth=.8,
-        # smooth1d=.8,
+        smooth=.8,
+        smooth1d=.8,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
@@ -131,7 +131,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         quantiles=[0.16, 0.5, 0.84],
         levels=[0.393, 0.865, 0.989],  #, 0.989
         density=True,
-        plot_datapoints=False,
+        plot_datapoints=True,
         plot_density=True,
         plot_contours=True,
         fill_contours=True
@@ -144,8 +144,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         # bins=100,
         range=ranges,
         color='#51a6fb',
-        # smooth=.8,
-        # smooth1d=.8,
+        smooth=.8,
+        smooth1d=.8,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
@@ -155,7 +155,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         quantiles=[0.16, 0.5, 0.84],
         levels=[0.393, 0.865, 0.989],  #, 0.989
         density=True,
-        plot_datapoints=False,
+        plot_datapoints=True,
         plot_density=True,
         plot_contours=True,
         fill_contours=True
@@ -183,7 +183,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
             dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
             dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
         else:
-            legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: Delta mean = {np.abs(delta_mean):.5f}'), )
+            pass
+            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: Delta mean = {np.abs(delta_mean):.5f}'), )
             # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: median={delta_median:.5f}'), )
             # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q16={delta_q16:.5f}'), )
             # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q84={delta_q84:.5f}'), )

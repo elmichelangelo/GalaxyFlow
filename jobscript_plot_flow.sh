@@ -11,6 +11,6 @@
 #SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=8
 
-module load python/3.12-2024.06
+##module load python/3.12-2024.06
 
 srun -n1 python plot_flow.py
