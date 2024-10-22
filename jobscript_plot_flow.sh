@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=24:00:00
 #SBATCH --mem=100G
-#SBATCH --chdir=~/development/GalaxyFlow
+#SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
 #SBATCH -o /project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_out.log
 #SBATCH -e /project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper/plot_flow_err.log
 #SBATCH --partition=cip
