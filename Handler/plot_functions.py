@@ -1310,126 +1310,126 @@ def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_
     plt.close(fig)
 
 
-def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
-                                 title='Corner Plot'):
-    import matplotlib.patches as mpatches
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    # Prepare the dataframes
-    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
-    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
-    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
-    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
-
-    num_cols = len(columns)
-
-    fig, axes = plt.subplots(num_cols, num_cols, figsize=(3 * num_cols, 3 * num_cols))
-
-    for i in range(num_cols):
-        for j in range(num_cols):
-            ax = axes[i, j]
-            if i < j:
-                # Turn off plots in the upper triangle
-                ax.axis('off')
-                continue
-            elif i == j:
-                # Optionally, we can turn off the diagonal subplots
-                ax.axis('off')
-                continue
-            else:
-                col_i = columns[i]
-                col_j = columns[j]
-                # Gandalf detected KDE
-                sns.kdeplot(
-                    x=df_gandalf_detected[col_j],
-                    y=df_gandalf_detected[col_i],
-                    fill=False,
-                    thresh=0,
-                    levels=5,
-                    cmap='Oranges',
-                    alpha=0.5,
-                    ax=ax
-                )
-                # Balrog detected KDE
-                sns.kdeplot(
-                    x=df_balrog_detected[col_j],
-                    y=df_balrog_detected[col_i],
-                    fill=True,
-                    thresh=0,
-                    levels=5,
-                    cmap='Blues',
-                    alpha=0.5,
-                    ax=ax
-                )
-                # Gandalf not detected KDE
-                sns.kdeplot(
-                    x=df_gandalf_not_detected[col_j],
-                    y=df_gandalf_detected[col_i],
-                    fill=False,
-                    thresh=0,
-                    levels=5,
-                    cmap='Oranges',  #'Purples',
-                    alpha=0.2,
-                    ax=ax
-                )
-                # Balrog not detected KDE
-                sns.kdeplot(
-                    x=df_balrog_not_detected[col_j],
-                    y=df_balrog_not_detected[col_i],
-                    fill=True,
-                    thresh=0,
-                    levels=5,
-                    cmap='Blues',  # 'Greens',
-                    alpha=0.2,
-                    ax=ax
-                )
-                # Set axis limits
-                xlim = ranges[j]
-                ylim = ranges[i]
-                ax.set_xlim(xlim[0], xlim[1])
-                ax.set_ylim(ylim[0], ylim[1])
-
-                # Set labels
-                if i == num_cols - 1:
-                    ax.set_xlabel(labels[j], fontsize=10)
-                else:
-                    ax.set_xlabel('')
-                if j == 0:
-                    ax.set_ylabel(labels[i], fontsize=10)
-                else:
-                    ax.set_ylabel('')
-                # Adjust tick labels
-                if i != num_cols - 1:
-                    ax.set_xticklabels([])
-                if j != 0:
-                    ax.set_yticklabels([])
-
-        # Turn off plots in the upper triangle and diagonal
-    for i in range(num_cols):
-        for j in range(num_cols):
-            if i <= j:
-                axes[i, j].axis('off')
-
-    # Customize layout and legend
-    legend_elements = [
-        mpatches.Patch(color='orange', label='Gandalf Detected'),
-        mpatches.Patch(color='purple', label='Gandalf Not Detected'),
-        mpatches.Patch(color='blue', label='Balrog Detected'),
-        mpatches.Patch(color='green', label='Balrog Not Detected')
-    ]
-
-    fig.legend(handles=legend_elements, loc='upper right', fontsize=12, bbox_to_anchor=(0.98, 0.95))
-
-    plt.suptitle(title, fontsize=18)
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    if show_plot:
-        plt.show()
-    if save_plot:
-        plt.savefig(save_name, dpi=300)
-    plt.clf()
-    plt.close(fig)
+# def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
+#                                  title='Corner Plot'):
+#     import matplotlib.patches as mpatches
+#     import seaborn as sns
+#     import matplotlib.pyplot as plt
+#     import numpy as np
+#
+#     # Prepare the dataframes
+#     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+#     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+#     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+#     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+#
+#     num_cols = len(columns)
+#
+#     fig, axes = plt.subplots(num_cols, num_cols, figsize=(3 * num_cols, 3 * num_cols))
+#
+#     for i in range(num_cols):
+#         for j in range(num_cols):
+#             ax = axes[i, j]
+#             if i < j:
+#                 # Turn off plots in the upper triangle
+#                 ax.axis('off')
+#                 continue
+#             elif i == j:
+#                 # Optionally, we can turn off the diagonal subplots
+#                 ax.axis('off')
+#                 continue
+#             else:
+#                 col_i = columns[i]
+#                 col_j = columns[j]
+#                 # Gandalf detected KDE
+#                 sns.kdeplot(
+#                     x=df_gandalf_detected[col_j],
+#                     y=df_gandalf_detected[col_i],
+#                     fill=False,
+#                     thresh=0,
+#                     levels=5,
+#                     cmap='Oranges',
+#                     alpha=0.5,
+#                     ax=ax
+#                 )
+#                 # Balrog detected KDE
+#                 sns.kdeplot(
+#                     x=df_balrog_detected[col_j],
+#                     y=df_balrog_detected[col_i],
+#                     fill=True,
+#                     thresh=0,
+#                     levels=5,
+#                     cmap='Blues',
+#                     alpha=0.5,
+#                     ax=ax
+#                 )
+#                 # Gandalf not detected KDE
+#                 sns.kdeplot(
+#                     x=df_gandalf_not_detected[col_j],
+#                     y=df_gandalf_detected[col_i],
+#                     fill=False,
+#                     thresh=0,
+#                     levels=5,
+#                     cmap='Oranges',  #'Purples',
+#                     alpha=0.2,
+#                     ax=ax
+#                 )
+#                 # Balrog not detected KDE
+#                 sns.kdeplot(
+#                     x=df_balrog_not_detected[col_j],
+#                     y=df_balrog_not_detected[col_i],
+#                     fill=True,
+#                     thresh=0,
+#                     levels=5,
+#                     cmap='Blues',  # 'Greens',
+#                     alpha=0.2,
+#                     ax=ax
+#                 )
+#                 # Set axis limits
+#                 xlim = ranges[j]
+#                 ylim = ranges[i]
+#                 ax.set_xlim(xlim[0], xlim[1])
+#                 ax.set_ylim(ylim[0], ylim[1])
+#
+#                 # Set labels
+#                 if i == num_cols - 1:
+#                     ax.set_xlabel(labels[j], fontsize=10)
+#                 else:
+#                     ax.set_xlabel('')
+#                 if j == 0:
+#                     ax.set_ylabel(labels[i], fontsize=10)
+#                 else:
+#                     ax.set_ylabel('')
+#                 # Adjust tick labels
+#                 if i != num_cols - 1:
+#                     ax.set_xticklabels([])
+#                 if j != 0:
+#                     ax.set_yticklabels([])
+#
+#         # Turn off plots in the upper triangle and diagonal
+#     for i in range(num_cols):
+#         for j in range(num_cols):
+#             if i <= j:
+#                 axes[i, j].axis('off')
+#
+#     # Customize layout and legend
+#     legend_elements = [
+#         mpatches.Patch(color='orange', label='Gandalf Detected'),
+#         mpatches.Patch(color='purple', label='Gandalf Not Detected'),
+#         mpatches.Patch(color='blue', label='Balrog Detected'),
+#         mpatches.Patch(color='green', label='Balrog Not Detected')
+#     ]
+#
+#     fig.legend(handles=legend_elements, loc='upper right', fontsize=12, bbox_to_anchor=(0.98, 0.95))
+#
+#     plt.suptitle(title, fontsize=18)
+#     plt.tight_layout(rect=[0, 0, 1, 0.95])
+#     if show_plot:
+#         plt.show()
+#     if save_plot:
+#         plt.savefig(save_name, dpi=300)
+#     plt.clf()
+#     plt.close(fig)
 
 
 def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
@@ -1548,7 +1548,7 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             levels=(0.68, 0.95),
             color='red',
             smooth=1.0,
-            plot_datapoints=False,
+            plot_datapoints=True,
             fill_contours=False,
             plot_density=True,
             plot_contours=True,
@@ -1566,8 +1566,8 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             levels=(0.68, 0.95),
             color='purple',
             smooth=1.0,
-            plot_datapoints=False,
-            fill_contours=True,
+            plot_datapoints=True,
+            fill_contours=False,
             plot_density=True,
             plot_contours=True,
             contourf_kwargs={'colors': 'purple', 'alpha': 0.2}
