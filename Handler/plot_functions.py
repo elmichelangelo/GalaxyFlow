@@ -1310,313 +1310,130 @@ def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_
     plt.close(fig)
 
 
-# def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
-#                                  title='Corner Plot'):
-#     import matplotlib.patches as mpatches
-#     import seaborn as sns
-#     import matplotlib.pyplot as plt
-#     import numpy as np
-#
-#     # Prepare the dataframes
-#     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
-#     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
-#     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
-#     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
-#
-#     num_cols = len(columns)
-#
-#     fig, axes = plt.subplots(num_cols, num_cols, figsize=(3 * num_cols, 3 * num_cols))
-#
-#     for i in range(num_cols):
-#         for j in range(num_cols):
-#             ax = axes[i, j]
-#             if i < j:
-#                 # Turn off plots in the upper triangle
-#                 ax.axis('off')
-#                 continue
-#             elif i == j:
-#                 # Optionally, we can turn off the diagonal subplots
-#                 ax.axis('off')
-#                 continue
-#             else:
-#                 col_i = columns[i]
-#                 col_j = columns[j]
-#                 # Gandalf detected KDE
-#                 sns.kdeplot(
-#                     x=df_gandalf_detected[col_j],
-#                     y=df_gandalf_detected[col_i],
-#                     fill=False,
-#                     thresh=0,
-#                     levels=5,
-#                     cmap='Oranges',
-#                     alpha=0.5,
-#                     ax=ax
-#                 )
-#                 # Balrog detected KDE
-#                 sns.kdeplot(
-#                     x=df_balrog_detected[col_j],
-#                     y=df_balrog_detected[col_i],
-#                     fill=True,
-#                     thresh=0,
-#                     levels=5,
-#                     cmap='Blues',
-#                     alpha=0.5,
-#                     ax=ax
-#                 )
-#                 # Gandalf not detected KDE
-#                 sns.kdeplot(
-#                     x=df_gandalf_not_detected[col_j],
-#                     y=df_gandalf_detected[col_i],
-#                     fill=False,
-#                     thresh=0,
-#                     levels=5,
-#                     cmap='Oranges',  #'Purples',
-#                     alpha=0.2,
-#                     ax=ax
-#                 )
-#                 # Balrog not detected KDE
-#                 sns.kdeplot(
-#                     x=df_balrog_not_detected[col_j],
-#                     y=df_balrog_not_detected[col_i],
-#                     fill=True,
-#                     thresh=0,
-#                     levels=5,
-#                     cmap='Blues',  # 'Greens',
-#                     alpha=0.2,
-#                     ax=ax
-#                 )
-#                 # Set axis limits
-#                 xlim = ranges[j]
-#                 ylim = ranges[i]
-#                 ax.set_xlim(xlim[0], xlim[1])
-#                 ax.set_ylim(ylim[0], ylim[1])
-#
-#                 # Set labels
-#                 if i == num_cols - 1:
-#                     ax.set_xlabel(labels[j], fontsize=10)
-#                 else:
-#                     ax.set_xlabel('')
-#                 if j == 0:
-#                     ax.set_ylabel(labels[i], fontsize=10)
-#                 else:
-#                     ax.set_ylabel('')
-#                 # Adjust tick labels
-#                 if i != num_cols - 1:
-#                     ax.set_xticklabels([])
-#                 if j != 0:
-#                     ax.set_yticklabels([])
-#
-#         # Turn off plots in the upper triangle and diagonal
-#     for i in range(num_cols):
-#         for j in range(num_cols):
-#             if i <= j:
-#                 axes[i, j].axis('off')
-#
-#     # Customize layout and legend
-#     legend_elements = [
-#         mpatches.Patch(color='orange', label='Gandalf Detected'),
-#         mpatches.Patch(color='purple', label='Gandalf Not Detected'),
-#         mpatches.Patch(color='blue', label='Balrog Detected'),
-#         mpatches.Patch(color='green', label='Balrog Not Detected')
-#     ]
-#
-#     fig.legend(handles=legend_elements, loc='upper right', fontsize=12, bbox_to_anchor=(0.98, 0.95))
-#
-#     plt.suptitle(title, fontsize=18)
-#     plt.tight_layout(rect=[0, 0, 1, 0.95])
-#     if show_plot:
-#         plt.show()
-#     if save_plot:
-#         plt.savefig(save_name, dpi=300)
-#     plt.clf()
-#     plt.close(fig)
+def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
+                                 title='Corner Plot'):
+    import matplotlib.patches as mpatches
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Prepare the dataframes
+    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+
+    num_cols = len(columns)
+
+    fig, axes = plt.subplots(num_cols, num_cols, figsize=(3 * num_cols, 3 * num_cols))
+
+    for i in range(num_cols):
+        for j in range(num_cols):
+            ax = axes[i, j]
+            if i < j:
+                # Turn off plots in the upper triangle
+                ax.axis('off')
+                continue
+            elif i == j:
+                # Optionally, we can turn off the diagonal subplots
+                ax.axis('off')
+                continue
+            else:
+                col_i = columns[i]
+                col_j = columns[j]
+                # Gandalf detected KDE
+                sns.kdeplot(
+                    x=df_gandalf_detected[col_j],
+                    y=df_gandalf_detected[col_i],
+                    fill=False,
+                    thresh=0,
+                    levels=5,
+                    cmap='Oranges',
+                    alpha=0.5,
+                    ax=ax
+                )
+                # Balrog detected KDE
+                sns.kdeplot(
+                    x=df_balrog_detected[col_j],
+                    y=df_balrog_detected[col_i],
+                    fill=True,
+                    thresh=0,
+                    levels=5,
+                    cmap='Blues',
+                    alpha=0.5,
+                    ax=ax
+                )
+                # Gandalf not detected KDE
+                sns.kdeplot(
+                    x=df_gandalf_not_detected[col_j],
+                    y=df_gandalf_detected[col_i],
+                    fill=False,
+                    thresh=0,
+                    levels=5,
+                    cmap='Oranges',  #'Purples',
+                    alpha=0.2,
+                    ax=ax
+                )
+                # Balrog not detected KDE
+                sns.kdeplot(
+                    x=df_balrog_not_detected[col_j],
+                    y=df_balrog_not_detected[col_i],
+                    fill=True,
+                    thresh=0,
+                    levels=5,
+                    cmap='Blues',  # 'Greens',
+                    alpha=0.2,
+                    ax=ax
+                )
+                # Set axis limits
+                xlim = ranges[j]
+                ylim = ranges[i]
+                ax.set_xlim(xlim[0], xlim[1])
+                ax.set_ylim(ylim[0], ylim[1])
+
+                # Set labels
+                if i == num_cols - 1:
+                    ax.set_xlabel(labels[j], fontsize=10)
+                else:
+                    ax.set_xlabel('')
+                if j == 0:
+                    ax.set_ylabel(labels[i], fontsize=10)
+                else:
+                    ax.set_ylabel('')
+                # Adjust tick labels
+                if i != num_cols - 1:
+                    ax.set_xticklabels([])
+                if j != 0:
+                    ax.set_yticklabels([])
+
+        # Turn off plots in the upper triangle and diagonal
+    for i in range(num_cols):
+        for j in range(num_cols):
+            if i <= j:
+                axes[i, j].axis('off')
+
+    # Customize layout and legend
+    legend_elements = [
+        mpatches.Patch(color='orange', label='Gandalf Detected'),
+        mpatches.Patch(color='purple', label='Gandalf Not Detected'),
+        mpatches.Patch(color='blue', label='Balrog Detected'),
+        mpatches.Patch(color='green', label='Balrog Not Detected')
+    ]
+
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=12, bbox_to_anchor=(0.98, 0.95))
+
+    plt.suptitle(title, fontsize=18)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    plt.clf()
+    plt.close(fig)
 
 
-# def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
-#                                  title='Histogram'):
-#     import matplotlib.patches as mpatches
-#     import time
-#     import numpy as np
-#     import matplotlib.pyplot as plt
-#     import corner
-#
-#     # Set the start time
-#     start_time = time.time()
-#
-#     num_cols = int(np.round(np.sqrt(len(columns))))
-#
-#     # Prepare the dataframes
-#     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
-#     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
-#     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
-#     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
-#
-#     # Create the grid of subplots
-#     fig, axes = plt.subplots(num_cols, num_cols, figsize=(15, 15))
-#
-#     subplot_idx_x = num_cols - 1
-#     subplot_idx_y = 0
-#
-#     def get_elapsed_time(start_time):
-#         # Calculate elapsed time
-#         elapsed_time = time.time() - start_time
-#
-#         # Convert to days, hours, minutes, and seconds
-#         days = elapsed_time // (24 * 3600)
-#         elapsed_time = elapsed_time % (24 * 3600)
-#         hours = elapsed_time // 3600
-#         elapsed_time %= 3600
-#         minutes = elapsed_time // 60
-#         seconds = elapsed_time % 60
-#
-#         # Print the elapsed time
-#         print(f"Elapsed time: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s")
-#
-#     def compute_detection_probabilities(df, bins, feature_column):
-#         """Compute detection probabilities for a given feature and set of bins."""
-#         detected_count, _ = np.histogram(df[df["detected"] == 1][feature_column], bins=bins)
-#         total_count, _ = np.histogram(df[feature_column], bins=bins)
-#         detection_prob = detected_count / total_count
-#         return detection_prob
-#
-#     # Define the bin edges for BDF_MAG_DERED_CALIB_I (adjust range and bin size as needed)
-#     bins = np.linspace(21, 26, 10)  # 10 bins from 21 to 26 in i-mag
-#
-#     # Compute detection probabilities for both Gandalf and Balrog
-#     detection_prob_gandalf = compute_detection_probabilities(df_gandalf, bins, "BDF_MAG_DERED_CALIB_I")
-#     detection_prob_balrog = compute_detection_probabilities(df_balrog, bins, "BDF_MAG_DERED_CALIB_I")
-#
-#     # Compute the absolute difference between the detection probabilities
-#     detection_prob_difference = np.abs(detection_prob_gandalf - detection_prob_balrog)
-#     print("Detection Probability Difference (absolute):", detection_prob_difference)
-#
-#     for i, col in enumerate(columns):
-#         try:
-#             ax = axes[subplot_idx_x, subplot_idx_y]
-#         except TypeError:
-#             ax = axes
-#         get_elapsed_time(start_time)
-#         print(f"Plotting column: {col} ({i + 1}/{len(columns)})")
-#
-#         # Set the plot ranges
-#         x_range = (21, 26)
-#         y_range = ranges[i]
-#
-#         # Gandalf detected KDE
-#         corner.hist2d(
-#             x=df_gandalf_detected["BDF_MAG_DERED_CALIB_I"].values,
-#             y=df_gandalf_detected[col].values,
-#             ax=ax,
-#             bins=50,
-#             range=[x_range, y_range],
-#             levels=(0.68, 0.95),
-#             color='orange',
-#             smooth=1.0,
-#             plot_datapoints=False,
-#             fill_contours=False,
-#             plot_density=True,
-#             plot_contours=True,
-#             contour_kwargs={'colors': 'orange', 'alpha': 0.5}
-#         )
-#         get_elapsed_time(start_time)
-#
-#         # Balrog detected KDE
-#         corner.hist2d(
-#             x=df_balrog_detected["BDF_MAG_DERED_CALIB_I"].values,
-#             y=df_balrog_detected[col].values,
-#             ax=ax,
-#             bins=50,
-#             range=[x_range, y_range],
-#             levels=(0.68, 0.95),
-#             color='blue',
-#             smooth=1.0,
-#             plot_datapoints=False,
-#             fill_contours=True,
-#             plot_density=True,
-#             plot_contours=True,
-#             contourf_kwargs={'colors': 'blue', 'alpha': 0.5}
-#         )
-#         get_elapsed_time(start_time)
-#
-#         # Gandalf not detected KDE
-#         corner.hist2d(
-#             x=df_gandalf_not_detected["BDF_MAG_DERED_CALIB_I"].values,
-#             y=df_gandalf_not_detected[col].values,
-#             ax=ax,
-#             bins=50,
-#             range=[x_range, y_range],
-#             levels=(0.68, 0.95),
-#             color='red',
-#             smooth=1.0,
-#             plot_datapoints=False,
-#             fill_contours=False,
-#             plot_density=True,
-#             plot_contours=True,
-#             contour_kwargs={'colors': 'red', 'alpha': 0.2}
-#         )
-#         get_elapsed_time(start_time)
-#
-#         # Balrog not detected KDE
-#         corner.hist2d(
-#             x=df_balrog_not_detected["BDF_MAG_DERED_CALIB_I"].values,
-#             y=df_balrog_not_detected[col].values,
-#             ax=ax,
-#             bins=50,
-#             range=[x_range, y_range],
-#             levels=(0.68, 0.95),
-#             color='purple',
-#             smooth=1.0,
-#             plot_datapoints=False,
-#             fill_contours=True,
-#             plot_density=True,
-#             plot_contours=True,
-#             contourf_kwargs={'colors': 'purple', 'alpha': 0.2}
-#         )
-#
-#         ax.set_xlim(x_range)
-#         ax.set_ylim(y_range)
-#         ax.set_ylabel(labels[i], fontsize=10)
-#
-#         # Add axis labels for edge subplots
-#         if subplot_idx_x == num_cols - 1:
-#             ax.set_xlabel('BDF Mag I', fontsize=10)
-#
-#         subplot_idx_x -= 1
-#         if subplot_idx_x < 0:
-#             subplot_idx_x = num_cols - 1
-#             subplot_idx_y += 1
-#         if subplot_idx_y > num_cols - 1:
-#             break
-#
-#     # Remove any unused subplots
-#     total_plots = num_cols * num_cols
-#     used_plots = len(columns)
-#     for idx in range(used_plots, total_plots):
-#         x = idx % num_cols
-#         y = idx // num_cols
-#         fig.delaxes(axes[x, y])
-#
-#     # Customize layout and legend
-#     legend_elements = [
-#         mpatches.Patch(color='orange', alpha=0.5, label='Gandalf Detected'),
-#         mpatches.Patch(color='red', alpha=0.2, label='Gandalf Not Detected'),
-#         mpatches.Patch(color='blue', alpha=0.5, label='Balrog Detected'),
-#         mpatches.Patch(color='purple', alpha=0.2, label='Balrog Not Detected')
-#     ]
-#
-#     fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
-#
-#     plt.suptitle(title, fontsize=18)
-#     plt.tight_layout(rect=[0, 0, 1, 0.95])
-#     if show_plot:
-#         plt.show()
-#     if save_plot:
-#         plt.savefig(save_name, dpi=300)
-#     plt.clf()
-#     plt.close(fig)
-
-
-def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name, title='Histogram'):
+def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
+                                 title='Histogram'):
     import matplotlib.patches as mpatches
     import time
     import numpy as np
@@ -1626,11 +1443,19 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
     # Set the start time
     start_time = time.time()
 
+    num_cols = int(np.round(np.sqrt(len(columns))))
+
     # Prepare the dataframes
     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+
+    # Create the grid of subplots
+    fig, axes = plt.subplots(num_cols, num_cols, figsize=(15, 15))
+
+    subplot_idx_x = num_cols - 1
+    subplot_idx_y = 0
 
     def get_elapsed_time(start_time):
         # Calculate elapsed time
@@ -1665,84 +1490,259 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
     detection_prob_difference = np.abs(detection_prob_gandalf - detection_prob_balrog)
     print("Detection Probability Difference (absolute):", detection_prob_difference)
 
-    # Prepare data for corner plots
-    def prepare_data(df_list, column_list):
-        return [df[column_list].values for df in df_list]
-
-    # Lists of dataframes and their labels
-    data_dfs = [
-        df_gandalf_detected,
-        df_gandalf_not_detected,
-        df_balrog_detected,
-        df_balrog_not_detected
-    ]
-
-    data_labels = [
-        'Gandalf Detected',
-        'Gandalf Not Detected',
-        'Balrog Detected',
-        'Balrog Not Detected'
-    ]
-
-    colors = ['orange', 'red', 'blue', 'purple']
-    alphas = [0.5, 0.2, 0.5, 0.2]
-
-    # Prepare the figure
-    fig = plt.figure(figsize=(15, 15))
-
-    # Collect the data for corner plots
-    datasets = []
-    for df in data_dfs:
-        data = df[['BDF_MAG_DERED_CALIB_I'] + columns].values
-        datasets.append(data)
-
-    # Define the ranges for corner plots
-    plot_ranges = [(21, 26)] + ranges
-
-    # Plot each dataset on the same corner plot
-    for idx, data in enumerate(datasets):
+    for i, col in enumerate(columns):
+        try:
+            ax = axes[subplot_idx_x, subplot_idx_y]
+        except TypeError:
+            ax = axes
         get_elapsed_time(start_time)
-        print(f"Processing {data_labels[idx]}")
+        print(f"Plotting column: {col} ({i + 1}/{len(columns)})")
 
-        corner.corner(
-            data,
-            labels=['BDF_MAG_DERED_CALIB_I'] + labels,
-            range=plot_ranges,
-            color=colors[idx],
+        # Set the plot ranges
+        x_range = (21, 26)
+        y_range = ranges[i]
+
+        # Gandalf detected KDE
+        corner.hist2d(
+            x=df_gandalf_detected["BDF_MAG_DERED_CALIB_I"].values,
+            y=df_gandalf_detected[col].values,
+            ax=ax,
             bins=50,
-            smooth=1.0,
-            fig=fig,
-            plot_contours=True,
-            plot_density=True,
-            fill_contours=True if alphas[idx] > 0 else False,
-            contourf_kwargs={'alpha': alphas[idx]},
-            hist_kwargs={'alpha': alphas[idx]},
+            range=[x_range, y_range],
             levels=(0.68, 0.95),
-            label_kwargs={'fontsize': 12},
-            show_titles=False,
-            title_kwargs={'fontsize': 12},
-            data_kwargs={'alpha': alphas[idx]},
-            use_math_text=True
+            color='orange',
+            smooth=1.0,
+            plot_datapoints=False,
+            fill_contours=False,
+            plot_density=True,
+            plot_contours=True,
+            contour_kwargs={'colors': 'orange', 'alpha': 0.5}
+        )
+        get_elapsed_time(start_time)
+
+        # Balrog detected KDE
+        corner.hist2d(
+            x=df_balrog_detected["BDF_MAG_DERED_CALIB_I"].values,
+            y=df_balrog_detected[col].values,
+            ax=ax,
+            bins=50,
+            range=[x_range, y_range],
+            levels=(0.68, 0.95),
+            color='blue',
+            smooth=1.0,
+            plot_datapoints=False,
+            fill_contours=True,
+            plot_density=True,
+            plot_contours=True,
+            contourf_kwargs={'colors': 'blue', 'alpha': 0.5}
+        )
+        get_elapsed_time(start_time)
+
+        # Gandalf not detected KDE
+        corner.hist2d(
+            x=df_gandalf_not_detected["BDF_MAG_DERED_CALIB_I"].values,
+            y=df_gandalf_not_detected[col].values,
+            ax=ax,
+            bins=50,
+            range=[x_range, y_range],
+            levels=(0.68, 0.95),
+            color='red',
+            smooth=1.0,
+            plot_datapoints=False,
+            fill_contours=False,
+            plot_density=True,
+            plot_contours=True,
+            contour_kwargs={'colors': 'red', 'alpha': 0.2}
+        )
+        get_elapsed_time(start_time)
+
+        # Balrog not detected KDE
+        corner.hist2d(
+            x=df_balrog_not_detected["BDF_MAG_DERED_CALIB_I"].values,
+            y=df_balrog_not_detected[col].values,
+            ax=ax,
+            bins=50,
+            range=[x_range, y_range],
+            levels=(0.68, 0.95),
+            color='purple',
+            smooth=1.0,
+            plot_datapoints=False,
+            fill_contours=True,
+            plot_density=True,
+            plot_contours=True,
+            contourf_kwargs={'colors': 'purple', 'alpha': 0.2}
         )
 
-    # Customize the legend
+        ax.set_xlim(x_range)
+        ax.set_ylim(y_range)
+        ax.set_ylabel(labels[i], fontsize=10)
+
+        # Add axis labels for edge subplots
+        if subplot_idx_x == num_cols - 1:
+            ax.set_xlabel('BDF Mag I', fontsize=10)
+
+        subplot_idx_x -= 1
+        if subplot_idx_x < 0:
+            subplot_idx_x = num_cols - 1
+            subplot_idx_y += 1
+        if subplot_idx_y > num_cols - 1:
+            break
+
+    # Remove any unused subplots
+    total_plots = num_cols * num_cols
+    used_plots = len(columns)
+    for idx in range(used_plots, total_plots):
+        x = idx % num_cols
+        y = idx // num_cols
+        fig.delaxes(axes[x, y])
+
+    # Customize layout and legend
     legend_elements = [
         mpatches.Patch(color='orange', alpha=0.5, label='Gandalf Detected'),
         mpatches.Patch(color='red', alpha=0.2, label='Gandalf Not Detected'),
         mpatches.Patch(color='blue', alpha=0.5, label='Balrog Detected'),
         mpatches.Patch(color='purple', alpha=0.2, label='Balrog Not Detected')
     ]
-    fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.9))
+
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
 
     plt.suptitle(title, fontsize=18)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-
     if show_plot:
         plt.show()
     if save_plot:
         plt.savefig(save_name, dpi=300)
     plt.clf()
     plt.close(fig)
+
+
+# def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name, title='Histogram'):
+#     import matplotlib.patches as mpatches
+#     import time
+#     import numpy as np
+#     import matplotlib.pyplot as plt
+#     import corner
+#
+#     # Set the start time
+#     start_time = time.time()
+#
+#     # Prepare the dataframes
+#     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+#     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+#     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+#     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+#
+#     def get_elapsed_time(start_time):
+#         # Calculate elapsed time
+#         elapsed_time = time.time() - start_time
+#
+#         # Convert to days, hours, minutes, and seconds
+#         days = elapsed_time // (24 * 3600)
+#         elapsed_time = elapsed_time % (24 * 3600)
+#         hours = elapsed_time // 3600
+#         elapsed_time %= 3600
+#         minutes = elapsed_time // 60
+#         seconds = elapsed_time % 60
+#
+#         # Print the elapsed time
+#         print(f"Elapsed time: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s")
+#
+#     def compute_detection_probabilities(df, bins, feature_column):
+#         """Compute detection probabilities for a given feature and set of bins."""
+#         detected_count, _ = np.histogram(df[df["detected"] == 1][feature_column], bins=bins)
+#         total_count, _ = np.histogram(df[feature_column], bins=bins)
+#         detection_prob = detected_count / total_count
+#         return detection_prob
+#
+#     # Define the bin edges for BDF_MAG_DERED_CALIB_I (adjust range and bin size as needed)
+#     bins = np.linspace(21, 26, 10)  # 10 bins from 21 to 26 in i-mag
+#
+#     # Compute detection probabilities for both Gandalf and Balrog
+#     detection_prob_gandalf = compute_detection_probabilities(df_gandalf, bins, "BDF_MAG_DERED_CALIB_I")
+#     detection_prob_balrog = compute_detection_probabilities(df_balrog, bins, "BDF_MAG_DERED_CALIB_I")
+#
+#     # Compute the absolute difference between the detection probabilities
+#     detection_prob_difference = np.abs(detection_prob_gandalf - detection_prob_balrog)
+#     print("Detection Probability Difference (absolute):", detection_prob_difference)
+#
+#     # Prepare data for corner plots
+#     def prepare_data(df_list, column_list):
+#         return [df[column_list].values for df in df_list]
+#
+#     # Lists of dataframes and their labels
+#     data_dfs = [
+#         df_gandalf_detected,
+#         df_gandalf_not_detected,
+#         df_balrog_detected,
+#         df_balrog_not_detected
+#     ]
+#
+#     data_labels = [
+#         'Gandalf Detected',
+#         'Gandalf Not Detected',
+#         'Balrog Detected',
+#         'Balrog Not Detected'
+#     ]
+#
+#     colors = ['orange', 'red', 'blue', 'purple']
+#     alphas = [0.5, 0.2, 0.5, 0.2]
+#
+#     # Prepare the figure
+#     fig = plt.figure(figsize=(15, 15))
+#
+#     # Collect the data for corner plots
+#     datasets = []
+#     for df in data_dfs:
+#         data = df[['BDF_MAG_DERED_CALIB_I'] + columns].values
+#         datasets.append(data)
+#
+#     # Define the ranges for corner plots
+#     plot_ranges = [(21, 26)] + ranges
+#
+#     # Plot each dataset on the same corner plot
+#     for idx, data in enumerate(datasets):
+#         get_elapsed_time(start_time)
+#         print(f"Processing {data_labels[idx]}")
+#
+#         corner.corner(
+#             data,
+#             labels=['BDF_MAG_DERED_CALIB_I'] + labels,
+#             range=plot_ranges,
+#             color=colors[idx],
+#             bins=50,
+#             smooth=1.0,
+#             fig=fig,
+#             plot_contours=True,
+#             plot_density=True,
+#             fill_contours=True if alphas[idx] > 0 else False,
+#             contourf_kwargs={'alpha': alphas[idx]},
+#             hist_kwargs={'alpha': alphas[idx]},
+#             levels=(0.68, 0.95),
+#             label_kwargs={'fontsize': 12},
+#             show_titles=False,
+#             title_kwargs={'fontsize': 12},
+#             data_kwargs={'alpha': alphas[idx]},
+#             use_math_text=True
+#         )
+#
+#     # Customize the legend
+#     legend_elements = [
+#         mpatches.Patch(color='orange', alpha=0.5, label='Gandalf Detected'),
+#         mpatches.Patch(color='red', alpha=0.2, label='Gandalf Not Detected'),
+#         mpatches.Patch(color='blue', alpha=0.5, label='Balrog Detected'),
+#         mpatches.Patch(color='purple', alpha=0.2, label='Balrog Not Detected')
+#     ]
+#     fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.9))
+#
+#     plt.suptitle(title, fontsize=18)
+#     plt.tight_layout(rect=[0, 0, 1, 0.95])
+#
+#     if show_plot:
+#         plt.show()
+#     if save_plot:
+#         plt.savefig(save_name, dpi=300)
+#     plt.clf()
+#     plt.close(fig)
 
 
 # def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name, title='Histogram'):
