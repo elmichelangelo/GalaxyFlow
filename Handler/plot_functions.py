@@ -229,6 +229,141 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
     return img_tensor, dict_delta
 
 
+# def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
+#                         show_plot=False, save_plot=False, save_name=None):
+#     import numpy as np
+#     import matplotlib.pyplot as plt
+#     from chainconsumer import ChainConsumer
+#     from matplotlib.lines import Line2D
+#
+#     if epoch == 1:
+#         for label in labels:
+#             dict_delta[f"delta mean {label}"] = []
+#             dict_delta[f"delta median {label}"] = []
+#             dict_delta[f"delta q16 {label}"] = []
+#             dict_delta[f"delta q84 {label}"] = []
+#
+#     arr_generated = data_frame_generated[columns].values
+#     arr_true = data_frame_true[columns].values
+#
+#     # Quantiles for arr_generated
+#     quantiles_generated = np.quantile(arr_generated, q=[0.16, 0.84], axis=0)
+#
+#     # Quantiles for arr_true
+#     quantiles_true = np.quantile(arr_true, q=[0.16, 0.84], axis=0)
+#
+#     delta_names = ["mean", "median", "q16", "q84"]
+#
+#     # Calculate deltas
+#     delta_mean = np.mean(arr_generated, axis=0) - np.mean(arr_true, axis=0)
+#     delta_median = np.median(arr_generated, axis=0) - np.median(arr_true, axis=0)
+#     delta_q16 = quantiles_generated[0, :] - quantiles_true[0, :]
+#     delta_q84 = quantiles_generated[1, :] - quantiles_true[1, :]
+#
+#     # Update dict_delta
+#     if dict_delta is not None:
+#         for i, label in enumerate(labels):
+#             dict_delta[f"delta mean {label}"].append(delta_mean[i])
+#             dict_delta[f"delta median {label}"].append(delta_median[i])
+#             dict_delta[f"delta q16 {label}"].append(delta_q16[i])
+#             dict_delta[f"delta q84 {label}"].append(delta_q84[i])
+#
+#     # Initialize ChainConsumer
+#     c = ChainConsumer()
+#     c.add_chain(arr_generated, parameters=labels, name='gaNdalF', color='#ff8c00')
+#     c.add_chain(arr_true, parameters=labels, name='Balrog', color='#51a6fb')
+#
+#     # Prepare parameter limits (extents) if ranges are provided
+#     if ranges is not None:
+#         extents = ranges
+#     else:
+#         extents = None
+#
+#     # Configure ChainConsumer
+#     c.configure(
+#         smooth=0.8,
+#         shade=True,
+#         shade_alpha=0.5,
+#         bar_shade=True,
+#         linewidths=1.2,
+#         contour_labels=None,
+#         plot_contour=True,
+#         plot_point=False,
+#         kde=True,
+#         sigma2d=True,
+#     )
+#
+#     # Plot the corner plot and retrieve fig and axes
+#     fig, axes = c.plotter.plot(
+#         figsize=(16, 12),
+#         extents=extents,
+#     )
+#
+#     ndim = arr_generated.shape[1]
+#
+#     # Adjust the figure to make space for delta plots
+#     fig.subplots_adjust(top=0.9, bottom=0.1 + 0.05 * len(delta_names))
+#
+#     # Add title
+#     if epoch is not None:
+#         fig.suptitle(f'{title}, epoch {epoch}', fontsize=20)
+#     else:
+#         fig.suptitle(f'{title}', fontsize=20)
+#
+#     # Create legend elements
+#     legend_elements = [
+#         Line2D([0], [0], color='#ff8c00', lw=4, label='gaNdalF'),
+#         Line2D([0], [0], color='#51a6fb', lw=4, label='Balrog')
+#     ]
+#
+#     if dict_delta is not None:
+#         delta_legend_elements = []
+#         epochs = list(range(1, epoch + 1))
+#         delta_fig_height = 1.5 * len(delta_names)
+#         delta_fig, delta_axes = plt.subplots(len(delta_names), 1, figsize=(16, delta_fig_height), sharex=True)
+#
+#         for idx, (delta_name, delta_ax) in enumerate(zip(delta_names, delta_axes)):
+#             for i, label in enumerate(labels):
+#                 line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o', label=f"{label}")
+#                 if idx == 0:
+#                     delta_legend_elements.append(line)
+#
+#             delta_ax.axhline(y=0, color='gray', linestyle='--')
+#             delta_ax.set_ylim(-0.05, 0.05)
+#
+#             if idx == len(delta_names) - 1:
+#                 delta_ax.set_xlabel('Epoch')
+#             else:
+#                 delta_ax.set_xticklabels([])
+#
+#             delta_ax.set_ylabel(f'Delta {delta_name}')
+#
+#         # Adjust layout
+#         delta_fig.tight_layout()
+#
+#         # Combine the ChainConsumer plot and delta plots
+#         from matplotlib.transforms import Bbox
+#         delta_bbox = Bbox.from_bounds(0.125, 0.05, 0.775, 0.15 * len(delta_names))
+#         fig.add_axes(delta_axes[0].get_position().translated(0, -delta_bbox.height))
+#
+#         # Remove the delta_fig since we've added its axes to the main fig
+#         plt.close(delta_fig)
+#
+#         # Add legend
+#         fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
+#     else:
+#         fig.legend(handles=legend_elements, loc='upper right', fontsize=16)
+#
+#     # Optionally save or show the plot
+#     if save_plot:
+#         plt.savefig(save_name, dpi=300)
+#     if show_plot:
+#         plt.show()
+#     plt.close(fig)
+#
+#     return dict_delta
+
+
 def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
                         show_plot=False, save_plot=False, save_name=None):
     import numpy as np
