@@ -39,7 +39,7 @@ path_data_master_cat = "/project/ls-gruen/users/patrick.gebhardt/data/gaNdalF"
 filename_flw_balrog = "2024-10-02_10-37_balrog_flw_Test_sample.pkl"
 filename_flw_gandalf = "2024-10-02_10-37_gandalf_flw_Test_sample.pkl"
 filename_master_cat = "Y3_mastercat_02_05_21.h5"
-path_save_plots = "../../Output/gaNdalF_paper"
+path_save_plots = "/project/ls-gruen/users/patrick.gebhardt/output/gaNdalF_paper"
 
 df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
 df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
