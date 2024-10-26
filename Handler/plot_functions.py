@@ -1567,8 +1567,8 @@ def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_
 #     plt.close(fig)
 
 
-def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges, show_plot, save_plot, save_name,
-                                 title='Histogram'):
+def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show_plot, save_plot, save_name,
+                                 x_range=(18, 26), title='Histogram'):
     import matplotlib.patches as mpatches
     import time
     import numpy as np
@@ -1578,7 +1578,9 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
     # Set the start time
     start_time = time.time()
 
-    num_cols = int(np.round(np.sqrt(len(columns))))
+    # Calculate the number of rows and columns
+    num_cols = grid_size[0] # int(np.ceil(np.sqrt(len(columns))))
+    num_rows = grid_size[1] # int(np.ceil(len(columns) / num_cols))
 
     # Prepare the dataframes
     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
@@ -1587,10 +1589,12 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
 
     # Create the grid of subplots
-    fig, axes = plt.subplots(num_cols, num_cols, figsize=(15, 15))
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
 
-    subplot_idx_x = num_cols - 1
-    subplot_idx_y = 0
+    color_balrog_detected = '#51a6fb'
+    color_gandalf_detected = '#ff8c00'
+    color_balrog_not_detected='coral'
+    color_gandalf_not_detected='blueviolet'
 
     def get_elapsed_time(start_time):
         # Calculate elapsed time
@@ -1607,35 +1611,16 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
         # Print the elapsed time
         print(f"Elapsed time: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s")
 
-    def compute_detection_probabilities(df, bins, feature_column):
-        """Compute detection probabilities for a given feature and set of bins."""
-        detected_count, _ = np.histogram(df[df["detected"] == 1][feature_column], bins=bins)
-        total_count, _ = np.histogram(df[feature_column], bins=bins)
-        detection_prob = detected_count / total_count
-        return detection_prob
-
-    # Define the bin edges for BDF_MAG_DERED_CALIB_I (adjust range and bin size as needed)
-    bins = np.linspace(21, 26, 10)  # 10 bins from 21 to 26 in i-mag
-
-    # Compute detection probabilities for both Gandalf and Balrog
-    detection_prob_gandalf = compute_detection_probabilities(df_gandalf, bins, "BDF_MAG_DERED_CALIB_I")
-    detection_prob_balrog = compute_detection_probabilities(df_balrog, bins, "BDF_MAG_DERED_CALIB_I")
-
-    # Compute the absolute difference between the detection probabilities
-    detection_prob_difference = np.abs(detection_prob_gandalf - detection_prob_balrog)
-    print("Detection Probability Difference (absolute):", detection_prob_difference)
-
-    for i, col in enumerate(columns):
-        try:
-            ax = axes[subplot_idx_x, subplot_idx_y]
-        except TypeError:
-            ax = axes
+    # Loop over each feature and plot
+    for i, col in enumerate(columns.keys()):
+        pos = columns[col]["position"]
+        ax = axes[pos[0], pos[1]]
         get_elapsed_time(start_time)
         print(f"Plotting column: {col} ({i + 1}/{len(columns)})")
 
         # Set the plot ranges
-        x_range = (21, 26)
-        y_range = ranges[i]
+        y_range = columns[col]["range"]
+        label = columns[col]["label"]
 
         # Gandalf detected KDE
         corner.hist2d(
@@ -1645,13 +1630,13 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             bins=50,
             range=[x_range, y_range],
             levels=(0.68, 0.95),
-            color='orange',
+            color=color_gandalf_detected,
             smooth=1.0,
             plot_datapoints=False,
             fill_contours=False,
             plot_density=True,
             plot_contours=True,
-            contour_kwargs={'colors': 'orange', 'alpha': 0.5}
+            contour_kwargs={'colors': color_gandalf_detected, 'alpha': 1}
         )
         get_elapsed_time(start_time)
 
@@ -1663,13 +1648,13 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             bins=50,
             range=[x_range, y_range],
             levels=(0.68, 0.95),
-            color='blue',
+            color=color_balrog_detected,
             smooth=1.0,
             plot_datapoints=False,
-            fill_contours=True,
+            fill_contours=False,
             plot_density=True,
             plot_contours=True,
-            contourf_kwargs={'colors': 'blue', 'alpha': 0.5}
+            contourf_kwargs={'colors': color_balrog_detected, 'alpha': 0.5}
         )
         get_elapsed_time(start_time)
 
@@ -1681,13 +1666,13 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             bins=50,
             range=[x_range, y_range],
             levels=(0.68, 0.95),
-            color='red',
+            color=color_gandalf_not_detected,
             smooth=1.0,
-            plot_datapoints=True,
+            plot_datapoints=False,
             fill_contours=False,
             plot_density=True,
             plot_contours=True,
-            contour_kwargs={'colors': 'red', 'alpha': 0.2}
+            contour_kwargs={'colors': color_gandalf_not_detected, 'alpha': 1}
         )
         get_elapsed_time(start_time)
 
@@ -1699,44 +1684,33 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, labels, ranges,
             bins=50,
             range=[x_range, y_range],
             levels=(0.68, 0.95),
-            color='purple',
+            color=color_balrog_not_detected,
             smooth=1.0,
-            plot_datapoints=True,
+            plot_datapoints=False,
             fill_contours=False,
             plot_density=True,
             plot_contours=True,
-            contourf_kwargs={'colors': 'purple', 'alpha': 0.2}
+            contourf_kwargs={'colors': color_balrog_not_detected, 'alpha': 0.5}
         )
 
         ax.set_xlim(x_range)
         ax.set_ylim(y_range)
-        ax.set_ylabel(labels[i], fontsize=10)
+        ax.set_ylabel(label, fontsize=10)
 
-        # Add axis labels for edge subplots
-        if subplot_idx_x == num_cols - 1:
+        # Add axis labels only to the bottom row subplots
+        if i >= len(axes) - num_cols:
             ax.set_xlabel('BDF Mag I', fontsize=10)
 
-        subplot_idx_x -= 1
-        if subplot_idx_x < 0:
-            subplot_idx_x = num_cols - 1
-            subplot_idx_y += 1
-        if subplot_idx_y > num_cols - 1:
-            break
-
     # Remove any unused subplots
-    total_plots = num_cols * num_cols
-    used_plots = len(columns)
-    for idx in range(used_plots, total_plots):
-        x = idx % num_cols
-        y = idx // num_cols
-        fig.delaxes(axes[x, y])
+    fig.delaxes(axes[0, 3])
+    fig.delaxes(axes[1, 3])
 
     # Customize layout and legend
     legend_elements = [
-        mpatches.Patch(color='orange', alpha=0.5, label='Gandalf Detected'),
-        mpatches.Patch(color='red', alpha=0.2, label='Gandalf Not Detected'),
-        mpatches.Patch(color='blue', alpha=0.5, label='Balrog Detected'),
-        mpatches.Patch(color='purple', alpha=0.2, label='Balrog Not Detected')
+        mpatches.Patch(color=color_gandalf_detected, alpha=0.5, label='Gandalf Detected'),
+        mpatches.Patch(color=color_balrog_detected, alpha=1, label='Balrog Detected'),
+        mpatches.Patch(color=color_gandalf_not_detected, alpha=0.5, label='Gandalf Not Detected'),
+        mpatches.Patch(color=color_balrog_not_detected, alpha=1, label='Balrog Not Detected')
     ]
 
     fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
@@ -2383,9 +2357,11 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
         ax_bar.hist(df_balrog_not_detected[col], bins=bins, color='lightcoral', alpha=0.5, label='Balrog not detected', density=True)
         ax_bar.set_yticks([])
 
+        var = 1
+
         # Plot fluctuations on top
         bin_centers = (bins[:-1] + bins[1:]) / 2
-        ax.plot(bin_centers, smoothed_fluctuation_balrog, marker='o', linestyle='-', color='#51a6fb', label='Balrog detected')
+        ax.plot(bin_centers, smoothed_fluctuation_balrog, marker='o', linestyle='-', color='#51a6fb', label=f'Balrog detected $\Delta${var}')
         ax.plot(bin_centers, smoothed_fluctuation_gandalf, marker='s', linestyle='-', color='#ff8c00', label='Gandalf detected')
         ax.plot(bin_centers, smoothed_fluctuation_not_balrog, marker='+', linestyle='-', color='coral', label='Balrog not detected')
         ax.plot(bin_centers, smoothed_fluctuation_not_gandalf, marker='*', linestyle='-', color='blueviolet', label='Gandalf not detected')
