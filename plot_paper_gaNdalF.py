@@ -469,33 +469,33 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
         df_balrog=df_balrog_flw,
         columns=columns,
         labels=[
+            "r-i",
+            "i-z",
             "mag r",
             "mag i",
             "mag z",
-            "mag r-i",
-            "mag i-z",
             "snr",
             "size ratio",
             "weight",
             "T"
         ],
         ranges=[
+            [-0.5, 1.5],  # mag r-i
+            [-0.5, 1.5],  # mag i-z
             [18, 24.5],  # mag r
             [18, 24.5],  # mag i
             [18, 24.5],  # mag z
-            [-0.5, 1.5],  # mag r-i
-            [-0.5, 1.5],  # mag i-z
             [2, 100],  # snr
             [-0.5, 5],  # size ratio
             [10, 80],  # weight
             [0, 3.5]  # T
         ],
         binwidths=[
+            0.08,  # mag r-i
+            0.08,  # mag i-z
             None,  # mag r
             None,  # mag i
             None,  # mag z
-            0.08,  # mag r-i
-            0.08,  # mag i-z
             2,  # snr
             0.2,  # size ratio
             2,  # weight
@@ -512,33 +512,33 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
         df_balrog=df_balrog_flw_cut,
         columns=columns,
         labels=[
+            "mag r-i",
+            "mag i-z",
             "mag r",
             "mag i",
             "mag z",
-            "mag r-i",
-            "mag i-z",
             "snr",
             "size ratio",
             "weight",
             "T"
         ],
         ranges=[
+            [-0.5, 1.5],  # mag r-i
+            [-0.5, 1.5],  # mag i-z
             [18, 24.5],  # mag r
             [18, 24.5],  # mag i
             [18, 24.5],  # mag z
-            [-0.5, 1.5],  # mag r-i
-            [-0.5, 1.5],  # mag i-z
             [2, 100],  # snr
             [-0.5, 5],  # size ratio
             [10, 80],  # weight
             [0, 3.5]  # T
         ],
         binwidths=[
+            0.08,  # mag r-i
+            0.08,  # mag i-z
             None,  # mag r
             None,  # mag i
             None,  # mag z
-            0.08,  # mag r-i
-            0.08,  # mag i-z
             2,  # snr
             0.2,  # size ratio
             2,  # weight
