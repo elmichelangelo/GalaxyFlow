@@ -78,6 +78,7 @@ def main(cfg):
         print(df_gandalf.isna().sum())
         print("############################################")
 
+        print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl")
         if cfg["SAVE_CLF_DATA"] is True:
             gandalf.save_data(
                 data_frame=df_balrog,
@@ -105,7 +106,6 @@ def main(cfg):
         print("############################################")
         print(df_gandalf_detected.isna().sum())
         print("############################################")
-        exit()
         
         if cfg['PLOT_RUN']:
             gandalf.plot_classf_data(
@@ -121,9 +121,6 @@ def main(cfg):
         else:
             df_gandalf = df_gandalf_detected
 
-        df_balrog_cut = df_balrog_detected.copy()
-        df_gandalf_cut = df_gandalf_detected.copy()
-
         # for col in cfg[f'SAMPLE_COLUMNS']:
         #     df_gandalf_cut = sample_columns(df_balrog=df_balrog_cut, df_gandalf=df_gandalf_cut, column_name=col)
         #
@@ -132,15 +129,20 @@ def main(cfg):
         # for col in cfg[f'SELECT_COLUMNS']:
         #     df_gandalf_cut = select_columns(df_balrog_cut, df_gandalf_cut, column_name=col)
         #
+        
         if "unsheared/flux_r" not in df_gandalf.keys():
-            df_gandalf_cut.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_cut["unsheared/mag_r"])
+            df_gandalf_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_detected["unsheared/mag_r"])
 
         if "unsheared/flux_r" not in df_balrog.keys():
-            df_balrog_cut.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_cut["unsheared/mag_r"])
+            df_balrog_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_detected["unsheared/mag_r"])
+            
+        df_balrog_cut = df_balrog_detected.copy()
+        df_gandalf_cut = df_gandalf_detected.copy()
 
         # del df_balrog_detected, df_gandalf_detected
         gc.collect()
-
+        
+        print(f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl")
         if cfg["SAVE_FLW_DATA"] is True:
             gandalf.save_data(
                 data_frame=df_balrog_detected,
@@ -155,6 +157,8 @@ def main(cfg):
                 protocol=5,
                 tmp_samples=False
             )
+            print("Done!")
+        
         exit()
         df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
         df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
@@ -302,13 +306,13 @@ if __name__ == '__main__':
     path = os.path.abspath(sys.path[-1])
     if get_os() == "Mac":
         print("load mac config-file")
-        config_file_name = "mac.cfg"
+        config_file_name = "MAC.cfg"
     elif get_os() == "Windows":
         print("load windows config-file")
         config_file_name = "windows.cfg"
     elif get_os() == "Linux":
         print("load linux config-file")
-        config_file_name = "linux.cfg"
+        config_file_name = "LMU.cfg"
     else:
         print("load default config-file")
         config_file_name = "default.cfg"

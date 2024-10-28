@@ -193,7 +193,6 @@ class gaNdalF(object):
         df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
         
         print(df_gandalf.isna().sum())
-        exit()
 
         print(f"Length gandalf catalog: {len(df_gandalf)}")
         print(f"Length balrog catalog: {len(df_balrog)}")
