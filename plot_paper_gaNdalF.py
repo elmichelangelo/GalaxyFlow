@@ -376,6 +376,9 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
         ]
     )
 
+    df_gandalf_flw["Color unsheared MAG r-i"] = df_gandalf_flw["unsheared/mag_r"] - df_gandalf_flw["unsheared/mag_i"]
+    df_gandalf_flw["Color unsheared MAG i-z"] = df_gandalf_flw["unsheared/mag_i"] - df_gandalf_flw["unsheared/mag_z"]
+
     df_balrog_flw = check_idf_flux(df_balrog_flw)
     df_gandalf_flw = check_idf_flux(df_gandalf_flw)
 
@@ -392,9 +395,6 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
     print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
     print(f"Length of Balrog objects after mag cut: {len(df_balrog_flw_cut)}")
     print(f"Length of gaNdalF objects after mag cut: {len(df_gandalf_flw_cut)}")
-
-    df_gandalf_flw["Color unsheared MAG r-i"] = df_gandalf_flw["unsheared/mag_r"] - df_gandalf_flw["unsheared/mag_i"]
-    df_gandalf_flw["Color unsheared MAG i-z"] = df_gandalf_flw["unsheared/mag_i"] - df_gandalf_flw["unsheared/mag_z"]
 
     plot_compare_corner(
         data_frame_generated=df_gandalf_flw,
