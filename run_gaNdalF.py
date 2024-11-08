@@ -78,8 +78,8 @@ def main(cfg):
         print(df_gandalf.isna().sum())
         print("############################################")
 
-        print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl")
         if cfg["SAVE_CLF_DATA"] is True:
+            print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl")
             gandalf.save_data(
                 data_frame=df_balrog,
                 file_name=f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl",
@@ -106,12 +106,13 @@ def main(cfg):
         print("############################################")
         print(df_gandalf_detected.isna().sum())
         print("############################################")
-        
-        if cfg['PLOT_RUN']:
-            gandalf.plot_classf_data(
-                df_balrog=df_balrog,
-                df_gandalf=df_gandalf
-            )
+
+        if cfg["BOOTSTRAP"] is False:
+            if cfg['PLOT_RUN']:
+                gandalf.plot_classf_data(
+                    df_balrog=df_balrog,
+                    df_gandalf=df_gandalf
+                )
 
         if cfg['EMULATE_GALAXIES']:
             df_balrog_detected, df_gandalf_detected = gandalf.run_emulator(
@@ -141,9 +142,9 @@ def main(cfg):
 
         # del df_balrog_detected, df_gandalf_detected
         gc.collect()
-        
-        print(f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl")
+
         if cfg["SAVE_FLW_DATA"] is True:
+            print(f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl")
             gandalf.save_data(
                 data_frame=df_balrog_detected,
                 file_name=f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl",
@@ -158,10 +159,24 @@ def main(cfg):
                 tmp_samples=False
             )
             print("Done!")
-        
-        exit()
+            exit()
+
         df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
         df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
+
+        if cfg["BOOTSTRAP"] is True:
+            gandalf.save_data(
+                data_frame=df_balrog_cut,
+                file_name=f"{cfg['RUN_DATE']}_balrog_{cfg['DATASET_TYPE']}_samples_{len(df_balrog_cut)}.h5",
+                tmp_samples=False
+            )
+            gandalf.save_data(
+                data_frame=df_gandalf_cut,
+                file_name=f"{cfg['RUN_DATE']}_gandalf_{cfg['DATASET_TYPE']}_samples_{len(df_gandalf_cut)}.h5",
+                tmp_samples=False
+            )
+            exit()
+
 
         if cfg['PLOT_RUN']:
             gandalf.plot_data_flow(
@@ -284,21 +299,28 @@ def make_dirs(cfg):
     """"""
     cfg['PATH_PLOTS_FOLDER'] = {}
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}"
+    if cfg["BOOTSTRAP"] is True:
+        cfg['PATH_OUTPUT'] = cfg['PATH_BOOTSTRAP']
     # if not os.path.exists(cfg['PATH_OUTPUT']):
     #     os.mkdir(cfg['PATH_OUTPUT'])
     # cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_NUMBER']}"
-    cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
+    if cfg["BOOTSTRAP"] is False:
+        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
     cfg['PATH_CATALOGS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_CATALOGS']}"
+    if cfg["BOOTSTRAP"] is True:
+        cfg['PATH_CATALOGS'] = cfg['PATH_OUTPUT']
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
-    if not os.path.exists(cfg['PATH_PLOTS']):
-        os.mkdir(cfg['PATH_PLOTS'])
+    if cfg["BOOTSTRAP"] is False:
+        if not os.path.exists(cfg['PATH_PLOTS']):
+            os.mkdir(cfg['PATH_PLOTS'])
     if not os.path.exists(cfg['PATH_CATALOGS']):
         os.mkdir(cfg['PATH_CATALOGS'])
-    for plot in cfg['PLOTS_RUN']:
-        cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
-        if not os.path.exists(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()]):
-            os.mkdir(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()])
+    if cfg["BOOTSTRAP"] is False:
+        for plot in cfg['PLOTS_RUN']:
+            cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
+            if not os.path.exists(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()]):
+                os.mkdir(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()])
     return cfg
 
 
@@ -342,17 +364,27 @@ if __name__ == '__main__':
     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
 
-    now = datetime.now()
-    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    if args.spatial is not None:
-        cfg['SPATIAL_NUMBER'] = args.spatial - 1
+    if cfg["BOOTSTRAP"] is True:
+        for bootstrap_number in range(cfg["BOOTSTRAP_NUMBER"]):
+            now = datetime.now()
+            cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+            # if args.spatial is not None:
+            #     cfg['SPATIAL_NUMBER'] = args.spatial - 1
+            # else:
+            #     cfg['SPATIAL_NUMBER'] = 0
+            main(cfg)
     else:
-        cfg['SPATIAL_NUMBER'] = 0
+        now = datetime.now()
+        cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+        if args.spatial is not None:
+            cfg['SPATIAL_NUMBER'] = args.spatial - 1
+        else:
+            cfg['SPATIAL_NUMBER'] = 0
 
-    # for i in range(1, 101):
-    #     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
-    #         cfg = yaml.safe_load(fp)
-    #
-    #     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    #     cfg['RUN_NUMBER'] = i
-    main(cfg)
+        # for i in range(1, 101):
+        #     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
+        #         cfg = yaml.safe_load(fp)
+        #
+        #     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+        #     cfg['RUN_NUMBER'] = i
+        main(cfg)

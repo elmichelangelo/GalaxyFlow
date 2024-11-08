@@ -1,6 +1,164 @@
-import pandas as pd
-from Handler import *
-import os
+def calc_kullback_leibler(path_data, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
+                          filename_flw_gandalf, path_master_cat, cf_columns, flow_columns):
+    import scipy
+
+    df_balrog_clf = pd.read_pickle(f"{path_data}/{filename_clf_balrog}")
+    df_gandalf_clf = pd.read_pickle(f"{path_data}/{filename_clf_gandalf}")
+
+    df_balrog_clf_detected = df_balrog_clf[df_balrog_clf["detected"] == 1][cf_columns].dropna()
+    df_gandalf_clf_detected = df_gandalf_clf[df_gandalf_clf["detected"] == 1][cf_columns].dropna()
+
+    # Initialize dictionaries to store KL divergence values
+    kl_detected = {}
+
+    # Compute KL divergence for each feature
+    for column in cf_columns:
+        data1 = df_balrog_clf_detected[column]
+        data2 = df_gandalf_clf_detected[column]
+
+        # Determine the range and bins
+        min_value = min(data1.min(), data2.min())
+        max_value = max(data1.max(), data2.max())
+        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
+
+        # Compute histograms (probability distributions)
+        hist1, _ = np.histogram(data1, bins=bins, density=True)
+        hist2, _ = np.histogram(data2, bins=bins, density=True)
+
+        # Add a small constant to avoid zeros (which cause issues in KL divergence)
+        hist1 += 1e-10
+        hist2 += 1e-10
+
+        # Normalize the histograms to make them probability distributions
+        hist1 /= hist1.sum()
+        hist2 /= hist2.sum()
+
+        # Compute KL divergence
+        kl_value = scipy.stats.entropy(hist1, hist2)
+        kl_detected[column] = kl_value
+
+    # Print the KL divergence values
+    print("KL Divergence for Detected Objects:")
+    for column, kl_value in kl_detected.items():
+        print(f"{column}: {kl_value}")
+
+    df_balrog_clf_not_detected = df_balrog_clf[df_balrog_clf["detected"] == 0][cf_columns].dropna()
+    df_gandalf_clf_not_detected = df_gandalf_clf[df_gandalf_clf["detected"] == 0][cf_columns].dropna()
+
+    # Initialize dictionaries to store KL divergence values
+    kl_not_detected = {}
+
+    # Compute KL divergence for each feature
+    for column in cf_columns:
+        data1 = df_balrog_clf_not_detected[column]
+        data2 = df_gandalf_clf_not_detected[column]
+
+        # Determine the range and bins
+        min_value = min(data1.min(), data2.min())
+        max_value = max(data1.max(), data2.max())
+        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
+
+        # Compute histograms (probability distributions)
+        hist1, _ = np.histogram(data1, bins=bins, density=True)
+        hist2, _ = np.histogram(data2, bins=bins, density=True)
+
+        # Add a small constant to avoid zeros (which cause issues in KL divergence)
+        hist1 += 1e-10
+        hist2 += 1e-10
+
+        # Normalize the histograms to make them probability distributions
+        hist1 /= hist1.sum()
+        hist2 /= hist2.sum()
+
+        # Compute KL divergence
+        kl_value = scipy.stats.entropy(hist1, hist2)
+        kl_not_detected[column] = kl_value
+
+    # Print the KL divergence values
+    print("KL Divergence for Not Detected Objects:")
+    for column, kl_value in kl_not_detected.items():
+        print(f"{column}: {kl_value}")
+
+    df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
+    df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
+
+    df_balrog_flw_mcal = apply_cuts(df_balrog_flw, path_master_cat)
+    df_gandalf_flw_mcal = apply_cuts(df_gandalf_flw, path_master_cat)
+
+    df_balrog_flw = df_balrog_flw.dropna()
+    df_gandalf_flw = df_gandalf_flw.dropna()
+
+
+    # Initialize dictionaries to store KL divergence values
+    kl_flow = {}
+
+    # Compute KL divergence for each feature
+    for column in flow_columns:
+        data1 = df_balrog_flw[column]
+        data2 = df_gandalf_flw[column]
+
+        # Determine the range and bins
+        min_value = min(data1.min(), data2.min())
+        max_value = max(data1.max(), data2.max())
+        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
+
+        # Compute histograms (probability distributions)
+        hist1, _ = np.histogram(data1, bins=bins, density=True)
+        hist2, _ = np.histogram(data2, bins=bins, density=True)
+
+        # Add a small constant to avoid zeros (which cause issues in KL divergence)
+        hist1 += 1e-10
+        hist2 += 1e-10
+
+        # Normalize the histograms to make them probability distributions
+        hist1 /= hist1.sum()
+        hist2 /= hist2.sum()
+
+        # Compute KL divergence
+        kl_value = scipy.stats.entropy(hist1, hist2)
+        kl_flow[column] = kl_value
+
+    # Print the KL divergence values
+    print("KL Divergence for Flow Objects:")
+    for column, kl_value in kl_flow.items():
+        print(f"{column}: {kl_value}")
+
+    df_balrog_flw_mcal = df_balrog_flw_mcal.dropna()
+    df_gandalf_flw_mcal = df_gandalf_flw_mcal.dropna()
+
+    # Initialize dictionaries to store KL divergence values
+    kl_flow_mcal = {}
+
+    # Compute KL divergence for each feature
+    for column in flow_columns:
+        data1 = df_balrog_flw_mcal[column]
+        data2 = df_gandalf_flw_mcal[column]
+
+        # Determine the range and bins
+        min_value = min(data1.min(), data2.min())
+        max_value = max(data1.max(), data2.max())
+        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
+
+        # Compute histograms (probability distributions)
+        hist1, _ = np.histogram(data1, bins=bins, density=True)
+        hist2, _ = np.histogram(data2, bins=bins, density=True)
+
+        # Add a small constant to avoid zeros (which cause issues in KL divergence)
+        hist1 += 1e-10
+        hist2 += 1e-10
+
+        # Normalize the histograms to make them probability distributions
+        hist1 /= hist1.sum()
+        hist2 /= hist2.sum()
+
+        # Compute KL divergence
+        kl_value = scipy.stats.entropy(hist1, hist2)
+        kl_flow_mcal[column] = kl_value
+
+    # Print the KL divergence values
+    print("KL Divergence for MCAL Flow Objects:")
+    for column, kl_value in kl_flow_mcal.items():
+        print(f"{column}: {kl_value}")
 
 
 def replace_nan(data_frame, cols, default_values):
@@ -554,6 +712,36 @@ def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, 
          filename_flw_gandalf, path_save_plots, plt_classf, plt_flow, flow_columns):
     """"""
 
+    calc_kullback_leibler(
+        path_data=path_data,
+        filename_clf_balrog=filename_clf_balrog,
+        filename_clf_gandalf=filename_clf_gandalf,
+        filename_flw_balrog=filename_flw_balrog,
+        filename_flw_gandalf=filename_flw_gandalf,
+        path_master_cat=path_master_cat,
+        cf_columns=[
+            "BDF_MAG_DERED_CALIB_R",
+            "BDF_MAG_DERED_CALIB_I",
+            "BDF_MAG_DERED_CALIB_Z",
+            "BDF_T",
+            "BDF_G",
+            "FWHM_WMEAN_R",
+            "FWHM_WMEAN_I",
+            "FWHM_WMEAN_Z",
+            "AIRMASS_WMEAN_R",
+            "AIRMASS_WMEAN_I",
+            "AIRMASS_WMEAN_Z",
+            "MAGLIM_R",
+            "MAGLIM_I",
+            "MAGLIM_Z",
+            "EBV_SFD98"
+        ],
+        flow_columns=flow_columns
+    )
+
+    exit()
+
+
     if plt_classf is True:
         plot_classifier(
             path_data=path_data,
@@ -574,6 +762,10 @@ def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, 
         )
 
 if __name__ == '__main__':
+    import pandas as pd
+    from Handler import *
+    import scipy as sp
+    import os
     main(
         path_data="/project/ls-gruen/users/patrick.gebhardt/data/gaNdalF_paper_catalogs",
         path_master_cat="/project/ls-gruen/users/patrick.gebhardt/data/gaNdalF/Y3_mastercat_02_05_21.h5",
