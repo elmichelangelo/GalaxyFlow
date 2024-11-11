@@ -28,7 +28,6 @@ def load_tmp_data(cfg, file_name):
 
 def main(cfg):
     """"""
-    
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
         
@@ -47,12 +46,12 @@ def main(cfg):
     #     cfg['NUMBER_SAMPLES'] = len(df_balrog)
     cfg['FILENAME_GANDALF_CATALOG'] = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}_{cfg['DATASET_TYPE']}"
 
-    bootsrap = False
+    # bootsrap = False
     while total_number_of_samples < cfg['NUMBER_SAMPLES']:
-        if cfg['NUMBER_SAMPLES'] == -1:
-            bootsrap = True
+        # if cfg['NUMBER_SAMPLES'] == -1:
+        #     bootsrap = True
         print(f"Run {run_number}")
-        cfg['RUN_NUMBER'] = run_number
+        # cfg['RUN_NUMBER'] = run_number
         gandalf = gaNdalF(cfg=cfg)
 
         df_balrog = gandalf.galaxies.run_dataset
@@ -97,15 +96,15 @@ def main(cfg):
         df_balrog_detected = df_balrog[df_balrog["detected"] == 1].copy()
         df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1].copy()
 
-        print("Balrog after classifier detected")
-        print("############################################")
-        print(df_balrog_detected.isna().sum())
-        print("############################################")
-        
-        print("gaNdalF after classifier detected")
-        print("############################################")
-        print(df_gandalf_detected.isna().sum())
-        print("############################################")
+        # print("Balrog after classifier detected")
+        # print("############################################")
+        # print(df_balrog_detected.isna().sum())
+        # print("############################################")
+        #
+        # print("gaNdalF after classifier detected")
+        # print("############################################")
+        # print(df_gandalf_detected.isna().sum())
+        # print("############################################")
 
         if cfg["BOOTSTRAP"] is False:
             if cfg['PLOT_RUN']:
@@ -132,16 +131,24 @@ def main(cfg):
         #
         
         if "unsheared/flux_r" not in df_gandalf.keys():
-            df_gandalf_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_detected["unsheared/mag_r"])
-
+            try:
+                df_gandalf_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_detected["unsheared/mag_r"])
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                raise  # Re-raise the exception if necessary
         if "unsheared/flux_r" not in df_balrog.keys():
-            df_balrog_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_detected["unsheared/mag_r"])
+            try:
+                df_balrog_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_detected["unsheared/mag_r"])
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                raise  # Re-raise the exception if necessary
+
             
         df_balrog_cut = df_balrog_detected.copy()
         df_gandalf_cut = df_gandalf_detected.copy()
 
         # del df_balrog_detected, df_gandalf_detected
-        gc.collect()
+        # gc.collect()
 
         if cfg["SAVE_FLW_DATA"] is True:
             print(f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl")
@@ -158,41 +165,86 @@ def main(cfg):
                 protocol=5,
                 tmp_samples=False
             )
-            print("Done!")
-            exit()
 
         df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
         df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
 
         if cfg["BOOTSTRAP"] is True:
-            gandalf.save_data(
-                data_frame=df_balrog_cut,
-                file_name=f"{cfg['RUN_DATE']}_balrog_{cfg['DATASET_TYPE']}_samples_{len(df_balrog_cut)}.h5",
-                tmp_samples=False
-            )
+            # gandalf.save_data(
+            #     data_frame=df_balrog_cut,
+            #     file_name=f"{cfg['RUN_DATE']}_balrog_{cfg['DATASET_TYPE']}_samples_{len(df_balrog_cut)}.h5",
+            #     tmp_samples=False
+            # )
+            print("Saving .h5 file...")
             gandalf.save_data(
                 data_frame=df_gandalf_cut,
                 file_name=f"{cfg['RUN_DATE']}_gandalf_{cfg['DATASET_TYPE']}_samples_{len(df_gandalf_cut)}.h5",
                 tmp_samples=False
             )
-            exit()
+            print(".h5 file saved.")
 
+            # print(f"Number of detected samples: {df_gandalf_detected}")
+            # print(f"Number of mcal samples: {df_gandalf_cut}")
+            # print(f"Number of total samples: {df_gandalf}")
+            total_number_of_samples = cfg['NUMBER_SAMPLES']
+            # del gandalf
+            df_balrog = df_gandalf = df_balrog_cut = df_gandalf_cut = df_balrog_detected = df_gandalf_detected = None
+            gc.collect()
+            return
 
-        if cfg['PLOT_RUN']:
-            gandalf.plot_data_flow(
-                df_gandalf=df_gandalf_detected,
-                df_balrog=df_balrog_detected,
-                mcal=''
+        else:
+            if cfg['PLOT_RUN']:
+                gandalf.plot_data_flow(
+                    df_gandalf=df_gandalf_detected,
+                    df_balrog=df_balrog_detected,
+                    mcal=''
+                )
+
+                gandalf.plot_data_flow(
+                    df_gandalf=df_gandalf_cut,
+                    df_balrog=df_balrog_cut,
+                    mcal='mcal_'
+                )
+
+            del df_balrog, df_gandalf
+            gc.collect()
+
+            df_gandalf_samples = load_tmp_data(
+                cfg=cfg,
+                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl"
+            )
+            df_balrog_samples = load_tmp_data(
+                cfg=cfg,
+                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
             )
 
-            gandalf.plot_data_flow(
-                df_gandalf=df_gandalf_cut,
-                df_balrog=df_balrog_cut,
-                mcal='mcal_'
+            df_gandalf_samples = pd.concat([df_gandalf_samples, df_gandalf_cut], ignore_index=True)
+            df_balrog_samples = pd.concat([df_balrog_samples, df_balrog_cut], ignore_index=True)
+
+            total_number_of_samples = len(df_gandalf_samples)
+            run_number += 1
+
+            print(f"Actual number of samples: {total_number_of_samples}")
+
+            gandalf.save_data(
+                data_frame=df_gandalf_samples,
+                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl",
+                tmp_samples=True
             )
 
-        del df_balrog, df_gandalf
-        gc.collect()
+            gandalf.save_data(
+                data_frame=df_balrog_samples,
+                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl",
+                tmp_samples=True
+            )
+
+            del df_gandalf_cut, df_balrog_cut  #, df_gandalf_samples, df_balrog_samples
+            gc.collect()
+
+            # if bootsrap is True:
+            #     cfg['NUMBER_SAMPLES'] = -1
+    if cfg["BOOTSTRAP"] is False:
+        cfg['RUN_NUMBER'] = run_number + 1
 
         df_gandalf_samples = load_tmp_data(
             cfg=cfg,
@@ -203,96 +255,61 @@ def main(cfg):
             file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
         )
 
-        df_gandalf_samples = pd.concat([df_gandalf_samples, df_gandalf_cut], ignore_index=True)
-        df_balrog_samples = pd.concat([df_balrog_samples, df_balrog_cut], ignore_index=True)
+        print(f"Total number of samples: {total_number_of_samples}")
+        print(f"Number of runs: {run_number - 1}")
+        print(df_gandalf_samples)
 
-        total_number_of_samples = len(df_gandalf_samples)
-        run_number += 1
+        # df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
+        # df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
 
-        print(f"Actual number of samples: {total_number_of_samples}")
+        # df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
+        # df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
 
+        # plot_compare_corner(
+        #     data_frame_generated=df_gandalf_samples,
+        #     data_frame_true=df_balrog_samples,
+        #     dict_delta=None,
+        #     epoch=None,
+        #     title=f"Observed Properties gaNdalF compared to Balrog",
+        #     show_plot=False,
+        #     save_plot=True,
+        #     save_name=f"{cfg[f'PATH_PLOTS_FOLDER'][f'MCAL_COLOR_COLOR_PLOT']}/mcal_chainplot_slide_new_{cfg['RUN_NUMBER']}.png",
+        #     columns=[
+        #         f"unsheared/mag_r",
+        #         f"unsheared/mag_i",
+        #         f"unsheared/mag_z",
+        #         "unsheared/snr",
+        #         "unsheared/size_ratio"
+        #     ],
+        #     labels=[
+        #         f"mag r",
+        #         f"mag i",
+        #         f"mag z",
+        #         "snr",
+        #         "size_ratio"
+        #     ],
+        #     ranges=[(17, 25), (17, 25), (17, 25), (-2, 300), (0, 6)]
+        # )
+
+        gandalf.plot_data_flow(
+            df_gandalf=df_gandalf_samples,
+            df_balrog=df_balrog_samples,
+            mcal='mcal_'
+        )
+
+        file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5"
+        if cfg["SPATIAL_TEST"] is True:
+            file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5"
+        print("Saving .h5 file...")
         gandalf.save_data(
             data_frame=df_gandalf_samples,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl",
-            tmp_samples=True
+            file_name=file_name,
+            tmp_samples=False
         )
-
-        gandalf.save_data(
-            data_frame=df_balrog_samples,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl",
-            tmp_samples=True
-        )
-
-        del df_gandalf_cut, df_balrog_cut  #, df_gandalf_samples, df_balrog_samples
-        gc.collect()
-
-        if bootsrap is True:
-            cfg['NUMBER_SAMPLES'] = -1
-
-    cfg['RUN_NUMBER'] = run_number + 1
-
-    df_gandalf_samples = load_tmp_data(
-        cfg=cfg,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl"
-    )
-    df_balrog_samples = load_tmp_data(
-        cfg=cfg,
-        file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
-    )
-
-    print(f"Total number of samples: {total_number_of_samples}")
-    print(f"Number of runs: {run_number - 1}")
-    print(df_gandalf_samples)
-
-    # df_gandalf_samples = df_gandalf_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
-    # df_balrog_samples = df_balrog_samples.sample(n=cfg['NUMBER_SAMPLES'], random_state=None, replace=True)
-
-    # df_gandalf_samples.loc[:, "true_id"] = df_gandalf_samples["ID"].values
-    # df_gandalf_samples = df_gandalf_samples[cfg['SOMPZ_COLS']]
-
-    # plot_compare_corner(
-    #     data_frame_generated=df_gandalf_samples,
-    #     data_frame_true=df_balrog_samples,
-    #     dict_delta=None,
-    #     epoch=None,
-    #     title=f"Observed Properties gaNdalF compared to Balrog",
-    #     show_plot=False,
-    #     save_plot=True,
-    #     save_name=f"{cfg[f'PATH_PLOTS_FOLDER'][f'MCAL_COLOR_COLOR_PLOT']}/mcal_chainplot_slide_new_{cfg['RUN_NUMBER']}.png",
-    #     columns=[
-    #         f"unsheared/mag_r",
-    #         f"unsheared/mag_i",
-    #         f"unsheared/mag_z",
-    #         "unsheared/snr",
-    #         "unsheared/size_ratio"
-    #     ],
-    #     labels=[
-    #         f"mag r",
-    #         f"mag i",
-    #         f"mag z",
-    #         "snr",
-    #         "size_ratio"
-    #     ],
-    #     ranges=[(17, 25), (17, 25), (17, 25), (-2, 300), (0, 6)]
-    # )
-
-    gandalf.plot_data_flow(
-        df_gandalf=df_gandalf_samples,
-        df_balrog=df_balrog_samples,
-        mcal='mcal_'
-    )
-    exit()
-    file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5"
-    if cfg["SPATIAL_TEST"] is True:
-        file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5"
-
-    gandalf.save_data(
-        data_frame=df_gandalf_samples,
-        file_name=file_name,
-        tmp_samples=False
-    )
-    # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl")
-    # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl")
+        print(".h5 file saved.")
+        # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl")
+        # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl")
+    return
 
 
 def make_dirs(cfg):
@@ -355,6 +372,17 @@ if __name__ == '__main__':
         required=False,
         help='Run number'
     )
+    parser.add_argument(
+        '--bootstrap',
+        action='store_true',
+        help='Enable bootstrapping'
+    )
+    parser.add_argument(
+        '--run_number',
+        type=int,
+        required=False,
+        help='Run number for bootstrapping'
+    )
 
     args = parser.parse_args()
 
@@ -364,15 +392,17 @@ if __name__ == '__main__':
     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
 
-    if cfg["BOOTSTRAP"] is True:
-        for bootstrap_number in range(cfg["BOOTSTRAP_NUMBER"]):
-            now = datetime.now()
-            cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-            # if args.spatial is not None:
-            #     cfg['SPATIAL_NUMBER'] = args.spatial - 1
-            # else:
-            #     cfg['SPATIAL_NUMBER'] = 0
-            main(cfg)
+    if args.bootstrap:
+        cfg['BOOTSTRAP'] = True
+        cfg['RUN_NUMBER'] = args.run_number
+        now = datetime.now()
+        cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M') + f"_run{cfg['RUN_NUMBER']}"
+        print("RUN_DATE", cfg['RUN_DATE'])
+        print("start main function")
+        main(cfg)
+        print("end main function")
+        print("sys.exit()")
+        sys.exit()
     else:
         now = datetime.now()
         cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')

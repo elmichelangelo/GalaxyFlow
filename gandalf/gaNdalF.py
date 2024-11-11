@@ -104,10 +104,10 @@ class gaNdalF(object):
         df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
 
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
-        print(f"Number of NOT true_detected galaxies gandalf: {gandalf_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
-        print(f"Number of true_detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
-        print(f"Number of NOT true_detected galaxies balrog: {balrog_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
-        print(f"Number of true_detected galaxies balrog: {balrog_detected} of {self.cfg['NUMBER_SAMPLES']}")
+        # print(f"Number of NOT true_detected galaxies gandalf: {gandalf_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
+        # print(f"Number of true_detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
+        # print(f"Number of NOT true_detected galaxies balrog: {balrog_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
+        # print(f"Number of true_detected galaxies balrog: {balrog_detected} of {self.cfg['NUMBER_SAMPLES']}")
 
         return df_balrog, df_gandalf
 
@@ -169,12 +169,12 @@ class gaNdalF(object):
         ).detach().numpy()
 
         df_gandalf_flow.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = arr_flow_gandalf_output
-        print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
-        print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
+        # print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
+        # print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
         if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
             print("apply scaler on df_gandalf")
             df_gandalf_flow = self.galaxies.inverse_scale_data(df_gandalf_flow)
-        print(f"Number of NaNs in df_gandalf after scaler: {df_gandalf_flow.isna().sum().sum()}")
+        # print(f"Number of NaNs in df_gandalf after scaler: {df_gandalf_flow.isna().sum().sum()}")
         if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
             if self.cfg['TRANSFORM_COLS_RUN'] is None:
                 trans_col = df_gandalf_flow.keys()
@@ -185,41 +185,45 @@ class gaNdalF(object):
                 data_frame=df_gandalf_flow,
                 columns=trans_col
             )
-        print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf_flow.isna().sum().sum()}")
-        
-        print(df_gandalf.isna().sum())
+        # print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf_flow.isna().sum().sum()}")
 
-        df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
-        df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
-        
-        print(df_gandalf.isna().sum())
+        try:
+            df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise  # Re-raise the exception if necessary
+        try:
+            df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise  # Re-raise the exception if necessary
 
-        print(f"Length gandalf catalog: {len(df_gandalf)}")
-        print(f"Length balrog catalog: {len(df_balrog)}")
-        if df_gandalf.isna().sum().sum() > 0:
-            print("Warning: NaNs in df_gandalf_rescaled")
-            print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
-            # df_gandalf.dropna(inplace=True)
-
-        if df_balrog.isna().sum().sum() > 0:
-            print("Warning: NaNs in df_gandalf_rescaled")
-            print(f"Number of NaNs in df_gandalf: {df_balrog.isna().sum().sum()}")
-            # df_balrog.dropna(inplace=True)
-
-        print(f"Length gandalf catalog: {len(df_gandalf)}")
-        print(f"Length balrog catalog: {len(df_balrog)}")
-
-        for col in df_gandalf.keys():
-            if "unsheared" in col:
-                print(f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
+        # print(f"Length gandalf catalog: {len(df_gandalf)}")
+        # print(f"Length balrog catalog: {len(df_balrog)}")
+        # if df_gandalf.isna().sum().sum() > 0:
+        #     print("Warning: NaNs in df_gandalf_rescaled")
+        #     print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
+        #     # df_gandalf.dropna(inplace=True)
+        #
+        # if df_balrog.isna().sum().sum() > 0:
+        #     print("Warning: NaNs in df_gandalf_rescaled")
+        #     print(f"Number of NaNs in df_gandalf: {df_balrog.isna().sum().sum()}")
+        #     # df_balrog.dropna(inplace=True)
+        #
+        # print(f"Length gandalf catalog: {len(df_gandalf)}")
+        # print(f"Length balrog catalog: {len(df_balrog)}")
+        #
+        # for col in df_gandalf.keys():
+        #     if "unsheared" in col:
+        #         print(f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
 
         # if "unsheared/flux_r" not in df_gandalf.keys():
         #     df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
         #
         # if "unsheared/flux_r" not in df_balrog.keys():
         #     df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
-        print(f"Length gandalf catalog: {len(df_gandalf)}")
-        print(f"Length balrog catalog: {len(df_balrog)}")
+        # print(f"Length gandalf catalog: {len(df_gandalf)}")
+        # print(f"Length balrog catalog: {len(df_balrog)}")
 
         return df_balrog, df_gandalf
 
