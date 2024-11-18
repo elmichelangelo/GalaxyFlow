@@ -773,7 +773,7 @@ def plot_redshift(path_data_folder, path_zmean_folder, path_gandalf_mean):
         plot_settings={"plt_figsize": (10, 6)},
         show_plot=False,
         save_plot=True,
-        save_name="/home/p/P.Gebhardt/Output/gaNdalF_Paper/redshift_per_bin_bootstrap.png"
+        save_name="/home/p/P.Gebhardt/Output/gaNdalF_paper/redshift_per_bin_bootstrap.png"
     )
 
 

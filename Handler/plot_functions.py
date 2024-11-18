@@ -530,62 +530,6 @@ def loss_plot(
     return img_tensor
 
 
-# def plot_chain_compare(data_frame_generated, data_frame_true, columns, labels, title, extents, sigma2d, show_plot, save_name):
-#     """"""
-#
-#     chainchat = ChainConsumer()
-#     balrog_chain = Chain(
-#         samples=data_frame_true[columns],
-#         parameters=labels,
-#         name="balrog observed properties: chat",
-#         color='#51a6fb',
-#         plot_cloud=True,
-#         num_cloud=100000,
-#         kde=.8,
-#         bins=100,
-#         smooth=1,
-#         shade=True,
-#         shade_alpha=.7,
-#         show_contour_labels=True
-#     )
-#     gandalf_chain = Chain(
-#         samples=data_frame_generated[columns],
-#         parameters=labels,
-#         name="generated observed properties: chat*",
-#         color='#ff8c00',
-#         plot_cloud=True,
-#         num_cloud=100000,
-#         kde=.8,
-#         bins=100,
-#         smooth=1,
-#         shade=True,
-#         shade_alpha=.7,
-#         show_contour_labels=True
-#     )
-#     chainchat.add_chain(balrog_chain)
-#     chainchat.add_chain(gandalf_chain)
-#     chainchat.set_plot_config(PlotConfig(
-#         max_ticks=5,
-#         shade_alpha=0.8,
-#         tick_font_size=12,
-#         label_font_size=12,
-#         sigma2d=sigma2d,
-#         flip=True,
-#         show_legend=True,
-#         extents=extents
-#     ))
-#     chainchat.plotter.plot(
-#         filename=save_name,
-#         figsize="page"
-#     )
-#     plt.grid(True)
-#     plt.title(title)
-#     if show_plot is True:
-#         plt.show()
-#     plt.clf()
-#     plt.close()
-
-
 def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands, plot_title, show_plot, save_plot, save_name):
     """"""
     hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = \
