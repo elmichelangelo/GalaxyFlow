@@ -708,39 +708,107 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
         save_name=f"{path_save_plots}/mcal_hist_plot.png"
     )
 
-def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
-         filename_flw_gandalf, path_save_plots, plt_classf, plt_flow, flow_columns):
-    """"""
 
-    calc_kullback_leibler(
-        path_data=path_data,
-        filename_clf_balrog=filename_clf_balrog,
-        filename_clf_gandalf=filename_clf_gandalf,
-        filename_flw_balrog=filename_flw_balrog,
-        filename_flw_gandalf=filename_flw_gandalf,
-        path_master_cat=path_master_cat,
-        cf_columns=[
-            "BDF_MAG_DERED_CALIB_R",
-            "BDF_MAG_DERED_CALIB_I",
-            "BDF_MAG_DERED_CALIB_Z",
-            "BDF_T",
-            "BDF_G",
-            "FWHM_WMEAN_R",
-            "FWHM_WMEAN_I",
-            "FWHM_WMEAN_Z",
-            "AIRMASS_WMEAN_R",
-            "AIRMASS_WMEAN_I",
-            "AIRMASS_WMEAN_Z",
-            "MAGLIM_R",
-            "MAGLIM_I",
-            "MAGLIM_Z",
-            "EBV_SFD98"
-        ],
-        flow_columns=flow_columns
+def load_zmean_and_files(path_zmean_folder, path_data_folder, path_gandalf_mean):
+    """
+    Load zmean.pkl and all histogram files from the specified folders.
+
+    Args:
+        path_zmean_folder (str): Path to the folder containing zmean.pkl.
+        path_data_folder (str): Path to the folder containing histogram files.
+
+    Returns:
+        array: zmean values.
+        list: List of histograms (DataFrames or numpy arrays) for hist_wide_cond_gandalf files.
+        array/DataFrame: Histogram for the single hist_wide_cond_balrog file.
+    """
+    # Load zmean.pkl
+    zmean_file = os.path.join(path_zmean_folder, 'zmean.pkl')
+    if not os.path.isfile(zmean_file):
+        raise ValueError("zmean.pkl file not found in the folder.")
+
+    zmean = pd.read_pickle(zmean_file)
+    if isinstance(zmean, (pd.DataFrame, pd.Series)):
+        zmean = zmean.values
+    elif not isinstance(zmean, np.ndarray):
+        raise ValueError("zmean.pkl must contain a numpy array, DataFrame, or Series.")
+
+    gandalf_files = []
+    balrog_file = None
+
+    # Load histogram files
+    for file_name in os.listdir(path_data_folder):
+        file_path = os.path.join(path_data_folder, file_name)
+
+        if file_name.startswith("hist_wide_cond_gandalf") and file_name.endswith(".pkl"):
+            loaded_file = pd.read_pickle(file_path)
+            gandalf_files.append(loaded_file if isinstance(loaded_file, pd.DataFrame) else np.array(loaded_file))
+
+        elif file_name.startswith("hist_wide_cond_balrog") and file_name.endswith(".pkl") and balrog_file is None:
+            loaded_file = pd.read_pickle(file_path)
+            balrog_file = loaded_file if isinstance(loaded_file, pd.DataFrame) else np.array(loaded_file)
+
+    # Load gandalf mean redshift
+    df_sompz_gandalf = pd.read_csv(path_gandalf_mean)
+    gandalf_means = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].mean())
+    gandalf_stds = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].std())
+
+    # Balrog reference lines
+    balrog_means = [0.3255, 0.5086, 0.7470, 0.9320]
+
+    return zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means
+
+def plot_redshift(path_data_folder, path_zmean_folder, path_gandalf_mean):
+    """"""
+    zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means = load_zmean_and_files(
+        path_zmean_folder, path_data_folder, path_gandalf_mean)
+
+    plot_tomo_bin_redshift_bootstrap(
+        zmean=zmean,
+        gandalf_files=gandalf_files,
+        balrog_file=balrog_file,
+        gandalf_means=gandalf_means,
+        gandalf_stds=gandalf_stds,
+        balrog_means=balrog_means,
+        plot_settings={"plt_figsize": (10, 6)},
+        show_plot=False,
+        save_plot=True,
+        save_name="/home/p/P.Gebhardt/Output/sompz_paper/bootstrap_plot.png"
     )
 
-    exit()
 
+def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
+         filename_flw_gandalf, path_data_folder, path_zmean_folder, path_gandalf_mean, path_save_plots, calc_kl_div,
+         plt_classf, plt_flow, plt_redshift, flow_columns):
+    """"""
+
+    if calc_kl_div is True:
+        calc_kullback_leibler(
+            path_data=path_data,
+            filename_clf_balrog=filename_clf_balrog,
+            filename_clf_gandalf=filename_clf_gandalf,
+            filename_flw_balrog=filename_flw_balrog,
+            filename_flw_gandalf=filename_flw_gandalf,
+            path_master_cat=path_master_cat,
+            cf_columns=[
+                "BDF_MAG_DERED_CALIB_R",
+                "BDF_MAG_DERED_CALIB_I",
+                "BDF_MAG_DERED_CALIB_Z",
+                "BDF_T",
+                "BDF_G",
+                "FWHM_WMEAN_R",
+                "FWHM_WMEAN_I",
+                "FWHM_WMEAN_Z",
+                "AIRMASS_WMEAN_R",
+                "AIRMASS_WMEAN_I",
+                "AIRMASS_WMEAN_Z",
+                "MAGLIM_R",
+                "MAGLIM_I",
+                "MAGLIM_Z",
+                "EBV_SFD98"
+            ],
+            flow_columns=flow_columns
+        )
 
     if plt_classf is True:
         plot_classifier(
@@ -761,6 +829,13 @@ def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, 
             columns=flow_columns
         )
 
+    if plt_redshift is True:
+        plot_redshift(
+            path_data_folder=path_data_folder,
+            path_zmean_folder=path_zmean_folder,
+            path_gandalf_mean=path_gandalf_mean
+        )
+
 if __name__ == '__main__':
     import pandas as pd
     from Handler import *
@@ -773,9 +848,14 @@ if __name__ == '__main__':
         filename_clf_gandalf="2024-10-28_08-14_gandalf_clf_Test_sample.pkl",
         filename_flw_balrog = "2024-10-28_08-14_balrog_flw_Test_sample.pkl",
         filename_flw_gandalf = "2024-10-28_08-14_gandalf_flw_Test_sample.pkl",
+        path_data_folder = '/home/p/P.Gebhardt/Output/sompz_paper/histograms/',
+        path_zmean_folder = '/home/p/P.Gebhardt/Output/sompz_paper',
+        path_gandalf_mean = '/home/p/P.Gebhardt/Output/sompz_paper/mean_gandalf.csv',
         path_save_plots = "/home/p/P.Gebhardt/Output/gaNdalF_paper",
+        calc_kl_div=False,
         plt_classf=False,
-        plt_flow=True,
+        plt_flow=False,
+        plt_redshift=True,
         flow_columns=[
             "Color unsheared MAG r-i",
             "Color unsheared MAG i-z",

@@ -7,7 +7,7 @@
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_paper/plot_gandalf_paper.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_paper/plot_gandalf_paper_err.log
-#SBATCH --partition=cip
+#SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=8
 
