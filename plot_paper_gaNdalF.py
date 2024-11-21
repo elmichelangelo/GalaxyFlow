@@ -543,16 +543,79 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
     df_balrog_flw_cut = apply_cuts(df_balrog_flw, path_master_cat)
     df_gandalf_flw_cut = apply_cuts(df_gandalf_flw, path_master_cat)
 
+    print(f"Length of Balrog objects: {len(df_balrog_flw)}")
+    print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
+    print(f"Length of Balrog objects after mag cut: {len(df_balrog_flw_cut)}")
+    print(f"Length of gaNdalF objects after mag cut: {len(df_gandalf_flw_cut)}")
+
+    bands = ['r', 'i', 'z']
+    conditions = ['AIRMASS_WMEAN', 'MAGLIM', 'FWHM_WMEAN', 'EBV_SFD98']
+    residual_properties = ['mag', 'snr', 'size_ratio', 'T', 'weight']
+
+    create_combined_statistics_plot(
+        df_gandalf=df_gandalf_flw_cut,
+        df_balrog=df_balrog_flw_cut,
+        bands=bands,
+        conditions=conditions,
+        residual_properties=residual_properties,
+        save_plot=True,
+        path_save_plots=path_save_plots
+    )
+
+    # plot_binning_statistics_combined(
+    #     df_gandalf=df_gandalf_flw_cut,
+    #     df_balrog=df_balrog_flw_cut,
+    #     sample_size=10000,
+    #     show_plot=False,
+    #     save_plot=True,
+    #     path_save_plots=path_save_plots
+    # )
+    # plot_binning_statistics_comparison(
+    #     df_gandalf=df_gandalf_flw_cut,
+    #     df_balrog=df_balrog_flw_cut,
+    #     sample_size=10000,
+    #     show_plot=False,
+    #     save_plot=True,
+    #     path_save_plots=path_save_plots
+    # )
+    # plot_binning_statistics_properties(
+    #     df_gandalf=df_gandalf_flw_cut,
+    #     df_balrog=df_balrog_flw_cut,
+    #     sample_size=10000,
+    #     show_plot=False,
+    #     save_plot=True,
+    #     path_save_plots=path_save_plots
+    # )
+    exit()
+    plot_binning_statistics(
+        df_gandalf=df_gandalf_flw_cut,
+        df_balrog=df_balrog_flw_cut,
+        conditions=[
+            "FWHM_WMEAN_R",
+            "FWHM_WMEAN_I",
+            "FWHM_WMEAN_Z",
+            "AIRMASS_WMEAN_R",
+            "AIRMASS_WMEAN_I",
+            "AIRMASS_WMEAN_Z",
+            "MAGLIM_R",
+            "MAGLIM_I",
+            "MAGLIM_Z",
+            "EBV_SFD98"
+        ],
+        bands=["r", "i", "z"],
+        sample_size=100000,
+        show_plot=False,
+        save_plot=True,
+        path_save_plots=path_save_plots
+    )
+
     df_balrog_flw = df_balrog_flw[columns]
     df_gandalf_flw = df_gandalf_flw[columns]
 
     df_balrog_flw_cut = df_balrog_flw_cut[columns]
     df_gandalf_flw_cut = df_gandalf_flw_cut[columns]
 
-    print(f"Length of Balrog objects: {len(df_balrog_flw)}")
-    print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
-    print(f"Length of Balrog objects after mag cut: {len(df_balrog_flw_cut)}")
-    print(f"Length of gaNdalF objects after mag cut: {len(df_gandalf_flw_cut)}")
+    exit()
 
     plot_compare_corner(
         data_frame_generated=df_gandalf_flw,
@@ -839,7 +902,6 @@ def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, 
 if __name__ == '__main__':
     import pandas as pd
     from Handler import *
-    import scipy as sp
     import os
     main(
         path_data="/project/ls-gruen/users/patrick.gebhardt/data/gaNdalF_paper_catalogs",
@@ -854,8 +916,8 @@ if __name__ == '__main__':
         path_save_plots = "/home/p/P.Gebhardt/Output/gaNdalF_paper",
         calc_kl_div=False,
         plt_classf=False,
-        plt_flow=False,
-        plt_redshift=True,
+        plt_flow=True,
+        plt_redshift=False,
         flow_columns=[
             "Color unsheared MAG r-i",
             "Color unsheared MAG i-z",

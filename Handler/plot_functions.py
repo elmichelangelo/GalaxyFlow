@@ -11,6 +11,7 @@ from scipy.stats import gaussian_kde
 from torchvision.transforms import ToTensor
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, brier_score_loss
 from sklearn.calibration import calibration_curve
+from scipy.stats import binned_statistic, median_abs_deviation
 from io import BytesIO
 
 from Handler.helper_functions import string_to_tuple, calculate_kde
@@ -1742,6 +1743,643 @@ def plot_tomo_bin_redshift_bootstrap(zmean, gandalf_files, balrog_file, gandalf_
         plt.show()
     if save_plot and save_name:
         plt.savefig(save_name, bbox_inches='tight', dpi=300)
+
+
+def plot_binning_statistics(df_gandalf, df_balrog, conditions, bands, sample_size=10000, show_plot=True,
+                            save_plot=False, path_save_plots=""):
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+
+    for condition in conditions:
+        cond_figure, (
+            (stat_ax1), (stat_ax2), (stat_ax3)) = \
+            plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
+        cond_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
+        cond_figure.suptitle(f"BDF_MAG_DERED_CALIB - unsheared/mag", fontsize=16)
+
+        outputs = ['unsheared/mag_' + b for b in bands]
+        true_outputs = ['BDF_MAG_DERED_CALIB_' + b.upper() for b in bands]
+        output_errs = ['unsheared/mag_err_' + b for b in bands]
+        lst_axis_con = [
+            stat_ax1,
+            stat_ax2,
+            stat_ax3
+        ]
+
+        cond_lims = np.percentile(df_balrog[condition], [2, 98])
+        standard_levels = [0.393, 0.865, 0.989]
+
+        for idx, out in enumerate(zip(outputs, output_errs, true_outputs)):
+            output_ = out[0]
+            output_err_ = out[1]
+            true_output_ = out[2]
+
+            diff_true = (df_balrog[true_output_] - df_balrog[output_]) / df_balrog[true_output_]
+
+            df_conditional_true = pd.DataFrame({
+                condition: df_balrog[condition],
+                f"residual band {bands[idx]}": diff_true,
+                "dataset": ["Balrog" for _ in range(len(df_balrog[condition]))]
+            })
+            bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
+                df_balrog[condition], diff_true, statistic='median', bins=10, range=cond_lims)
+            bin_stds_true, bin_edges_true, binnumber_true = binned_statistic(
+                df_balrog[condition], diff_true, statistic=median_abs_deviation, bins=10, range=cond_lims)
+            xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
+            xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
+            lst_axis_con[idx].errorbar(
+                xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, color=color_balrog, lw=2,
+                label='Balrog')
+
+            diff_generated = (df_gandalf[true_output_] - df_gandalf[output_]) / df_gandalf[true_output_]
+
+            df_conditional_generated = pd.DataFrame({
+                condition: df_gandalf[condition],
+                f"residual band {bands[idx]}": diff_generated,
+                "dataset": ["gaNdalF" for _ in range(len(df_gandalf[condition]))]
+            })
+            bin_means_generated, bin_edges_mean_generated, binnumber_mean_generated = binned_statistic(
+                df_gandalf[condition], diff_generated, statistic='median', bins=10, range=cond_lims)
+            bin_stds_generated, bin_edges_generated, binnumber_generated = binned_statistic(
+                df_gandalf[condition], diff_generated, statistic=median_abs_deviation, bins=10,
+                range=cond_lims)
+            xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
+            xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+            lst_axis_con[idx].errorbar(
+                xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated,
+                color=color_gandalf, lw=2, label='gaNdalF')
+
+            m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
+            range_ = [m - 4 * s, m + 4 * s]
+
+            df_conditional_true_sampled = df_conditional_true.sample(n=sample_size, random_state=42)
+            df_conditional_generated_sampled = df_conditional_generated.sample(n=sample_size, random_state=42)
+
+            sns.kdeplot(
+                data=df_conditional_true_sampled,
+                x=condition,
+                y=f"residual band {bands[idx]}",
+                fill=True,
+                thresh=0,
+                alpha=.4,
+                levels=standard_levels,  # 10
+                color=color_balrog,
+                legend="Balrog",
+                ax=lst_axis_con[idx]
+            )
+            sns.kdeplot(
+                data=df_conditional_generated_sampled,
+                x=condition,
+                y=f"residual band {bands[idx]}",
+                fill=False,
+                thresh=0,
+                levels=standard_levels,  # 10
+                alpha=.8,
+                color=color_gandalf,
+                legend="gaNdalF",
+                ax=lst_axis_con[idx]
+            )
+
+            lst_axis_con[idx].set_xlim(cond_lims)
+            lst_axis_con[idx].set_ylim(range_)
+            lst_axis_con[idx].axhline(np.median(diff_true), c='dodgerblue', ls='--', label='median Balrog')
+            lst_axis_con[idx].axhline(0, c='grey', ls='--', label='zero')
+            lst_axis_con[idx].axhline(np.median(diff_generated), c='darkorange', ls='--',
+                                      label='median gaNdalF')
+            lst_axis_con[idx].axvline(np.median(df_balrog[condition]), c='grey', ls='--',
+                                      label='median conditional')
+        lst_axis_con[0].legend()
+        cond_figure.tight_layout()
+        if save_plot is True:
+            save_name = f"{path_save_plots}/cond_stat_binning_{condition}.png"
+            plt.savefig(save_name, dpi=300)
+        if show_plot is True:
+            plt.show()
+        plt.clf()
+        plt.close()
+
+
+def plot_binning_statistics_test2(df_gandalf, df_balrog, conditions, bands, sample_size=10000, show_plot=True,
+                                  save_plot=False, path_save_plots=""):
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+    standard_levels = [0.393, 0.865, 0.989]
+
+    for idx, band in enumerate(bands):
+        # Create a figure for the band
+        fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(6 * len(conditions), 6), sharey=True)
+        fig.suptitle(f"Binning Statistics and KDE for Band {band.upper()}", fontsize=16)
+
+        if len(conditions) == 1:
+            axes = [axes]  # Ensure axes is iterable for single condition
+
+        for ax, condition in zip(axes, conditions):
+            output = f'unsheared/mag_{band}'
+            true_output = f'BDF_MAG_DERED_CALIB_{band.upper()}'
+            output_err = f'unsheared/mag_err_{band}'
+
+            # Calculate normalized residuals
+            diff_true = (df_balrog[true_output] - df_balrog[output]) / (df_balrog[true_output] + 1e-6)
+            diff_generated = (df_gandalf[true_output] - df_gandalf[output]) / (df_gandalf[true_output] + 1e-6)
+
+            # Downsample data for faster plotting
+            df_conditional_true = pd.DataFrame({condition: df_balrog[condition], f"residual band {band}": diff_true})
+            df_conditional_generated = pd.DataFrame({condition: df_gandalf[condition], f"residual band {band}": diff_generated})
+
+            sampled_true = df_conditional_true.sample(n=min(sample_size, len(df_conditional_true)), random_state=42)
+            sampled_generated = df_conditional_generated.sample(n=min(sample_size, len(df_conditional_generated)), random_state=42)
+
+            # Binning statistics
+            cond_lims = np.percentile(df_balrog[condition], [2, 98])
+            bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
+                sampled_true[condition], sampled_true[f"residual band {band}"], statistic='median', bins=10, range=cond_lims)
+            bin_stds_true, _, _ = binned_statistic(
+                sampled_true[condition], sampled_true[f"residual band {band}"], statistic=median_abs_deviation, bins=10, range=cond_lims)
+
+            bin_means_generated, bin_edges_mean_generated, _ = binned_statistic(
+                sampled_generated[condition], sampled_generated[f"residual band {band}"], statistic='median', bins=10, range=cond_lims)
+            bin_stds_generated, _, _ = binned_statistic(
+                sampled_generated[condition], sampled_generated[f"residual band {band}"], statistic=median_abs_deviation, bins=10, range=cond_lims)
+
+            xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
+            xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
+            xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
+            xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+
+            # KDE plot
+            sns.kdeplot(
+                data=sampled_true,
+                x=condition,
+                y=f"residual band {band}",
+                fill=True,
+                thresh=0,
+                alpha=.4,
+                levels=standard_levels,
+                color=color_balrog,
+                ax=ax,
+                label="Balrog KDE"
+            )
+            sns.kdeplot(
+                data=sampled_generated,
+                x=condition,
+                y=f"residual band {band}",
+                fill=False,
+                thresh=0,
+                levels=standard_levels,
+                color=color_gandalf,
+                ax=ax,
+                label="gaNdalF KDE"
+            )
+
+            # Plot binned statistics
+            ax.errorbar(
+                xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, fmt='o',
+                color=color_balrog, label="Balrog Binning"
+            )
+            ax.errorbar(
+                xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, fmt='o',
+                color=color_gandalf, label="gaNdalF Binning"
+            )
+
+            # Formatting
+            ax.set_xlim(cond_lims)
+            ax.set_xlabel(condition, fontsize=12)
+            ax.set_ylabel(f"Residual Band {band}", fontsize=12)
+            ax.legend()
+
+        # Save or show the plot
+        if save_plot:
+            save_name = f"{path_save_plots}/binning_kde_band_{band}.png"
+            plt.savefig(save_name, dpi=300)
+        if show_plot:
+            plt.show()
+        plt.close()
+
+
+def plot_binning_statistics_comparison(
+        df_gandalf, df_balrog, sample_size=10000, show_plot=True, save_plot=False, path_save_plots=""
+):
+    #import numpy as np
+    #import matplotlib.pyplot as plt
+    #import seaborn as sns
+    #from scipy.stats import binned_statistic, median_abs_deviation
+
+    print("start plotting")
+
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+    standard_levels = [0.393, 0.865, 0.989]
+
+    # Define the grid layout
+    fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(18, 18), sharex=False, sharey=False)
+
+    # Define the conditions and their corresponding bands, grouped by column
+    conditions_bands = {
+        "R": [("FWHM_WMEAN_R", "r"), ("AIRMASS_WMEAN_R", "r"), ("MAGLIM_R", "r"), ("EBV_SFD98", "r")],
+        "I": [("FWHM_WMEAN_I", "i"), ("AIRMASS_WMEAN_I", "i"), ("MAGLIM_I", "i"), ("EBV_SFD98", "i")],
+        "Z": [("FWHM_WMEAN_Z", "z"), ("AIRMASS_WMEAN_Z", "z"), ("MAGLIM_Z", "z"), ("EBV_SFD98", "z")],
+    }
+
+    for col_idx, (band, conditions) in enumerate(conditions_bands.items()):
+        for row_idx, (condition, band_letter) in enumerate(conditions):
+            ax = axes[row_idx, col_idx]  # Correctly index the subplot based on row and column
+            print(f"Plotting {band_letter.upper()} - {condition}")
+
+            output = f'unsheared/mag_{band_letter}'
+            output_err = f'unsheared/mag_err_{band_letter}'
+
+            # Calculate residuals normalized by Balrog uncertainty
+            residual = (df_balrog[output] - df_gandalf[output]) / df_balrog[output_err]
+            residual = residual[np.isfinite(residual)]  # Keep only finite values
+
+            # Downsample data for faster plotting
+            df_conditional = pd.DataFrame({condition: df_balrog[condition], f"Residual {band_letter}": residual})
+            sampled = df_conditional.sample(n=min(sample_size, len(df_conditional)), random_state=42)
+            # Filter out non-finite values
+            finite_mask = sampled[condition].replace([np.inf, -np.inf], np.nan).notna()
+            filtered_sampled = sampled[finite_mask]
+
+            # Binning statistics
+            cond_lims = np.percentile(df_balrog[condition], [2, 98])
+            bin_means, bin_edges, binnumber = binned_statistic(
+                filtered_sampled[condition], filtered_sampled[f"Residual {band_letter}"], statistic='median', bins=10, range=cond_lims)
+            bin_stds, _, _ = binned_statistic(
+                filtered_sampled[condition], filtered_sampled[f"Residual {band_letter}"], statistic=median_abs_deviation, bins=10,
+                range=cond_lims)
+
+            xerr = (bin_edges[1:] - bin_edges[:-1]) / 2
+            xmean = (bin_edges[1:] + bin_edges[:-1]) / 2
+
+            # KDE plot
+            sns.kdeplot(
+                data=filtered_sampled,
+                x=condition,
+                y=f"Residual {band_letter}",
+                fill=True,
+                thresh=0,
+                alpha=.4,
+                levels=standard_levels,
+                color=color_balrog,
+                ax=ax
+            )
+
+            # Plot binned statistics
+            ax.errorbar(
+                xmean, bin_means, xerr=xerr, yerr=bin_stds, fmt='o',
+                color=color_balrog, label="Balrog Residuals"
+            )
+
+            if len(residual) == 0:
+                print(f"Empty residual array for condition: {condition}, band: {band_letter}. Using default range.")
+                range_ = [-0.02, 0.02]  # Default range
+            else:
+                m, s = np.median(residual), median_abs_deviation(residual)
+                range_ = [m - 4 * s, m + 4 * s]
+
+            # Check if range_ is valid
+            if np.any(np.isnan(range_)) or np.any(np.isinf(range_)):
+                print(f"Invalid range for condition: {condition}, band: {band_letter}. Using default.")
+                range_ = [-0.02, 0.02]  # Default range or some sensible fallback
+
+            # Formatting
+            ax.set_xlim(cond_lims)
+            ax.set_ylim(range_)
+            ax.set_xlabel(condition, fontsize=8)
+            ax.set_ylabel(f"Residual Band {band_letter}", fontsize=8)
+            ax.set_title(f"{band_letter.upper()} - {condition}", fontsize=10)
+            ax.tick_params(axis='both', which='major', labelsize=8)
+            if row_idx == 0 and col_idx == 0:
+                ax.legend(fontsize=6)
+
+    # Adjust layout and save/show the plot
+    fig.tight_layout()
+    if save_plot:
+        save_name = f"{path_save_plots}/comparison_binning_kde.png"
+        plt.savefig(save_name, dpi=300)
+    if show_plot:
+        plt.show()
+    plt.close()
+
+
+def plot_binning_statistics_properties(
+        df_gandalf, df_balrog, sample_size=10000, show_plot=True, save_plot=False, path_save_plots=""
+):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from scipy.stats import binned_statistic, median_abs_deviation
+
+    print("start plotting")
+
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+    standard_levels = [0.393, 0.865, 0.989]
+
+    # Define the grid layout
+    fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(18, 18), sharex=False, sharey=False)
+
+    # Define conditions and properties to analyze
+    conditions = ["FWHM_WMEAN_R", "AIRMASS_WMEAN_R", "MAGLIM_R", "EBV_SFD98"]
+    properties = ["unsheared/snr", "unsheared/T", "unsheared/weight"]
+
+    # Iterate over properties and conditions
+    for col_idx, property in enumerate(properties):
+        for row_idx, condition in enumerate(conditions):
+            ax = axes[row_idx, col_idx]
+            print(f"Plotting {property} vs. {condition}")
+
+            # Calculate residuals for the property
+            residual = (df_balrog[property] - df_gandalf[property]) / df_balrog[property]
+            residual = residual[np.isfinite(residual)]  # Keep only finite values
+
+            # Downsample for faster plotting
+            df_conditional = pd.DataFrame({condition: df_balrog[condition], f"Residual {property}": residual})
+            sampled = df_conditional.sample(n=min(sample_size, len(df_conditional)), random_state=42)
+            # Filter out non-finite values
+            finite_mask = sampled[condition].replace([np.inf, -np.inf], np.nan).notna()
+            filtered_sampled = sampled[finite_mask]
+
+            # Binning statistics
+            cond_lims = np.percentile(df_balrog[condition], [2, 98])
+            bin_means, bin_edges, binnumber = binned_statistic(
+                filtered_sampled[condition], filtered_sampled[f"Residual {property}"], statistic='median', bins=10, range=cond_lims)
+            bin_stds, _, _ = binned_statistic(
+                filtered_sampled[condition], filtered_sampled[f"Residual {property}"], statistic=median_abs_deviation, bins=10,
+                range=cond_lims)
+
+            xerr = (bin_edges[1:] - bin_edges[:-1]) / 2
+            xmean = (bin_edges[1:] + bin_edges[:-1]) / 2
+
+            # KDE plot
+            sns.kdeplot(
+                data=filtered_sampled,
+                x=condition,
+                y=f"Residual {property}",
+                fill=True,
+                thresh=0,
+                alpha=.4,
+                levels=standard_levels,
+                color=color_balrog,
+                ax=ax
+            )
+
+            # Plot binned statistics
+            ax.errorbar(
+                xmean, bin_means, xerr=xerr, yerr=bin_stds, fmt='o',
+                color=color_balrog, label="Balrog Residuals"
+            )
+
+            # Formatting
+            if len(residual) == 0:
+                print(f"Empty residual array for condition: {condition}, band: {band_letter}. Using default range.")
+                range_ = [-0.02, 0.02]  # Default range
+            else:
+                m, s = np.median(residual), median_abs_deviation(residual)
+                range_ = [m - 4 * s, m + 4 * s]
+
+            # Check if range_ is valid
+            if np.any(np.isnan(range_)) or np.any(np.isinf(range_)):
+                print(f"Invalid range for condition: {condition}, band: {band_letter}. Using default.")
+                range_ = [-0.02, 0.02]  # Default range or some sensible fallback
+
+            ax.set_xlim(cond_lims)
+            ax.set_ylim(range_)
+            ax.set_xlabel(condition, fontsize=8)
+            ax.set_ylabel(f"Residual {property}", fontsize=8)
+            ax.set_title(f"{property} vs. {condition}", fontsize=10)
+            ax.tick_params(axis='both', which='major', labelsize=8)
+
+            if row_idx == 0 and col_idx == 0:
+                ax.legend(fontsize=6)
+
+    # Adjust layout and save/show the plot
+    fig.tight_layout()
+    if save_plot:
+        save_name = f"{path_save_plots}/properties_vs_conditions.png"
+        plt.savefig(save_name, dpi=300)
+    if show_plot:
+        plt.show()
+    plt.close()
+
+
+def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, show_plot=True, save_plot=False,
+                                     path_save_plots=""):
+
+    print("start plotting")
+
+    color_gandalf = '#ff8c00'
+    color_balrog = '#51a6fb'
+    standard_levels = [0.393, 0.865, 0.989]
+
+    # Define the grid layout
+    fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(18, 18), sharex=False, sharey=False)
+
+    # Define the conditions and their corresponding bands, explicitly grouped by column
+    conditions_bands = {
+        "R": [("FWHM_WMEAN_R", "r"), ("AIRMASS_WMEAN_R", "r"), ("MAGLIM_R", "r"), ("EBV_SFD98", "r")],
+        "I": [("FWHM_WMEAN_I", "i"), ("AIRMASS_WMEAN_I", "i"), ("MAGLIM_I", "i"), ("EBV_SFD98", "i")],
+        "Z": [("FWHM_WMEAN_Z", "z"), ("AIRMASS_WMEAN_Z", "z"), ("MAGLIM_Z", "z"), ("EBV_SFD98", "z")],
+    }
+
+    # Iterate over columns (bands) and rows (conditions)
+    for col_idx, (band, conditions) in enumerate(conditions_bands.items()):
+        for row_idx, (condition, band_letter) in enumerate(conditions):
+            ax = axes[row_idx, col_idx]  # Correctly index the subplot based on row and column
+            print(f"Plotting {band_letter.upper()} - {condition}")
+
+            output = f'unsheared/mag_{band_letter}'
+            true_output = f'BDF_MAG_DERED_CALIB_{band_letter.upper()}'
+            output_err = f'unsheared/mag_err_{band_letter}'
+
+            # Calculate normalized residuals
+            diff_true = (df_balrog[true_output] - df_balrog[output]) / (df_balrog[true_output])
+            diff_generated = (df_gandalf[true_output] - df_gandalf[output]) / (df_gandalf[true_output])
+
+            # Downsample data for faster plotting
+            df_conditional_true = pd.DataFrame(
+                {condition: df_balrog[condition], f"residual band {band_letter}": diff_true})
+            df_conditional_generated = pd.DataFrame(
+                {condition: df_gandalf[condition], f"residual band {band_letter}": diff_generated})
+
+            sampled_true = df_conditional_true.sample(n=min(sample_size, len(df_conditional_true)), random_state=42)
+            sampled_generated = df_conditional_generated.sample(n=min(sample_size, len(df_conditional_generated)),
+                                                                random_state=42)
+
+            # Binning statistics
+            cond_lims = np.percentile(df_balrog[condition], [2, 98])
+            bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
+                sampled_true[condition], sampled_true[f"residual band {band_letter}"], statistic='median', bins=10,
+                range=cond_lims)
+            bin_stds_true, _, _ = binned_statistic(
+                sampled_true[condition], sampled_true[f"residual band {band_letter}"], statistic=median_abs_deviation,
+                bins=10, range=cond_lims)
+
+            bin_means_generated, bin_edges_mean_generated, _ = binned_statistic(
+                sampled_generated[condition], sampled_generated[f"residual band {band_letter}"], statistic='median',
+                bins=10, range=cond_lims)
+            bin_stds_generated, _, _ = binned_statistic(
+                sampled_generated[condition], sampled_generated[f"residual band {band_letter}"],
+                statistic=median_abs_deviation, bins=10, range=cond_lims)
+
+            xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
+            xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
+            xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
+            xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+
+            # KDE plot
+            # sns.kdeplot(
+            #     data=sampled_true,
+            #     x=condition,
+            #     y=f"residual band {band_letter}",
+            #     fill=True,
+            #     thresh=0,
+            #     alpha=.4,
+            #     levels=standard_levels,
+            #     color=color_balrog,
+            #     legend="Balrog",
+            #     ax=ax
+            # )
+            # sns.kdeplot(
+            #     data=sampled_generated,
+            #     x=condition,
+            #     y=f"residual band {band_letter}",
+            #     fill=False,
+            #     thresh=0,
+            #     levels=standard_levels,
+            #     color=color_gandalf,
+            #     legend="gaNdalF",
+            #     ax=ax
+            # )
+
+            # Plot binned statistics
+            ax.errorbar(
+                xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, fmt='o',
+                color=color_balrog, alpha=0.5, label="Balrog Binning"
+            )
+            ax.errorbar(
+                xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, fmt='o',
+                color=color_gandalf, alpha=0.5, label="gaNdalF Binning"
+            )
+
+            m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
+            range_ = [m - 4 * s, m + 4 * s]
+
+            ax.axhline(np.median(diff_true), c=color_balrog, ls='--', label='median Balrog')
+            ax.axhline(0, c='grey', ls='--', label='zero')
+            ax.axhline(np.median(diff_generated), c=color_gandalf, ls='--', label='median gaNdalF')
+            ax.axvline(np.median(df_balrog[condition]), c='grey', ls='--', label='median conditional')
+
+            # Formatting
+            ax.set_xlim(cond_lims)
+            ax.set_ylim(range_)
+            ax.set_xlabel(condition, fontsize=8)
+            ax.set_ylabel(f"Residual Band {band_letter.upper()}", fontsize=8)
+            # ax.set_title(f"{band_letter.upper()} - {condition}", fontsize=10)
+            ax.tick_params(axis='both', which='major', labelsize=8)
+            # if row_idx == 0 and col_idx == 0:
+            ax.legend(fontsize=6)
+
+    # Adjust layout and save/show the plot
+    fig.tight_layout()
+    if save_plot:
+        save_name = f"{path_save_plots}/combined_binning_kde.png"
+        plt.savefig(save_name, dpi=300)
+    if show_plot:
+        plt.show()
+    plt.close()
+
+
+def create_combined_statistics_plot(
+    df_gandalf, df_balrog, bands, conditions, residual_properties, sample_size=10000, save_plot=False, path_save_plots=""
+):
+    # import matplotlib.pyplot as plt
+    # import seaborn as sns
+    # import numpy as np
+    # import pandas as pd
+    # from scipy.stats import binned_statistic, median_abs_deviation
+
+    print("Start plotting combined statistics")
+
+    # Colors and levels for KDE plots
+    color_balrog = '#51a6fb'
+    standard_levels = [0.393, 0.865, 0.989]
+
+    # Initialize figure
+    n_conditions = len(conditions)
+    n_properties = len(residual_properties)
+    fig, axes = plt.subplots(
+        nrows=n_conditions * len(bands),
+        ncols=n_properties * 2,
+        figsize=(24, len(bands) * 10),
+        gridspec_kw={"height_ratios": [2, 1] * len(bands) * n_conditions},
+        sharex=False,
+        sharey=False
+    )
+
+    # Loop through bands, conditions, and residual properties
+    for band_idx, band in enumerate(bands):
+        for cond_idx, condition in enumerate(conditions):
+            for prop_idx, property_ in enumerate(residual_properties):
+                # Compute subplot index
+                row_idx = band_idx * n_conditions + cond_idx
+                col_idx = prop_idx * 2
+
+                # Top plot (KDE)
+                ax_kde = axes[row_idx, col_idx]
+                # Bottom plot (Binned statistics)
+                ax_bin = axes[row_idx, col_idx + 1]
+
+                # Prepare data
+                residual_key = f"unsheared/{property_}_{band}"
+                residual = (df_balrog[residual_key] - df_gandalf[residual_key]) / df_balrog[f"{residual_key}_err"]
+                residual = residual[np.isfinite(residual)]
+                df_conditional = pd.DataFrame({condition: df_balrog[condition], "Residual": residual})
+                sampled = df_conditional.sample(n=min(sample_size, len(df_conditional)), random_state=42)
+
+                # KDE plot
+                sns.kdeplot(
+                    data=sampled, x=condition, y="Residual",
+                    fill=True, thresh=0, alpha=0.4, levels=standard_levels,
+                    color=color_balrog, ax=ax_kde
+                )
+
+                # Binned statistics
+                cond_lims = np.percentile(df_balrog[condition], [2, 98])
+                bin_means, bin_edges, _ = binned_statistic(
+                    sampled[condition], sampled["Residual"], statistic='median', bins=10, range=cond_lims)
+                bin_stds, _, _ = binned_statistic(
+                    sampled[condition], sampled["Residual"], statistic=median_abs_deviation, bins=10, range=cond_lims)
+                xerr = (bin_edges[1:] - bin_edges[:-1]) / 2
+                xmean = (bin_edges[1:] + bin_edges[:-1]) / 2
+
+                ax_bin.errorbar(xmean, bin_means, xerr=xerr, yerr=bin_stds, fmt='o', color=color_balrog)
+
+                # Formatting
+                ax_kde.set_title(f"KDE: {property_} vs {condition}", fontsize=10)
+                ax_kde.set_xlabel(condition, fontsize=8)
+                ax_kde.set_ylabel("Residual", fontsize=8)
+
+                ax_bin.set_title(f"Binned: {property_} vs {condition}", fontsize=10)
+                ax_bin.set_xlabel(condition, fontsize=8)
+                ax_bin.set_ylabel("Residual", fontsize=8)
+
+                # Adjust axis limits
+                if len(residual) > 0:
+                    m, s = np.median(residual), median_abs_deviation(residual)
+                    range_ = [m - 4 * s, m + 4 * s]
+                else:
+                    range_ = [-0.02, 0.02]
+
+                ax_kde.set_ylim(range_)
+                ax_bin.set_ylim(range_)
+
+    # Adjust layout
+    fig.tight_layout()
+    if save_plot:
+        save_name = f"{path_save_plots}/combined_statistics.png"
+        plt.savefig(save_name, dpi=300)
+    plt.show()
+    plt.close()
 
 
 def make_gif(frame_folder, name_save_folder, fps=10):
