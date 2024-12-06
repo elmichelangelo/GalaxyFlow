@@ -1123,7 +1123,7 @@ def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_
 
 
 def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show_plot, save_plot, save_name,
-                                 x_range=(18, 26), title='Histogram'):
+                                 sample_size=5000, x_range=(18, 26), title='Histogram'):
     import matplotlib.patches as mpatches
     import time
     import numpy as np
@@ -1137,6 +1137,8 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show
     num_cols = grid_size[0] # int(np.ceil(np.sqrt(len(columns))))
     num_rows = grid_size[1] # int(np.ceil(len(columns) / num_cols))
 
+    levels = [0.393, 0.865, 0.989]
+
     # Prepare the dataframes
     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
     df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
@@ -1148,8 +1150,14 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show
 
     color_balrog_detected = '#51a6fb'
     color_gandalf_detected = '#ff8c00'
-    color_balrog_not_detected='coral'
-    color_gandalf_not_detected='blueviolet'
+    color_balrog_not_detected = "grey"  # 'coral'
+    color_gandalf_not_detected = "black"  # 'blueviolet'
+
+    hatch_gandalf_not_detected = ['-', '/', '\\']
+    linestyle_gandalf_not_detected = '--'
+
+    hatch_balrog_not_detected = ['.', '*', '\\\\']
+    linestyle_balrog_not_detected = '-.'
 
     def get_elapsed_time(start_time):
         # Calculate elapsed time
@@ -1166,6 +1174,35 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show
         # Print the elapsed time
         print(f"Elapsed time: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s")
 
+    if sample_size > 0:
+        df_gandalf_detected_sample = df_gandalf_detected.sample(n=sample_size, random_state=42)
+        df_balrog_detected_sample = df_balrog_detected.sample(n=sample_size, random_state=42)
+        df_gandalf_not_detected_sample = df_gandalf_not_detected.sample(n=sample_size, random_state=42)
+        df_balrog_not_detected_sample = df_balrog_not_detected.sample(n=sample_size, random_state=42)
+    else:
+        df_gandalf_detected_sample = df_gandalf_detected
+        df_balrog_detected_sample = df_balrog_detected
+        df_gandalf_not_detected_sample = df_gandalf_not_detected
+        df_balrog_not_detected_sample = df_balrog_not_detected
+
+    # Add a new column to indicate the type of detector
+    df_gandalf_detected_sample["catalog_type"] = "Gandalf Detected"
+    df_balrog_detected_sample["catalog_type"] = "Balrog Detected"
+    df_gandalf_not_detected_sample["catalog_type"] = "Gandalf Not Detected"
+    df_balrog_not_detected_sample["catalog_type"] = "Balrog Not Detected"
+
+    # Concatenate all DataFrames
+    df_combined = pd.concat([
+        df_gandalf_detected_sample,
+        df_balrog_detected_sample,
+        df_gandalf_not_detected_sample,
+        df_balrog_not_detected_sample
+    ], ignore_index=True)
+    columns = {"FWHM_WMEAN_R": {
+        "label": "FWHM R",
+        "range": [0.7, 1.3],
+        "position": [1, 1]
+    }}
     # Loop over each feature and plot
     for i, col in enumerate(columns.keys()):
         pos = columns[col]["position"]
@@ -1178,83 +1215,144 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show
         label = columns[col]["label"]
 
         # Gandalf detected KDE
-        corner.hist2d(
-            x=df_gandalf_detected["BDF_MAG_DERED_CALIB_I"].values,
-            y=df_gandalf_detected[col].values,
-            ax=ax,
-            bins=50,
-            range=[x_range, y_range],
-            levels=(0.68, 0.95),
-            color=color_gandalf_detected,
-            smooth=1.0,
-            plot_datapoints=False,
-            fill_contours=False,
-            plot_density=True,
-            plot_contours=True,
-            contour_kwargs={'colors': color_gandalf_detected, 'alpha': 1}
-        )
-        get_elapsed_time(start_time)
+        # corner.hist2d(
+        #     x=df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].values,
+        #     y=df_gandalf_detected_sample[col].values,
+        #     ax=ax,
+        #     bins=50,
+        #     range=[x_range, y_range],
+        #     levels=levels,
+        #     color=color_gandalf_detected,
+        #     smooth=1.0,
+        #     plot_datapoints=False,
+        #     fill_contours=False,
+        #     plot_density=True,
+        #     plot_contours=True,
+        #     contourf_kwargs={'colors': color_gandalf_detected, 'alpha': 0.5}
+        # )
+        # get_elapsed_time(start_time)
 
         # Balrog detected KDE
-        corner.hist2d(
-            x=df_balrog_detected["BDF_MAG_DERED_CALIB_I"].values,
-            y=df_balrog_detected[col].values,
-            ax=ax,
-            bins=50,
-            range=[x_range, y_range],
-            levels=(0.68, 0.95),
-            color=color_balrog_detected,
-            smooth=1.0,
-            plot_datapoints=False,
-            fill_contours=False,
-            plot_density=True,
-            plot_contours=True,
-            contourf_kwargs={'colors': color_balrog_detected, 'alpha': 0.5}
-        )
-        get_elapsed_time(start_time)
+        # corner.hist2d(
+        #     x=df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].values,
+        #     y=df_balrog_detected_sample[col].values,
+        #     ax=ax,
+        #     bins=50,
+        #     range=[x_range, y_range],
+        #     levels=levels,
+        #     color=color_balrog_detected,
+        #     smooth=1.0,
+        #     plot_datapoints=False,
+        #     fill_contours=False,
+        #     plot_density=True,
+        #     plot_contours=True,
+        #     contourf_kwargs={'colors': color_balrog_detected, 'alpha': 0.5}
+        # )
+        # get_elapsed_time(start_time)
 
         # Gandalf not detected KDE
-        corner.hist2d(
-            x=df_gandalf_not_detected["BDF_MAG_DERED_CALIB_I"].values,
-            y=df_gandalf_not_detected[col].values,
-            ax=ax,
-            bins=50,
-            range=[x_range, y_range],
-            levels=(0.68, 0.95),
-            color=color_gandalf_not_detected,
-            smooth=1.0,
-            plot_datapoints=False,
-            fill_contours=False,
-            plot_density=True,
-            plot_contours=True,
-            contour_kwargs={'colors': color_gandalf_not_detected, 'alpha': 1}
-        )
+        # corner.hist2d(
+        #     x=df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values,
+        #     y=df_gandalf_not_detected_sample[col].values,
+        #     ax=ax,
+        #     bins=50,
+        #     range=[x_range, y_range],
+        #     levels=levels,
+        #     # color=color_gandalf_not_detected,
+        #     smooth=1.0,
+        #     plot_datapoints=False,
+        #     fill_contours=False,
+        #     plot_density=True,
+        #     plot_contours=True,
+        #     contourf_kwargs={
+        #         'hatches': hatch_gandalf_not_detected,
+        #         'alpha': 0.5,
+        #         'color': None
+        #     },
+        # )
         get_elapsed_time(start_time)
 
-        # Balrog not detected KDE
-        corner.hist2d(
-            x=df_balrog_not_detected["BDF_MAG_DERED_CALIB_I"].values,
-            y=df_balrog_not_detected[col].values,
+        sns.kdeplot(
+            df_combined,
+            x="BDF_MAG_DERED_CALIB_I",
+            y=col,
+            hue="catalog_type",
             ax=ax,
-            bins=50,
-            range=[x_range, y_range],
-            levels=(0.68, 0.95),
-            color=color_balrog_not_detected,
-            smooth=1.0,
-            plot_datapoints=False,
-            fill_contours=False,
-            plot_density=True,
-            plot_contours=True,
-            contourf_kwargs={'colors': color_balrog_not_detected, 'alpha': 0.5}
+            levels=levels,
+            fill = False
         )
+        x = df_combined["BDF_MAG_DERED_CALIB_I"].values
+        y = df_combined[col].values
+        # Calculate the 2D histogram
+        H, xedges, yedges = np.histogram2d(x, y, bins=100)  # Adjust bins and range as needed
+
+        # Normalize the histogram
+        H = H.T  # Transpose for correct orientation
+        H_norm = H / H.max()  # Normalize for contour plotting
+
+        # Create a meshgrid for the contour plot
+        X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+
+        # Add filled contour with hatching
+        ax.contourf(X, Y, H_norm, levels=levels, hatches=['/', '\\', '|'], colors='none', alpha=0.2)
+        # Assuming df_balrog_not_detected_sample and related variables are predefined
+        # x = df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+        # y = df_balrog_not_detected_sample[col].values
+        #
+        # # Calculate the 2D histogram
+        # H, xedges, yedges = np.histogram2d(x, y, bins=50, range=[x_range, y_range])
+        #
+        # # Normalize the histogram
+        # H = H.T  # Transpose for correct orientation
+        # H_norm = H / H.sum()
+        #
+        # # Create a meshgrid for the contour plot
+        # X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+        #
+        # # Plot the 2D histogram
+        # ax.hist2d(x, y, bins=50, range=[x_range, y_range], cmap='gray', cmin=1)
+        #
+        # # Plot the contours
+        # CS = ax.contour(X, Y, H_norm, levels=levels, colors='black')
+        # # ax.clabel(CS, inline=True, fontsize=8) # Optionally add labels to contours
+        #
+        # # If fill_contours is desired:
+        # ax.contourf(X, Y, H_norm, levels=levels, alpha=0.5, hatches=hatch_balrog_not_detected, colors=['none'])
+
+        # ax.set_xlim(x_range)
+        # ax.set_ylim(y_range)
+        # ax.set_xlabel('BDF_MAG_DERED_CALIB_I')
+        # ax.set_ylabel(col)
+        # Balrog not detected KDE
+        # corner.hist2d(
+        #     x=df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values,
+        #     y=df_balrog_not_detected_sample[col].values,
+        #     ax=ax,
+        #     bins=50,
+        #     range=[x_range, y_range],
+        #     levels=levels,
+        #     # color=color_balrog_not_detected,
+        #     smooth=1.0,
+        #     plot_datapoints=False,
+        #     fill_contours=False,
+        #     plot_density=True,
+        #     plot_contours=True,
+        #     contourf_kwargs={
+        #         'hatches': hatch_balrog_not_detected,
+        #         'alpha': 0.5,
+        #         'color': None
+        #         # 'cmap': 'black'
+        #     },
+        #     # contour_kwargs={'linestyles': linestyle_balrog_not_detected}
+        # )
 
         ax.set_xlim(x_range)
         ax.set_ylim(y_range)
-        ax.set_ylabel(label, fontsize=10)
+        ax.set_ylabel(label, fontsize=12)
 
         # Add axis labels only to the bottom row subplots
         if i >= len(axes) - num_cols:
-            ax.set_xlabel('BDF Mag I', fontsize=10)
+            ax.set_xlabel('BDF Mag I', fontsize=12)
 
     # Remove any unused subplots
     fig.delaxes(axes[0, 3])
@@ -1268,9 +1366,9 @@ def plot_multivariate_classifier(df_balrog, df_gandalf, columns, grid_size, show
         mpatches.Patch(color=color_balrog_not_detected, alpha=1, label='Balrog Not Detected')
     ]
 
-    fig.legend(handles=legend_elements, loc='upper right', fontsize=16, bbox_to_anchor=(0.98, 0.76))
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=18, bbox_to_anchor=(0.98, 0.76))
 
-    plt.suptitle(title, fontsize=18)
+    plt.suptitle(title, fontsize=20)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     if show_plot:
         plt.show()
@@ -1566,7 +1664,7 @@ def plot_balrog_histogram_with_error(
 
 
 def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, ranges, title, show_plot, save_plot,
-                                    save_name):
+                                    save_name, kl_detected=None, kl_not_detected=None):
     from scipy.ndimage import gaussian_filter1d
 
     # Create subsets for detected and not detected objects

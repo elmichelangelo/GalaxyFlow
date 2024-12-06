@@ -1,29 +1,104 @@
-def calc_kullback_leibler(path_data, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
-                          filename_flw_gandalf, path_master_cat, cf_columns, flow_columns):
-    import scipy
+# def calc_kullback_leibler(path_data, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
+#                           filename_flw_gandalf, path_master_cat, cf_columns, flow_columns):
+#     import scipy
+#
+#     df_balrog_clf = pd.read_pickle(f"{path_data}/{filename_clf_balrog}")
+#     df_gandalf_clf = pd.read_pickle(f"{path_data}/{filename_clf_gandalf}")
+#
+#     df_balrog_clf_detected = df_balrog_clf[df_balrog_clf["detected"] == 1][cf_columns].dropna()
+#     df_gandalf_clf_detected = df_gandalf_clf[df_gandalf_clf["detected"] == 1][cf_columns].dropna()
+#
+#     # Initialize dictionaries to store KL divergence values
+#     kl_detected = {}
+#     percent_diff_detected = {}
+#
+#     # Compute KL divergence for each feature
+#     for column in cf_columns:
+#         data1 = df_balrog_clf_detected[column]
+#         data2 = df_gandalf_clf_detected[column]
+#
+#         # Determine the range and bins
+#         min_value = min(data1.min(), data2.min())
+#         max_value = max(data1.max(), data2.max())
+#         bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
+#
+#         # Compute histograms (probability distributions)
+#         hist1, _ = np.histogram(data1, bins=bins, density=True)
+#         hist2, _ = np.histogram(data2, bins=bins, density=True)
+#
+#         # Add a small constant to avoid zeros (which cause issues in KL divergence)
+#         hist1 += 1e-10
+#         hist2 += 1e-10
+#
+#         # Normalize the histograms to make them probability distributions
+#         hist1 /= hist1.sum()
+#         hist2 /= hist2.sum()
+#
+#         # Compute KL divergence
+#         kl_value = scipy.stats.entropy(hist1, hist2)
+#         kl_detected[column] = kl_value
+#
+#         # Calculate percent difference as normalized KL divergence
+#         percent_diff_detected[column] = (kl_value / (kl_value + 1)) * 100  # Normalize
+#
+#     print("KL Divergence and Percent Difference for Detected Objects:")
+#     for column in cf_columns:
+#         print(f"{column}: KL Divergence = {kl_detected[column]:.4f}, Percent Difference = {percent_diff_detected[column]:.2f}%")
+#
+#     # Repeat the same process for Not Detected Objects
+#     df_balrog_clf_not_detected = df_balrog_clf[df_balrog_clf["detected"] == 0][cf_columns].dropna()
+#     df_gandalf_clf_not_detected = df_gandalf_clf[df_gandalf_clf["detected"] == 0][cf_columns].dropna()
+#
+#     kl_not_detected = {}
+#     percent_diff_not_detected = {}
+#
+#     for column in cf_columns:
+#         data1 = df_balrog_clf_not_detected[column]
+#         data2 = df_gandalf_clf_not_detected[column]
+#
+#         min_value = min(data1.min(), data2.min())
+#         max_value = max(data1.max(), data2.max())
+#         bins = np.linspace(min_value, max_value, 50)
+#
+#         hist1, _ = np.histogram(data1, bins=bins, density=True)
+#         hist2, _ = np.histogram(data2, bins=bins, density=True)
+#
+#         hist1 += 1e-10
+#         hist2 += 1e-10
+#
+#         hist1 /= hist1.sum()
+#         hist2 /= hist2.sum()
+#
+#         kl_value = scipy.stats.entropy(hist1, hist2)
+#         kl_not_detected[column] = kl_value
+#         percent_diff_not_detected[column] = (kl_value / (kl_value + 1)) * 100
+#
+#     print("KL Divergence and Percent Difference for Not Detected Objects:")
+#     for column in cf_columns:
+#         print(f"{column}: KL Divergence = {kl_not_detected[column]:.4f}, Percent Difference = {percent_diff_not_detected[column]:.2f}%")
+#
+#     return kl_detected, kl_not_detected, percent_diff_detected, percent_diff_not_detected
 
-    df_balrog_clf = pd.read_pickle(f"{path_data}/{filename_clf_balrog}")
-    df_gandalf_clf = pd.read_pickle(f"{path_data}/{filename_clf_gandalf}")
 
-    df_balrog_clf_detected = df_balrog_clf[df_balrog_clf["detected"] == 1][cf_columns].dropna()
-    df_gandalf_clf_detected = df_gandalf_clf[df_gandalf_clf["detected"] == 1][cf_columns].dropna()
+def calc_kullback_leibler(df_balrog, df_gandalf, columns):
 
     # Initialize dictionaries to store KL divergence values
-    kl_detected = {}
+    dict_kl_divergence = {}
+    dict_percent_diff = {}
 
     # Compute KL divergence for each feature
-    for column in cf_columns:
-        data1 = df_balrog_clf_detected[column]
-        data2 = df_gandalf_clf_detected[column]
+    for column in columns:
+        data_balrog = df_balrog[column]
+        data_gandalf = df_gandalf[column]
 
         # Determine the range and bins
-        min_value = min(data1.min(), data2.min())
-        max_value = max(data1.max(), data2.max())
+        min_value = min(data_balrog.min(), data_gandalf.min())
+        max_value = max(data_balrog.max(), data_gandalf.max())
         bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
 
         # Compute histograms (probability distributions)
-        hist1, _ = np.histogram(data1, bins=bins, density=True)
-        hist2, _ = np.histogram(data2, bins=bins, density=True)
+        hist1, _ = np.histogram(data_balrog, bins=bins, density=True)
+        hist2, _ = np.histogram(data_gandalf, bins=bins, density=True)
 
         # Add a small constant to avoid zeros (which cause issues in KL divergence)
         hist1 += 1e-10
@@ -35,130 +110,16 @@ def calc_kullback_leibler(path_data, filename_clf_balrog, filename_clf_gandalf, 
 
         # Compute KL divergence
         kl_value = scipy.stats.entropy(hist1, hist2)
-        kl_detected[column] = kl_value
+        dict_kl_divergence[column] = kl_value
 
-    # Print the KL divergence values
-    print("KL Divergence for Detected Objects:")
-    for column, kl_value in kl_detected.items():
-        print(f"{column}: {kl_value}")
+        # Calculate percent difference as normalized KL divergence
+        dict_percent_diff[column] = (kl_value / (kl_value + 1)) * 100  # Normalize
 
-    df_balrog_clf_not_detected = df_balrog_clf[df_balrog_clf["detected"] == 0][cf_columns].dropna()
-    df_gandalf_clf_not_detected = df_gandalf_clf[df_gandalf_clf["detected"] == 0][cf_columns].dropna()
+    print("KL Divergence and Percent Difference for Detected Objects:")
+    for column in columns:
+        print(f"{column}: KL Divergence = {dict_kl_divergence[column]:.4f}, Percent Difference = {dict_percent_diff[column]:.2f}%")
 
-    # Initialize dictionaries to store KL divergence values
-    kl_not_detected = {}
-
-    # Compute KL divergence for each feature
-    for column in cf_columns:
-        data1 = df_balrog_clf_not_detected[column]
-        data2 = df_gandalf_clf_not_detected[column]
-
-        # Determine the range and bins
-        min_value = min(data1.min(), data2.min())
-        max_value = max(data1.max(), data2.max())
-        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
-
-        # Compute histograms (probability distributions)
-        hist1, _ = np.histogram(data1, bins=bins, density=True)
-        hist2, _ = np.histogram(data2, bins=bins, density=True)
-
-        # Add a small constant to avoid zeros (which cause issues in KL divergence)
-        hist1 += 1e-10
-        hist2 += 1e-10
-
-        # Normalize the histograms to make them probability distributions
-        hist1 /= hist1.sum()
-        hist2 /= hist2.sum()
-
-        # Compute KL divergence
-        kl_value = scipy.stats.entropy(hist1, hist2)
-        kl_not_detected[column] = kl_value
-
-    # Print the KL divergence values
-    print("KL Divergence for Not Detected Objects:")
-    for column, kl_value in kl_not_detected.items():
-        print(f"{column}: {kl_value}")
-
-    df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
-    df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
-
-    df_balrog_flw_mcal = apply_cuts(df_balrog_flw, path_master_cat)
-    df_gandalf_flw_mcal = apply_cuts(df_gandalf_flw, path_master_cat)
-
-    df_balrog_flw = df_balrog_flw.dropna()
-    df_gandalf_flw = df_gandalf_flw.dropna()
-
-
-    # Initialize dictionaries to store KL divergence values
-    kl_flow = {}
-
-    # Compute KL divergence for each feature
-    for column in flow_columns:
-        data1 = df_balrog_flw[column]
-        data2 = df_gandalf_flw[column]
-
-        # Determine the range and bins
-        min_value = min(data1.min(), data2.min())
-        max_value = max(data1.max(), data2.max())
-        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
-
-        # Compute histograms (probability distributions)
-        hist1, _ = np.histogram(data1, bins=bins, density=True)
-        hist2, _ = np.histogram(data2, bins=bins, density=True)
-
-        # Add a small constant to avoid zeros (which cause issues in KL divergence)
-        hist1 += 1e-10
-        hist2 += 1e-10
-
-        # Normalize the histograms to make them probability distributions
-        hist1 /= hist1.sum()
-        hist2 /= hist2.sum()
-
-        # Compute KL divergence
-        kl_value = scipy.stats.entropy(hist1, hist2)
-        kl_flow[column] = kl_value
-
-    # Print the KL divergence values
-    print("KL Divergence for Flow Objects:")
-    for column, kl_value in kl_flow.items():
-        print(f"{column}: {kl_value}")
-
-    df_balrog_flw_mcal = df_balrog_flw_mcal.dropna()
-    df_gandalf_flw_mcal = df_gandalf_flw_mcal.dropna()
-
-    # Initialize dictionaries to store KL divergence values
-    kl_flow_mcal = {}
-
-    # Compute KL divergence for each feature
-    for column in flow_columns:
-        data1 = df_balrog_flw_mcal[column]
-        data2 = df_gandalf_flw_mcal[column]
-
-        # Determine the range and bins
-        min_value = min(data1.min(), data2.min())
-        max_value = max(data1.max(), data2.max())
-        bins = np.linspace(min_value, max_value, 50)  # Adjust the number of bins as needed
-
-        # Compute histograms (probability distributions)
-        hist1, _ = np.histogram(data1, bins=bins, density=True)
-        hist2, _ = np.histogram(data2, bins=bins, density=True)
-
-        # Add a small constant to avoid zeros (which cause issues in KL divergence)
-        hist1 += 1e-10
-        hist2 += 1e-10
-
-        # Normalize the histograms to make them probability distributions
-        hist1 /= hist1.sum()
-        hist2 /= hist2.sum()
-
-        # Compute KL divergence
-        kl_value = scipy.stats.entropy(hist1, hist2)
-        kl_flow_mcal[column] = kl_value
-
-    # Print the KL divergence values
-    print("KL Divergence for MCAL Flow Objects:")
-    for column, kl_value in kl_flow_mcal.items():
-        print(f"{column}: {kl_value}")
+    return dict_kl_divergence, dict_percent_diff
 
 
 def replace_nan(data_frame, cols, default_values):
@@ -199,153 +160,155 @@ def check_idf_flux(data_frame):
             data_frame.loc[:, flux_name] = mag2flux(data_frame[mag_name])
     return data_frame
 
-def plot_classifier(path_data, filename_clf_balrog, filename_clf_gandalf, path_master_cat, path_save_plots):
+def plot_classifier(cfg, path_master_cat, path_save_plots):
     """"""
-    df_balrog_clf = pd.read_pickle(f"{path_data}/{filename_clf_balrog}")
-    df_gandalf_clf = pd.read_pickle(f"{path_data}/{filename_clf_gandalf}")
+    df_balrog_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_BALROG']}")
+    df_gandalf_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_GANDALF']}")
 
-    df_balrog_clf_deep_cut = apply_deep_cuts(
-        path_master_cat=path_master_cat,
-        data_frame=df_balrog_clf
-    )
-    df_gandalf_clf_deep_cut = apply_deep_cuts(
-        path_master_cat=path_master_cat,
-        data_frame=df_gandalf_clf
-    )
+    # df_balrog_clf_deep_cut = apply_deep_cuts(
+    #     path_master_cat=path_master_cat,
+    #     data_frame=df_balrog_clf
+    # )
+    # df_gandalf_clf_deep_cut = apply_deep_cuts(
+    #     path_master_cat=path_master_cat,
+    #     data_frame=df_gandalf_clf
+    # )
 
     print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
     print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
     print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
     print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
-    print(f"Length of Balrog detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1])}")
-    print(f"Length of Balrog not detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0])}")
-    print(f"Length of gaNdalF detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1])}")
-    print(f"Length of gaNdalF not detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0])}")
+    # print(f"Length of Balrog detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1])}")
+    # print(f"Length of Balrog not detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0])}")
+    # print(f"Length of gaNdalF detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1])}")
+    # print(f"Length of gaNdalF not detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0])}")
 
-    plot_number_density_fluctuation(
-        df_balrog=df_balrog_clf,
-        df_gandalf=df_gandalf_clf,
-        columns=[
-            "BDF_MAG_DERED_CALIB_R",
-            "BDF_MAG_DERED_CALIB_I",
-            "BDF_MAG_DERED_CALIB_Z",
-            "BDF_T",
-            "BDF_G",
-            "FWHM_WMEAN_R",
-            "FWHM_WMEAN_I",
-            "FWHM_WMEAN_Z",
-            "AIRMASS_WMEAN_R",
-            "AIRMASS_WMEAN_I",
-            "AIRMASS_WMEAN_Z",
-            "MAGLIM_R",
-            "MAGLIM_I",
-            "MAGLIM_Z",
-            "EBV_SFD98"
-        ],
-        labels=[
-            "BDF Mag R",
-            "BDF Mag I",
-            "BDF Mag Z",
-            "BDF T",
-            "BDF G",
-            "FWHM R",
-            "FWHM I",
-            "FWHM Z",
-            "AIRMASS R",
-            "AIRMASS I",
-            "AIRMASS Z",
-            "MAGLIM R",
-            "MAGLIM I",
-            "MAGLIM Z",
-            "EBV SFD98"
-        ],
-        ranges=[
-            [18, 26],
-            [18, 26],
-            [18, 26],
-            [-1, 1.5],
-            [-0.1, 0.8],
-            [0.8, 1.2],
-            [0.7, 1.1],
-            [0.7, 1.0],
-            [1, 1.4],
-            [1, 1.4],
-            [1, 1.4],
-            [23.5, 24.5],
-            [23, 23.75],
-            [22, 23],
-            [0, 0.05]
-        ],
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/number_density_fluctuation.png",
-        title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections")
+    # plot_number_density_fluctuation(
+    #     df_balrog=df_balrog_clf,
+    #     df_gandalf=df_gandalf_clf,
+    #     columns=[
+    #         "BDF_MAG_DERED_CALIB_R",
+    #         "BDF_MAG_DERED_CALIB_I",
+    #         "BDF_MAG_DERED_CALIB_Z",
+    #         "BDF_T",
+    #         "BDF_G",
+    #         "FWHM_WMEAN_R",
+    #         "FWHM_WMEAN_I",
+    #         "FWHM_WMEAN_Z",
+    #         "AIRMASS_WMEAN_R",
+    #         "AIRMASS_WMEAN_I",
+    #         "AIRMASS_WMEAN_Z",
+    #         "MAGLIM_R",
+    #         "MAGLIM_I",
+    #         "MAGLIM_Z",
+    #         "EBV_SFD98"
+    #     ],
+    #     labels=[
+    #         "BDF Mag R",
+    #         "BDF Mag I",
+    #         "BDF Mag Z",
+    #         "BDF T",
+    #         "BDF G",
+    #         "FWHM R",
+    #         "FWHM I",
+    #         "FWHM Z",
+    #         "AIRMASS R",
+    #         "AIRMASS I",
+    #         "AIRMASS Z",
+    #         "MAGLIM R",
+    #         "MAGLIM I",
+    #         "MAGLIM Z",
+    #         "EBV SFD98"
+    #     ],
+    #     ranges=[
+    #         [18, 26],
+    #         [18, 26],
+    #         [18, 26],
+    #         [-1, 1.5],
+    #         [-0.1, 0.8],
+    #         [0.8, 1.2],
+    #         [0.7, 1.1],
+    #         [0.7, 1.0],
+    #         [1, 1.4],
+    #         [1, 1.4],
+    #         [1, 1.4],
+    #         [23.5, 24.5],
+    #         [23, 23.75],
+    #         [22, 23],
+    #         [0, 0.05]
+    #     ],
+    #     show_plot=cfg["SHOW_PLOT"],
+    #     save_plot=cfg["SAVE_PLOT"],
+    #     save_name=f"{path_save_plots}/number_density_fluctuation.png",
+    #     title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections"
+    #     )
 
-    plot_number_density_fluctuation(
-        df_balrog=df_balrog_clf_deep_cut,
-        df_gandalf=df_gandalf_clf_deep_cut,
-        columns=[
-            "BDF_MAG_DERED_CALIB_R",
-            "BDF_MAG_DERED_CALIB_I",
-            "BDF_MAG_DERED_CALIB_Z",
-            "BDF_T",
-            "BDF_G",
-            "FWHM_WMEAN_R",
-            "FWHM_WMEAN_I",
-            "FWHM_WMEAN_Z",
-            "AIRMASS_WMEAN_R",
-            "AIRMASS_WMEAN_I",
-            "AIRMASS_WMEAN_Z",
-            "MAGLIM_R",
-            "MAGLIM_I",
-            "MAGLIM_Z",
-            "EBV_SFD98"
-        ],
-        labels=[
-            "BDF Mag R",
-            "BDF Mag I",
-            "BDF Mag Z",
-            "BDF T",
-            "BDF G",
-            "FWHM R",
-            "FWHM I",
-            "FWHM Z",
-            "AIRMASS R",
-            "AIRMASS I",
-            "AIRMASS Z",
-            "MAGLIM R",
-            "MAGLIM I",
-            "MAGLIM Z",
-            "EBV SFD98"
-        ],
-        ranges=[
-            [18, 26],
-            [18, 26],
-            [18, 26],
-            [-1, 1.5],
-            [-0.1, 0.8],
-            [0.8, 1.2],
-            [0.7, 1.1],
-            [0.7, 1.0],
-            [1, 1.4],
-            [1, 1.4],
-            [1, 1.4],
-            [23.5, 24.5],
-            [23, 23.75],
-            [22, 23],
-            [0, 0.05]
-        ],
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/number_density_fluctuation_deep_cut.png",
-        title=f"Number Density Fluctuation Analysis of GANDALF vs. Balrog Detections with Deep Cut Applied"
-    )
+    # plot_number_density_fluctuation(
+    #     df_balrog=df_balrog_clf_deep_cut,
+    #     df_gandalf=df_gandalf_clf_deep_cut,
+    #     columns=[
+    #         "BDF_MAG_DERED_CALIB_R",
+    #         "BDF_MAG_DERED_CALIB_I",
+    #         "BDF_MAG_DERED_CALIB_Z",
+    #         "BDF_T",
+    #         "BDF_G",
+    #         "FWHM_WMEAN_R",
+    #         "FWHM_WMEAN_I",
+    #         "FWHM_WMEAN_Z",
+    #         "AIRMASS_WMEAN_R",
+    #         "AIRMASS_WMEAN_I",
+    #         "AIRMASS_WMEAN_Z",
+    #         "MAGLIM_R",
+    #         "MAGLIM_I",
+    #         "MAGLIM_Z",
+    #         "EBV_SFD98"
+    #     ],
+    #     labels=[
+    #         "BDF Mag R",
+    #         "BDF Mag I",
+    #         "BDF Mag Z",
+    #         "BDF T",
+    #         "BDF G",
+    #         "FWHM R",
+    #         "FWHM I",
+    #         "FWHM Z",
+    #         "AIRMASS R",
+    #         "AIRMASS I",
+    #         "AIRMASS Z",
+    #         "MAGLIM R",
+    #         "MAGLIM I",
+    #         "MAGLIM Z",
+    #         "EBV SFD98"
+    #     ],
+    #     ranges=[
+    #         [18, 26],
+    #         [18, 26],
+    #         [18, 26],
+    #         [-1, 1.5],
+    #         [-0.1, 0.8],
+    #         [0.8, 1.2],
+    #         [0.7, 1.1],
+    #         [0.7, 1.0],
+    #         [1, 1.4],
+    #         [1, 1.4],
+    #         [1, 1.4],
+    #         [23.5, 24.5],
+    #         [23, 23.75],
+    #         [22, 23],
+    #         [0, 0.05]
+    #     ],
+    #     show_plot=cfg["SHOW_PLOT"],
+    #     save_plot=cfg["SAVE_PLOT"],
+    #     save_name=f"{path_save_plots}/number_density_fluctuation_deep_cut.png",
+    #     title=f"Number Density Fluctuation Analysis of GANDALF vs. Balrog Detections with Deep Cut Applied"
+    # )
 
     plot_multivariate_classifier(
         df_balrog=df_balrog_clf,
         df_gandalf=df_gandalf_clf,
         grid_size=[4, 4],
         x_range=(17.8, 26.3),
+        sample_size=5000,
         columns={
             "BDF_MAG_DERED_CALIB_R": {
                 "label": "BDF Mag R",
@@ -418,11 +381,12 @@ def plot_classifier(path_data, filename_clf_balrog, filename_clf_gandalf, path_m
                 "position": [3, 3]
             }
         },
-        show_plot=False,
-        save_plot=True,
+        show_plot=cfg["SHOW_PLOT"],
+        save_plot= cfg["SAVE_PLOT"],
         save_name=f"{path_save_plots}/classifier_multiv.png",
         title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
     )
+    exit()
 
     plot_multivariate_classifier(
         df_balrog=df_balrog_clf_deep_cut,
@@ -840,46 +804,24 @@ def plot_redshift(path_data_folder, path_zmean_folder, path_gandalf_mean):
     )
 
 
-def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
-         filename_flw_gandalf, path_data_folder, path_zmean_folder, path_gandalf_mean, path_save_plots, calc_kl_div,
+def main(cfg, path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
+         filename_flw_gandalf, path_redshift_hist_folder, path_zmean_folder, path_gandalf_redshift_mean, path_save_plots, calc_kl_div,
          plt_classf, plt_flow, plt_redshift, flow_columns):
     """"""
 
     if calc_kl_div is True:
-        calc_kullback_leibler(
-            path_data=path_data,
-            filename_clf_balrog=filename_clf_balrog,
-            filename_clf_gandalf=filename_clf_gandalf,
-            filename_flw_balrog=filename_flw_balrog,
-            filename_flw_gandalf=filename_flw_gandalf,
-            path_master_cat=path_master_cat,
-            cf_columns=[
-                "BDF_MAG_DERED_CALIB_R",
-                "BDF_MAG_DERED_CALIB_I",
-                "BDF_MAG_DERED_CALIB_Z",
-                "BDF_T",
-                "BDF_G",
-                "FWHM_WMEAN_R",
-                "FWHM_WMEAN_I",
-                "FWHM_WMEAN_Z",
-                "AIRMASS_WMEAN_R",
-                "AIRMASS_WMEAN_I",
-                "AIRMASS_WMEAN_Z",
-                "MAGLIM_R",
-                "MAGLIM_I",
-                "MAGLIM_Z",
-                "EBV_SFD98"
-            ],
-            flow_columns=flow_columns
+        dict_kl_divergence, dict_percent_diff = calc_kullback_leibler(
+            path_data=cfg['PATH_DATA'],
+            filename_balrog=cfg['FILENAME_CLF_BALROG'],
+            filename_gandalf=cfg['FILENAME_CLF_GANDALF'],
+            columns=cfg["CLF_COLUMNS"]
         )
 
     if plt_classf is True:
         plot_classifier(
-            path_data=path_data,
-            filename_clf_balrog=filename_clf_balrog,
-            filename_clf_gandalf=filename_clf_gandalf,
+            cfg=cfg,
             path_master_cat=path_master_cat,
-            path_save_plots=path_save_plots
+            path_save_plots=path_save_plots,
         )
 
     if plt_flow is True:
@@ -894,39 +836,58 @@ def main(path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, 
 
     if plt_redshift is True:
         plot_redshift(
-            path_data_folder=path_data_folder,
+            path_data_folder=path_redshift_hist_folder,
             path_zmean_folder=path_zmean_folder,
-            path_gandalf_mean=path_gandalf_mean
+            path_gandalf_mean=path_gandalf_redshift_mean
         )
 
 if __name__ == '__main__':
     import pandas as pd
     from Handler import *
     import os
+    import sys
+    import argparse
+    import yaml
+    import scipy
+
+    path = os.path.abspath(sys.path[0])
+    parser = argparse.ArgumentParser(description='Plot gaNdalF')
+    config_file_name = "paper_plots_MAC.cfg"
+
+    parser.add_argument(
+        '--config_filename',
+        "-cf",
+        type=str,
+        nargs=1,
+        required=False,
+        default=config_file_name,
+        help='Name of config file. If not given default.cfg will be used'
+    )
+
+    args = parser.parse_args()
+
+    if isinstance(args.config_filename, list):
+        args.config_filename = args.config_filename[0]
+
+    with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
+        cfg = yaml.safe_load(fp)
+
+
     main(
-        path_data="/project/ls-gruen/users/patrick.gebhardt/data/gaNdalF_paper_catalogs",
-        path_master_cat="/project/ls-gruen/users/patrick.gebhardt/data/gaNdalF/Y3_mastercat_02_05_21.h5",
-        filename_clf_balrog="2024-10-28_08-14_balrog_clf_Test_sample.pkl",
-        filename_clf_gandalf="2024-10-28_08-14_gandalf_clf_Test_sample.pkl",
-        filename_flw_balrog = "2024-10-28_08-14_balrog_flw_Test_sample.pkl",
-        filename_flw_gandalf = "2024-10-28_08-14_gandalf_flw_Test_sample.pkl",
-        path_data_folder = '/home/p/P.Gebhardt/Output/gaNdalF_paper/redshift_histograms',
-        path_zmean_folder = '/home/p/P.Gebhardt/Output/gaNdalF_paper/zmean_info',
-        path_gandalf_mean = '/home/p/P.Gebhardt/Output/gaNdalF_paper/mean_redshift/mean_gandalf.csv',
-        path_save_plots = "/home/p/P.Gebhardt/Output/gaNdalF_paper",
-        calc_kl_div=False,
-        plt_classf=False,
-        plt_flow=True,
-        plt_redshift=False,
-        flow_columns=[
-            "Color unsheared MAG r-i",
-            "Color unsheared MAG i-z",
-            "unsheared/mag_r",
-            "unsheared/mag_i",
-            "unsheared/mag_z",
-            "unsheared/snr",
-            "unsheared/size_ratio",
-            "unsheared/weight",
-            "unsheared/T"
-        ]
+        cfg=cfg,
+        path_data=cfg["PATH_DATA"],
+        path_master_cat=cfg["PATH_MASTER_CAT"],
+        filename_clf_balrog=cfg["FILENAME_CLF_BALROG"],
+        filename_clf_gandalf=cfg["FILENAME_CLF_GANDALF"],
+        filename_flw_balrog=cfg["FILENAME_FLW_BALROG"],
+        filename_flw_gandalf=cfg["FILENAME_FLW_GANDALF"],
+        path_redshift_hist_folder=cfg["PATH_REDSHIFT_HIST_FOLDER"],
+        path_zmean_folder=cfg["PATH_ZMEAN_FOLDER"],
+        path_gandalf_redshift_mean=cfg["PATH_GANDALF_REDSHIFT_MEAN"],
+        path_save_plots=cfg["PATH_SAVE_PLOTS"],
+        calc_kl_div=cfg["CALC_KL_DIV"],
+        plt_classf=cfg["PLT_CLF"],
+        plt_flow=cfg["PLT_FLW"],
+        plt_redshift=cfg["PLT_REDSHIFT"],
+        flow_columns=cfg["FLW_COLUMNS"]
     )
