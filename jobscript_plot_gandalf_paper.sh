@@ -2,7 +2,7 @@
 #SBATCH --job-name=plot_gandalf_paper
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=12:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=128G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_paper/plot_gandalf_paper.log

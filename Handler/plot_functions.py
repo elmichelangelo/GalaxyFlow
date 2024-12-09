@@ -2487,3 +2487,245 @@ def make_gif(frame_folder, name_save_folder, fps=10):
         image = imageio.imread(f"{frame_folder}/{filename}")
         images_data.append(image)
     imageio.mimwrite(uri=f"{name_save_folder}", ims=images_data, format='.gif', duration=int(1000*1/fps))
+
+    
+def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_not_detected, df_gandalf_not_detected, columns, cuts, grid_size, thresh, show_plot, save_plot, save_name, sample_size=5000, x_range=(18, 26), title='Histogram'):
+    import numpy as np
+    from statsmodels.nonparametric.kernel_density import KDEMultivariate
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import matplotlib.patches as mpatches
+
+    print("Sample data...")
+    if sample_size is None:
+        df_gandalf_detected_sample = df_gandalf_detected
+        df_balrog_detected_sample = df_balrog_detected
+        df_gandalf_not_detected_sample = df_gandalf_not_detected
+        df_balrog_not_detected_sample = df_balrog_not_detected
+    else:
+        df_gandalf_detected_sample = df_gandalf_detected.sample(n=sample_size, random_state=42)
+        df_balrog_detected_sample = df_balrog_detected.sample(n=sample_size, random_state=42)
+        df_gandalf_not_detected_sample = df_gandalf_not_detected.sample(n=sample_size, random_state=42)
+        df_balrog_not_detected_sample = df_balrog_not_detected.sample(n=sample_size, random_state=42)
+    print("Data sampled!")
+
+    # Calculate the number of rows and columns
+    num_cols = 4 # int(np.ceil(np.sqrt(len(columns))))
+    num_rows = 4 # int(np.ceil(len(columns) / num_cols))
+
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
+
+    color_balrog_detected = '#51a6fb'
+    color_gandalf_detected = '#ff8c00'
+    color_balrog_not_detected = "grey"  # 'coral'
+    color_gandalf_not_detected = "black"  # 'blueviolet'
+
+    hatch_patterns_gandalf_not_detected = ['\\', '|', '*']
+    hatch_patterns_balrog_not_detected = ['/', '-', '+']
+
+    # Sigma levels
+    sigma_levels = [1, 2, 3]  # 1σ, 2σ, 3σ
+
+    # Mahalanobis distances corresponding to sigma levels
+    r_values = np.array(sigma_levels)
+
+    if cuts is True:
+        df_gandalf_detected_sample = df_gandalf_detected_sample[df_gandalf_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
+        df_balrog_detected_sample = df_balrog_detected_sample[df_balrog_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
+        df_gandalf_not_detected_sample = df_gandalf_not_detected_sample[df_gandalf_not_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
+        df_balrog_not_detected_sample = df_balrog_not_detected_sample[df_balrog_not_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
+
+    levels = [0.393, 0.865, 0.989]
+
+    # Determine the overall data range
+    xmin = min(df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min())
+    xmax = max(df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].max(), df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].max(), df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max(), df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max())
+
+    x_gandalf_detected = df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+    x_gandalf_not_detected = df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+    x_balrog = df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+    x_balrog_not_detected = df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+
+    for i, col in enumerate(columns.keys()):
+        pos = columns[col]["position"]
+        ax = axes[pos[0], pos[1]]
+
+        # Set the plot ranges
+        y_range = columns[col]["range"]
+        label = columns[col]["label"]
+
+        ymin = min(df_gandalf_detected_sample[col].min(), df_balrog_detected_sample[col].min(), df_gandalf_not_detected_sample[col].min(), df_balrog_not_detected_sample[col].min())
+        ymax = max(df_gandalf_detected_sample[col].max(), df_balrog_detected_sample[col].max(), df_gandalf_not_detected_sample[col].max(), df_balrog_not_detected_sample[col].max())
+
+        # Create a common grid
+        xi, yi = np.meshgrid(
+            np.linspace(xmin, xmax, grid_size),
+            np.linspace(ymin, ymax, grid_size)
+        )
+        positions = np.vstack([xi.ravel(), yi.ravel()])
+
+        # ---- Gandalf Detected---- #
+        y_gandalf_detected = df_gandalf_detected_sample[col].values
+
+        # Compute KDE
+        kde_gandalf_detected = KDEMultivariate(
+            data=[x_gandalf_detected, y_gandalf_detected],
+            var_type='cc',
+            bw='scott'
+        )
+        zi_gandalf_detected = kde_gandalf_detected.pdf(positions).reshape(xi.shape)
+
+
+        # Compute density levels
+        f0_gandalf_detected = zi_gandalf_detected.max()
+        density_levels_gandalf_detected = f0_gandalf_detected * np.exp(-0.5 * r_values**2)
+        density_levels_gandalf_detected = np.sort(density_levels_gandalf_detected)
+        print(f"Gandalf Detected Density Levels at Sigma Levels: {density_levels_gandalf_detected}")
+
+        normalized_density_levels_gandalf_detected = density_levels_gandalf_detected / f0_gandalf_detected
+        print(f"Gandalf Detected Normalized Density Levels at Sigma Levels: {normalized_density_levels_gandalf_detected}")
+
+        # Overlay Seaborn's kdeplot
+        sns.kdeplot(
+            x=x_gandalf_detected,
+            y=y_gandalf_detected,
+            ax=ax,
+            levels=normalized_density_levels_gandalf_detected,  # normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
+            fill=False,
+            cumulative=False,
+            thresh=thresh,
+            bw_method='scott',
+            color=color_gandalf_detected
+        )
+
+        # ---- Gandalf not Detected---- #
+        y_gandalf_not_detected = df_gandalf_not_detected_sample[col].values
+
+        # Compute KDE
+        kde_gandalf_not_detected = KDEMultivariate(
+            data=[x_gandalf_not_detected, y_gandalf_not_detected],
+            var_type='cc',
+            bw='scott'
+        )
+        zi_gandalf_not_detected = kde_gandalf_not_detected.pdf(positions).reshape(xi.shape)
+
+
+        # Compute density levels
+        f0_gandalf_not_detected = zi_gandalf_not_detected.max()
+        density_levels_gandalf_not_detected = f0_gandalf_not_detected * np.exp(-0.5 * r_values**2)
+        density_levels_gandalf_not_detected = np.sort(density_levels_gandalf_not_detected)
+        print(f"Gandalf not Detected Density Levels at Sigma Levels: {density_levels_gandalf_not_detected}")
+
+        # Plot contours
+        contour_set_gandalf_not_detected = ax.contourf(
+            xi, yi, zi_gandalf_not_detected,
+            levels=density_levels_gandalf_not_detected,  # density_levels_gandalf_not_detected,
+            alpha=0.5
+        )
+
+        # Apply hatches
+        for j, collection in enumerate(contour_set_gandalf_not_detected.collections):
+            hatch = hatch_patterns_gandalf_not_detected[j % len(hatch_patterns_gandalf_not_detected)]
+            collection.set_facecolor('none')
+            collection.set_edgecolor('grey')  # color_gandalf_detected
+            collection.set_hatch(hatch)
+            collection.set_linewidth(1)
+            collection.set_zorder(10)
+
+        # # ---- Balrog ---- #
+        y_balrog = df_balrog_detected_sample[col].values
+
+        # Compute KDE
+        kde_balrog = KDEMultivariate(
+            data=[x_balrog, y_balrog],
+            var_type='cc',
+            bw='scott'  # scott silverman
+        )
+        zi_balrog = kde_balrog.pdf(positions).reshape(xi.shape)
+
+        # Compute density levels
+        f0_balrog = zi_balrog.max()
+        density_levels_balrog = f0_balrog * np.exp(-0.5 * r_values**2)
+        density_levels_balrog = np.sort(density_levels_balrog)
+        print(f"Gandalf Density Levels at Sigma Levels: {density_levels_balrog}")
+
+        normalized_density_levels_balrog = density_levels_balrog / f0_balrog
+        print(f"balrog Normalized Density Levels at Sigma Levels: {normalized_density_levels_balrog}")
+
+        # Overlay Seaborn's kdeplot
+        sns.kdeplot(
+            x=x_balrog,
+            y=y_balrog,
+            ax=ax,
+            levels=normalized_density_levels_balrog,  # levels, normalized_density_levels_balrog
+            fill=False,
+            cumulative=False,
+            thresh=thresh,
+            bw_method='scott',
+            color=color_balrog_detected
+        )
+
+        # ---- Balrog not Detected---- #
+        y_balrog_not_detected = df_balrog_not_detected_sample[col].values
+
+        # Compute KDE
+        kde_balrog_not_detected = KDEMultivariate(
+            data=[x_balrog_not_detected, y_balrog_not_detected],
+            var_type='cc',
+            bw='scott'
+        )
+        zi_balrog_not_detected = kde_balrog_not_detected.pdf(positions).reshape(xi.shape)
+
+
+        # Compute density levels
+        f0_balrog_not_detected = zi_balrog_not_detected.max()
+        density_levels_balrog_not_detected = f0_balrog_not_detected * np.exp(-0.5 * r_values**2)
+        density_levels_balrog_not_detected = np.sort(density_levels_balrog_not_detected)
+        print(f"Gandalf not Detected Density Levels at Sigma Levels: {density_levels_balrog_not_detected}")
+
+        # Plot contours
+        contour_set_balrog_not_detected = ax.contourf(
+            xi, yi, zi_balrog_not_detected,
+            levels=density_levels_balrog_not_detected,  # density_levels_balrog_not_detected,
+            alpha=0.5
+        )
+
+        # # Apply hatches
+        for j, collection in enumerate(contour_set_balrog_not_detected.collections):  # get_paths()  collections
+            hatch = hatch_patterns_balrog_not_detected[j % len(hatch_patterns_balrog_not_detected)]
+            collection.set_facecolor('none')
+            collection.set_edgecolor('black')  # color_balrog_detected
+            collection.set_hatch(hatch)
+            collection.set_linewidth(1)
+            collection.set_zorder(11)
+
+        ax.set_xlim(x_range)
+        ax.set_ylim(y_range)
+        ax.set_ylabel(label, fontsize=12)
+
+        # Add axis labels only to the bottom row subplots
+        if i >= len(axes) - num_cols:
+            ax.set_xlabel('BDF Mag I', fontsize=12)
+
+        # Remove any unused subplots
+    fig.delaxes(axes[0, 3])
+    fig.delaxes(axes[1, 3])
+
+    # Customize layout and legend
+    legend_elements = [
+        mpatches.Patch(color=color_gandalf_detected, alpha=0.5, label='Gandalf Detected'),
+        mpatches.Patch(color=color_balrog_detected, alpha=1, label='Balrog Detected'),
+        mpatches.Patch(color=color_gandalf_not_detected, alpha=0.5, label='Gandalf Not Detected'),
+        mpatches.Patch(color=color_balrog_not_detected, alpha=1, label='Balrog Not Detected')
+    ]
+
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=18, bbox_to_anchor=(0.98, 0.76))
+
+    plt.suptitle(title, fontsize=20)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    if show_plot:
+        plt.show()
+    if save_plot:
+        plt.savefig(save_name, dpi=300)
+    plt.clf()
+    plt.close(fig)
