@@ -2226,7 +2226,7 @@ def plot_binning_statistics_properties(
                 xmean, bin_means, xerr=xerr, yerr=bin_stds, fmt='o',
                 color=color_balrog, label="Balrog Residuals"
             )
-
+            band_letter = 'add letter'
             # Formatting
             if len(residual) == 0:
                 print(f"Empty residual array for condition: {condition}, band: {band_letter}. Using default range.")
@@ -2543,7 +2543,7 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
 
     x_gandalf_detected = df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].values
     x_gandalf_not_detected = df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
-    x_balrog = df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+    x_balrog_detected = df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].values
     x_balrog_not_detected = df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
 
     for i, col in enumerate(columns.keys()):
@@ -2586,17 +2586,20 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
         print(f"Gandalf Detected Normalized Density Levels at Sigma Levels: {normalized_density_levels_gandalf_detected}")
 
         # Overlay Seaborn's kdeplot
-        sns.kdeplot(
-            x=x_gandalf_detected,
-            y=y_gandalf_detected,
-            ax=ax,
-            levels=normalized_density_levels_gandalf_detected,  # normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
-            fill=False,
-            cumulative=False,
-            thresh=thresh,
-            bw_method='scott',
-            color=color_gandalf_detected
-        )
+        try:
+            sns.kdeplot(
+                x=x_gandalf_detected,
+                y=y_gandalf_detected,
+                ax=ax,
+                levels=normalized_density_levels_gandalf_detected,  # normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
+                fill=False,
+                cumulative=False,
+                thresh=thresh,
+                bw_method='scott',
+                color=color_gandalf_detected
+            )
+        except Exception as e:
+            print(f"An error occurred with plotting seaborn gandalf detected: {e}")
 
         # ---- Gandalf not Detected---- #
         y_gandalf_not_detected = df_gandalf_not_detected_sample[col].values
@@ -2633,11 +2636,11 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
             collection.set_zorder(10)
 
         # # ---- Balrog ---- #
-        y_balrog = df_balrog_detected_sample[col].values
+        y_balrog_detected = df_balrog_detected_sample[col].values
 
         # Compute KDE
         kde_balrog = KDEMultivariate(
-            data=[x_balrog, y_balrog],
+            data=[x_balrog_detected, y_balrog_detected],
             var_type='cc',
             bw='scott'  # scott silverman
         )
@@ -2653,17 +2656,20 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
         print(f"balrog Normalized Density Levels at Sigma Levels: {normalized_density_levels_balrog}")
 
         # Overlay Seaborn's kdeplot
-        sns.kdeplot(
-            x=x_balrog,
-            y=y_balrog,
-            ax=ax,
-            levels=normalized_density_levels_balrog,  # levels, normalized_density_levels_balrog
-            fill=False,
-            cumulative=False,
-            thresh=thresh,
-            bw_method='scott',
-            color=color_balrog_detected
-        )
+        try:
+            sns.kdeplot(
+                x=x_balrog_detected,
+                y=y_balrog_detected,
+                ax=ax,
+                levels=normalized_density_levels_balrog,  # levels, normalized_density_levels_balrog
+                fill=False,
+                cumulative=False,
+                thresh=thresh,
+                bw_method='scott',
+                color=color_balrog_detected
+            )
+        except Exception as e:
+            print(f"An error occurred with plotting seaborn balrog detected: {e}")
 
         # ---- Balrog not Detected---- #
         y_balrog_not_detected = df_balrog_not_detected_sample[col].values
