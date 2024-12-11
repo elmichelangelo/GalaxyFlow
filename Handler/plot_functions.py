@@ -2599,6 +2599,7 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 color=color_gandalf_detected
             )
         except Exception as e:
+            print(normalized_density_levels_gandalf_detected)
             print(f"An error occurred with plotting seaborn gandalf detected: {e}")
 
         # ---- Gandalf not Detected---- #
@@ -2620,20 +2621,25 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
         print(f"Gandalf not Detected Density Levels at Sigma Levels: {density_levels_gandalf_not_detected}")
 
         # Plot contours
-        contour_set_gandalf_not_detected = ax.contourf(
-            xi, yi, zi_gandalf_not_detected,
-            levels=density_levels_gandalf_not_detected,  # density_levels_gandalf_not_detected,
-            alpha=0.5
-        )
+        try:
+            contour_set_gandalf_not_detected = ax.contourf(
+                xi, yi, zi_gandalf_not_detected,
+                levels=density_levels_gandalf_not_detected,  # density_levels_gandalf_not_detected,
+                alpha=0.5
+            )
 
-        # Apply hatches
-        for j, collection in enumerate(contour_set_gandalf_not_detected.collections):
-            hatch = hatch_patterns_gandalf_not_detected[j % len(hatch_patterns_gandalf_not_detected)]
-            collection.set_facecolor('none')
-            collection.set_edgecolor('grey')  # color_gandalf_detected
-            collection.set_hatch(hatch)
-            collection.set_linewidth(1)
-            collection.set_zorder(10)
+            # Apply hatches
+            for j, collection in enumerate(contour_set_gandalf_not_detected.collections):
+                hatch = hatch_patterns_gandalf_not_detected[j % len(hatch_patterns_gandalf_not_detected)]
+                collection.set_facecolor('none')
+                collection.set_edgecolor('grey')  # color_gandalf_detected
+                collection.set_hatch(hatch)
+                collection.set_linewidth(1)
+                collection.set_zorder(10)
+
+        except Exception as e:
+            print(density_levels_gandalf_not_detected)
+            print(f"An error occurred with plotting seaborn gandalf not detected: {e}")
 
         # # ---- Balrog ---- #
         y_balrog_detected = df_balrog_detected_sample[col].values
@@ -2669,6 +2675,7 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 color=color_balrog_detected
             )
         except Exception as e:
+            print(normalized_density_levels_balrog)
             print(f"An error occurred with plotting seaborn balrog detected: {e}")
 
         # ---- Balrog not Detected---- #
@@ -2689,21 +2696,26 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
         density_levels_balrog_not_detected = np.sort(density_levels_balrog_not_detected)
         print(f"Gandalf not Detected Density Levels at Sigma Levels: {density_levels_balrog_not_detected}")
 
-        # Plot contours
-        contour_set_balrog_not_detected = ax.contourf(
-            xi, yi, zi_balrog_not_detected,
-            levels=density_levels_balrog_not_detected,  # density_levels_balrog_not_detected,
-            alpha=0.5
-        )
+        try:
+            # Plot contours
+            contour_set_balrog_not_detected = ax.contourf(
+                xi, yi, zi_balrog_not_detected,
+                levels=density_levels_balrog_not_detected,  # density_levels_balrog_not_detected,
+                alpha=0.5
+            )
 
-        # # Apply hatches
-        for j, collection in enumerate(contour_set_balrog_not_detected.collections):  # get_paths()  collections
-            hatch = hatch_patterns_balrog_not_detected[j % len(hatch_patterns_balrog_not_detected)]
-            collection.set_facecolor('none')
-            collection.set_edgecolor('black')  # color_balrog_detected
-            collection.set_hatch(hatch)
-            collection.set_linewidth(1)
-            collection.set_zorder(11)
+            # # Apply hatches
+            for j, collection in enumerate(contour_set_balrog_not_detected.collections):  # get_paths()  collections
+                hatch = hatch_patterns_balrog_not_detected[j % len(hatch_patterns_balrog_not_detected)]
+                collection.set_facecolor('none')
+                collection.set_edgecolor('black')  # color_balrog_detected
+                collection.set_hatch(hatch)
+                collection.set_linewidth(1)
+                collection.set_zorder(11)
+
+        except Exception as e:
+            print(density_levels_balrog_not_detected)
+            print(f"An error occurred with plotting seaborn balrog not detected: {e}")
 
         ax.set_xlim(x_range)
         ax.set_ylim(y_range)

@@ -946,6 +946,7 @@ if __name__ == '__main__':
     path = os.path.abspath(sys.path[0])
     parser = argparse.ArgumentParser(description='Plot gaNdalF')
     config_file_name = "paper_plots_LMU.cfg"
+    # config_file_name = "paper_plots_MAC.cfg"
 
     parser.add_argument(
         '--config_filename',
