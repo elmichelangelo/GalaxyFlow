@@ -149,6 +149,9 @@ def apply_deep_cuts(path_master_cat, data_frame):
         data_frame=data_frame,
         master=path_master_cat
     )
+    data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_R'] < 37]
+    data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_I'] < 37]
+    data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_Z'] < 37]
     return data_frame
 
 def check_idf_flux(data_frame):
@@ -194,78 +197,78 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0],
             df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0],
             columns={
-                    # "BDF_MAG_DERED_CALIB_R": {
-                    #     "label": "BDF Mag R",
-                    #     "range": [18.5, 28],
-                    #     "position": [0, 0]
-                    # },
+                    "BDF_MAG_DERED_CALIB_R": {
+                        "label": "BDF Mag R",
+                        "range": [18.5, 28],
+                        "position": [0, 0]
+                    },
                     "BDF_MAG_DERED_CALIB_Z": {
                         "label": "BDF Mag Z",
                         "range": [18, 26],
                         "position": [0, 1]
                     },
-                    # "BDF_T": {
-                    #     "label": "BDF T",
-                    #     "range": [-0.25, 1.8],
-                    #     "position": [0, 2]
-                    # },
-                    # "BDF_G": {
-                    #     "label": "BDF G",
-                    #     "range": [-0.1, 0.9],
-                    #     "position": [1, 0]
-                    # },
-                    # "FWHM_WMEAN_R": {
-                    #     "label": "FWHM R",
-                    #     "range": [0.7, 1.3],
-                    #     "position": [1, 1]
-                    # },
-                    # "FWHM_WMEAN_I": {
-                    #     "label": "FWHM I",
-                    #     "range": [0.7, 1.1],
-                    #     "position": [1, 2]
-                    # },
-                    # "FWHM_WMEAN_Z": {
-                    #      "label": "FWHM Z",
-                    #      "range": [0.6, 1.16],
-                    #      "position": [2, 0]
-                    #  },
-                    #  "AIRMASS_WMEAN_R": {
-                    #      "label": "AIRMASS R",
-                    #      "range": [0.95, 1.45],
-                    #      "position": [2, 1]
-                    #  },
-                    #  "AIRMASS_WMEAN_I": {
-                    #      "label": "AIRMASS I",
-                    #      "range": [1, 1.45],
-                    #      "position": [2, 2]
-                    #  },
-                    #  "AIRMASS_WMEAN_Z": {
-                    #      "label": "AIRMASS Z",
-                    #      "range": [1, 1.4],
-                    #      "position": [2, 3]
-                    #  },
-                    #  "MAGLIM_R": {
-                    #      "label": "MAGLIM R",
-                    #      "range": [23, 24.8],
-                    #      "position": [3, 0]
-                    #  },
-                    #  "MAGLIM_I": {
-                    #      "label": "MAGLIM I",
-                    #      "range": [22.4, 24.0],
-                    #      "position": [3, 1]
-                    #  },
-                    #  "MAGLIM_Z": {
-                    #      "label": "MAGLIM Z",
-                    #      "range": [21.8, 23.2],
-                    #      "position": [3, 2]
-                    #  },
-                    #  "EBV_SFD98": {
-                    #      "label": "EBV SFD98",
-                    #      "range": [-0.01, 0.10],
-                    #      "position": [3, 3]
-                    #  }
+                    "BDF_T": {
+                        "label": "BDF T",
+                        "range": [-0.25, 1.8],
+                        "position": [0, 2]
+                    },
+                    "BDF_G": {
+                        "label": "BDF G",
+                        "range": [-0.1, 0.9],
+                        "position": [1, 0]
+                    },
+                    "FWHM_WMEAN_R": {
+                        "label": "FWHM R",
+                        "range": [0.7, 1.3],
+                        "position": [1, 1]
+                    },
+                    "FWHM_WMEAN_I": {
+                        "label": "FWHM I",
+                        "range": [0.7, 1.1],
+                        "position": [1, 2]
+                    },
+                    "FWHM_WMEAN_Z": {
+                         "label": "FWHM Z",
+                         "range": [0.6, 1.16],
+                         "position": [2, 0]
+                     },
+                     "AIRMASS_WMEAN_R": {
+                         "label": "AIRMASS R",
+                         "range": [0.95, 1.45],
+                         "position": [2, 1]
+                     },
+                     "AIRMASS_WMEAN_I": {
+                         "label": "AIRMASS I",
+                         "range": [1, 1.45],
+                         "position": [2, 2]
+                     },
+                     "AIRMASS_WMEAN_Z": {
+                         "label": "AIRMASS Z",
+                         "range": [1, 1.4],
+                         "position": [2, 3]
+                     },
+                     "MAGLIM_R": {
+                         "label": "MAGLIM R",
+                         "range": [23, 24.8],
+                         "position": [3, 0]
+                     },
+                     "MAGLIM_I": {
+                         "label": "MAGLIM I",
+                         "range": [22.4, 24.0],
+                         "position": [3, 1]
+                     },
+                     "MAGLIM_Z": {
+                         "label": "MAGLIM Z",
+                         "range": [21.8, 23.2],
+                         "position": [3, 2]
+                     },
+                     "EBV_SFD98": {
+                         "label": "EBV SFD98",
+                         "range": [-0.01, 0.10],
+                         "position": [3, 3]
+                     }
                 },
-            cuts=True,
+            cuts=False,
             grid_size=200,
             thresh=0.02,
             show_plot=cfg["SHOW_PLOT"],

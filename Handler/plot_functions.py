@@ -2504,11 +2504,11 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
     # import seaborn as sns
     # import matplotlib.patches as mpatches
 
-    if cuts is True:
-        df_gandalf_detected = df_gandalf_detected[df_gandalf_detected['BDF_MAG_DERED_CALIB_I'] < 37]
-        df_balrog_detected = df_balrog_detected[df_balrog_detected['BDF_MAG_DERED_CALIB_I'] < 37]
-        df_gandalf_not_detected = df_gandalf_not_detected[df_gandalf_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
-        df_balrog_not_detected = df_balrog_not_detected[df_balrog_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+    # if cuts is True:
+    #     df_gandalf_detected = df_gandalf_detected[df_gandalf_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+    #     df_balrog_detected = df_balrog_detected[df_balrog_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+    #     df_gandalf_not_detected = df_gandalf_not_detected[df_gandalf_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+    #     df_balrog_not_detected = df_balrog_not_detected[df_balrog_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
 
     print("Sample data...")
     if sample_size is None:
