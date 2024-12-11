@@ -14,6 +14,7 @@ from sklearn.calibration import calibration_curve
 from scipy.stats import binned_statistic, median_abs_deviation
 from io import BytesIO
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
+import matplotlib.patches as mpatches
 
 from Handler.helper_functions import string_to_tuple, calculate_kde
 import time
