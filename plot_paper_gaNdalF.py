@@ -165,404 +165,177 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
     df_balrog_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_BALROG']}")
     df_gandalf_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_GANDALF']}")
 
-    # df_balrog_clf_deep_cut = apply_deep_cuts(
-    #     path_master_cat=path_master_cat,
-    #     data_frame=df_balrog_clf
-    # )
-    # df_gandalf_clf_deep_cut = apply_deep_cuts(
-    #     path_master_cat=path_master_cat,
-    #     data_frame=df_gandalf_clf
-    # )
+    df_balrog_clf_deep_cut = apply_deep_cuts(
+        path_master_cat=path_master_cat,
+        data_frame=df_balrog_clf
+    )
+    df_gandalf_clf_deep_cut = apply_deep_cuts(
+        path_master_cat=path_master_cat,
+        data_frame=df_gandalf_clf
+    )
 
-    print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
-    print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
-    print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
-    print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
+    # print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
+    # print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
+    # print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
+    # print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
     # print(f"Length of Balrog detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1])}")
     # print(f"Length of Balrog not detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0])}")
     # print(f"Length of gaNdalF detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1])}")
     # print(f"Length of gaNdalF not detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0])}")
+    # print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
+    # print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
+    # print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
+    # print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
 
-    # plot_number_density_fluctuation(
-    #     df_balrog=df_balrog_clf,
-    #     df_gandalf=df_gandalf_clf,
-    #     columns=[
-    #         "BDF_MAG_DERED_CALIB_R",
-    #         "BDF_MAG_DERED_CALIB_I",
-    #         "BDF_MAG_DERED_CALIB_Z",
-    #         "BDF_T",
-    #         "BDF_G",
-    #         "FWHM_WMEAN_R",
-    #         "FWHM_WMEAN_I",
-    #         "FWHM_WMEAN_Z",
-    #         "AIRMASS_WMEAN_R",
-    #         "AIRMASS_WMEAN_I",
-    #         "AIRMASS_WMEAN_Z",
-    #         "MAGLIM_R",
-    #         "MAGLIM_I",
-    #         "MAGLIM_Z",
-    #         "EBV_SFD98"
-    #     ],
-    #     labels=[
-    #         "BDF Mag R",
-    #         "BDF Mag I",
-    #         "BDF Mag Z",
-    #         "BDF T",
-    #         "BDF G",
-    #         "FWHM R",
-    #         "FWHM I",
-    #         "FWHM Z",
-    #         "AIRMASS R",
-    #         "AIRMASS I",
-    #         "AIRMASS Z",
-    #         "MAGLIM R",
-    #         "MAGLIM I",
-    #         "MAGLIM Z",
-    #         "EBV SFD98"
-    #     ],
-    #     ranges=[
-    #         [18, 26],
-    #         [18, 26],
-    #         [18, 26],
-    #         [-1, 1.5],
-    #         [-0.1, 0.8],
-    #         [0.8, 1.2],
-    #         [0.7, 1.1],
-    #         [0.7, 1.0],
-    #         [1, 1.4],
-    #         [1, 1.4],
-    #         [1, 1.4],
-    #         [23.5, 24.5],
-    #         [23, 23.75],
-    #         [22, 23],
-    #         [0, 0.05]
-    #     ],
-    #     show_plot=cfg["SHOW_PLOT"],
-    #     save_plot=cfg["SAVE_PLOT"],
-    #     save_name=f"{path_save_plots}/number_density_fluctuation.png",
-    #     title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections"
-    #     )
+    if cfg["PLT_FIG_1"] is True:
+        plot_multivariate_clf_2(
+            df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1],
+            df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1],
+            df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0],
+            df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0],
+            columns={
+                    # "BDF_MAG_DERED_CALIB_R": {
+                    #     "label": "BDF Mag R",
+                    #     "range": [18.5, 28],
+                    #     "position": [0, 0]
+                    # },
+                    "BDF_MAG_DERED_CALIB_Z": {
+                        "label": "BDF Mag Z",
+                        "range": [18, 26],
+                        "position": [0, 1]
+                    },
+                    # "BDF_T": {
+                    #     "label": "BDF T",
+                    #     "range": [-0.25, 1.8],
+                    #     "position": [0, 2]
+                    # },
+                    # "BDF_G": {
+                    #     "label": "BDF G",
+                    #     "range": [-0.1, 0.9],
+                    #     "position": [1, 0]
+                    # },
+                    # "FWHM_WMEAN_R": {
+                    #     "label": "FWHM R",
+                    #     "range": [0.7, 1.3],
+                    #     "position": [1, 1]
+                    # },
+                    # "FWHM_WMEAN_I": {
+                    #     "label": "FWHM I",
+                    #     "range": [0.7, 1.1],
+                    #     "position": [1, 2]
+                    # },
+                    # "FWHM_WMEAN_Z": {
+                    #      "label": "FWHM Z",
+                    #      "range": [0.6, 1.16],
+                    #      "position": [2, 0]
+                    #  },
+                    #  "AIRMASS_WMEAN_R": {
+                    #      "label": "AIRMASS R",
+                    #      "range": [0.95, 1.45],
+                    #      "position": [2, 1]
+                    #  },
+                    #  "AIRMASS_WMEAN_I": {
+                    #      "label": "AIRMASS I",
+                    #      "range": [1, 1.45],
+                    #      "position": [2, 2]
+                    #  },
+                    #  "AIRMASS_WMEAN_Z": {
+                    #      "label": "AIRMASS Z",
+                    #      "range": [1, 1.4],
+                    #      "position": [2, 3]
+                    #  },
+                    #  "MAGLIM_R": {
+                    #      "label": "MAGLIM R",
+                    #      "range": [23, 24.8],
+                    #      "position": [3, 0]
+                    #  },
+                    #  "MAGLIM_I": {
+                    #      "label": "MAGLIM I",
+                    #      "range": [22.4, 24.0],
+                    #      "position": [3, 1]
+                    #  },
+                    #  "MAGLIM_Z": {
+                    #      "label": "MAGLIM Z",
+                    #      "range": [21.8, 23.2],
+                    #      "position": [3, 2]
+                    #  },
+                    #  "EBV_SFD98": {
+                    #      "label": "EBV SFD98",
+                    #      "range": [-0.01, 0.10],
+                    #      "position": [3, 3]
+                    #  }
+                },
+            cuts=True,
+            grid_size=200,
+            thresh=0.02,
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot= cfg["SAVE_PLOT"],
+            save_name=f"{path_save_plots}/classifier_multiv_2.png",
+            sample_size=5000,
+            x_range=(18, 26),
+            title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
+        )
 
-    # plot_number_density_fluctuation(
-    #     df_balrog=df_balrog_clf_deep_cut,
-    #     df_gandalf=df_gandalf_clf_deep_cut,
-    #     columns=[
-    #         "BDF_MAG_DERED_CALIB_R",
-    #         "BDF_MAG_DERED_CALIB_I",
-    #         "BDF_MAG_DERED_CALIB_Z",
-    #         "BDF_T",
-    #         "BDF_G",
-    #         "FWHM_WMEAN_R",
-    #         "FWHM_WMEAN_I",
-    #         "FWHM_WMEAN_Z",
-    #         "AIRMASS_WMEAN_R",
-    #         "AIRMASS_WMEAN_I",
-    #         "AIRMASS_WMEAN_Z",
-    #         "MAGLIM_R",
-    #         "MAGLIM_I",
-    #         "MAGLIM_Z",
-    #         "EBV_SFD98"
-    #     ],
-    #     labels=[
-    #         "BDF Mag R",
-    #         "BDF Mag I",
-    #         "BDF Mag Z",
-    #         "BDF T",
-    #         "BDF G",
-    #         "FWHM R",
-    #         "FWHM I",
-    #         "FWHM Z",
-    #         "AIRMASS R",
-    #         "AIRMASS I",
-    #         "AIRMASS Z",
-    #         "MAGLIM R",
-    #         "MAGLIM I",
-    #         "MAGLIM Z",
-    #         "EBV SFD98"
-    #     ],
-    #     ranges=[
-    #         [18, 26],
-    #         [18, 26],
-    #         [18, 26],
-    #         [-1, 1.5],
-    #         [-0.1, 0.8],
-    #         [0.8, 1.2],
-    #         [0.7, 1.1],
-    #         [0.7, 1.0],
-    #         [1, 1.4],
-    #         [1, 1.4],
-    #         [1, 1.4],
-    #         [23.5, 24.5],
-    #         [23, 23.75],
-    #         [22, 23],
-    #         [0, 0.05]
-    #     ],
-    #     show_plot=cfg["SHOW_PLOT"],
-    #     save_plot=cfg["SAVE_PLOT"],
-    #     save_name=f"{path_save_plots}/number_density_fluctuation_deep_cut.png",
-    #     title=f"Number Density Fluctuation Analysis of GANDALF vs. Balrog Detections with Deep Cut Applied"
-    # )
-    
-    print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
-    print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
-    print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
-    print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
-    
-    plot_multivariate_clf_2(
-        df_balrog_detected=df_balrog_clf[df_balrog_clf['detected'] == 1],
-        df_gandalf_detected=df_gandalf_clf[df_gandalf_clf['detected'] == 1],
-        df_balrog_not_detected=df_balrog_clf[df_balrog_clf['detected'] == 0],
-        df_gandalf_not_detected=df_gandalf_clf[df_gandalf_clf['detected'] == 0],
-        columns={
-                "BDF_MAG_DERED_CALIB_R": {
-                    "label": "BDF Mag R",
-                    "range": [18.5, 28],
-                    "position": [0, 0]
-                },
-                "BDF_MAG_DERED_CALIB_Z": {
-                    "label": "BDF Mag Z",
-                    "range": [18, 26],
-                    "position": [0, 1]
-                },
-                "BDF_T": {
-                    "label": "BDF T",
-                    "range": [-0.25, 1.8],
-                    "position": [0, 2]
-                },
-                "BDF_G": {
-                    "label": "BDF G",
-                    "range": [-0.1, 0.9],
-                    "position": [1, 0]
-                },
-                "FWHM_WMEAN_R": {
-                    "label": "FWHM R",
-                    "range": [0.7, 1.3],
-                    "position": [1, 1]
-                },
-                "FWHM_WMEAN_I": {
-                    "label": "FWHM I",
-                    "range": [0.7, 1.1],
-                    "position": [1, 2]
-                },
-                "FWHM_WMEAN_Z": {
-                     "label": "FWHM Z",
-                     "range": [0.6, 1.16],
-                     "position": [2, 0]
-                 },
-                 "AIRMASS_WMEAN_R": {
-                     "label": "AIRMASS R",
-                     "range": [0.95, 1.45],
-                     "position": [2, 1]
-                 },
-                 "AIRMASS_WMEAN_I": {
-                     "label": "AIRMASS I",
-                     "range": [1, 1.45],
-                     "position": [2, 2]
-                 },
-                 "AIRMASS_WMEAN_Z": {
-                     "label": "AIRMASS Z",
-                     "range": [1, 1.4],
-                     "position": [2, 3]
-                 },
-                 "MAGLIM_R": {
-                     "label": "MAGLIM R",
-                     "range": [23, 24.8],
-                     "position": [3, 0]
-                 },
-                 "MAGLIM_I": {
-                     "label": "MAGLIM I",
-                     "range": [22.4, 24.0],
-                     "position": [3, 1]
-                 },
-                 "MAGLIM_Z": {
-                     "label": "MAGLIM Z",
-                     "range": [21.8, 23.2],
-                     "position": [3, 2]
-                 },
-                 "EBV_SFD98": {
-                     "label": "EBV SFD98",
-                     "range": [-0.01, 0.10],
-                     "position": [3, 3]
-                 }
-            },
-        cuts=False,
-        grid_size=200,
-        thresh=0.02,
-        show_plot=cfg["SHOW_PLOT"],
-        save_plot= cfg["SAVE_PLOT"],
-        save_name=f"{path_save_plots}/classifier_multiv_2.png",
-        sample_size=5000,
-        x_range=(18, 26),
-        title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
-    )
-    exit()
-    plot_multivariate_classifier(
-        df_balrog=df_balrog_clf,
-        df_gandalf=df_gandalf_clf,
-        grid_size=[4, 4],
-        x_range=(17.8, 26.3),
-        sample_size=5000,
-        columns={
-            "BDF_MAG_DERED_CALIB_R": {
-                "label": "BDF Mag R",
-                "range": [18.5, 28],
-                "position": [0, 0]
-            },
-            "BDF_MAG_DERED_CALIB_Z": {
-                "label": "BDF Mag Z",
-                "range": [18, 26],
-                "position": [0, 1]
-            },
-            "BDF_T": {
-                "label": "BDF T",
-                "range": [-0.25, 1.8],
-                "position": [0, 2]
-            },
-            "BDF_G": {
-                "label": "BDF G",
-                "range": [-0.1, 0.9],
-                "position": [1, 0]
-            },
-            "FWHM_WMEAN_R": {
-                "label": "FWHM R",
-                "range": [0.7, 1.3],
-                "position": [1, 1]
-            },
-            "FWHM_WMEAN_I": {
-                "label": "FWHM I",
-                "range": [0.7, 1.1],
-                "position": [1, 2]
-            },
-            "FWHM_WMEAN_Z": {
-                "label": "FWHM Z",
-                "range": [0.6, 1.16],
-                "position": [2, 0]
-            },
-            "AIRMASS_WMEAN_R": {
-                "label": "AIRMASS R",
-                "range": [0.95, 1.45],
-                "position": [2, 1]
-            },
-            "AIRMASS_WMEAN_I": {
-                "label": "AIRMASS I",
-                "range": [1, 1.45],
-                "position": [2, 2]
-            },
-            "AIRMASS_WMEAN_Z": {
-                "label": "AIRMASS Z",
-                "range": [1, 1.4],
-                "position": [2, 3]
-            },
-            "MAGLIM_R": {
-                "label": "MAGLIM R",
-                "range": [23, 24.8],
-                "position": [3, 0]
-            },
-            "MAGLIM_I": {
-                "label": "MAGLIM I",
-                "range": [22.4, 24.0],
-                "position": [3, 1]
-            },
-            "MAGLIM_Z": {
-                "label": "MAGLIM Z",
-                "range": [21.8, 23.2],
-                "position": [3, 2]
-            },
-            "EBV_SFD98": {
-                "label": "EBV SFD98",
-                "range": [-0.01, 0.10],
-                "position": [3, 3]
-            }
-        },
-        show_plot=cfg["SHOW_PLOT"],
-        save_plot= cfg["SAVE_PLOT"],
-        save_name=f"{path_save_plots}/classifier_multiv.png",
-        title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
-    )
-    exit()
-
-    plot_multivariate_classifier(
-        df_balrog=df_balrog_clf_deep_cut,
-        df_gandalf=df_gandalf_clf_deep_cut,
-        grid_size=[4, 4],
-        x_range=(17.8, 26.3),
-        columns={
-            "BDF_MAG_DERED_CALIB_R": {
-                "label": "BDF Mag R",
-                "range": [18.5, 28],
-                "position": [0, 0]
-            },
-            "BDF_MAG_DERED_CALIB_Z": {
-                "label": "BDF Mag Z",
-                "range": [18, 26],
-                "position": [0, 1]
-            },
-            "BDF_T": {
-                "label": "BDF T",
-                "range": [-0.25, 1.8],
-                "position": [0, 2]
-            },
-            "BDF_G": {
-                "label": "BDF G",
-                "range": [-0.1, 0.9],
-                "position": [1, 0]
-            },
-            "FWHM_WMEAN_R": {
-                "label": "FWHM R",
-                "range": [0.7, 1.3],
-                "position": [1, 1]
-            },
-            "FWHM_WMEAN_I": {
-                "label": "FWHM I",
-                "range": [0.7, 1.1],
-                "position": [1, 2]
-            },
-            "FWHM_WMEAN_Z": {
-                "label": "FWHM Z",
-                "range": [0.6, 1.16],
-                "position": [2, 0]
-            },
-            "AIRMASS_WMEAN_R": {
-                "label": "AIRMASS R",
-                "range": [0.95, 1.45],
-                "position": [2, 1]
-            },
-            "AIRMASS_WMEAN_I": {
-                "label": "AIRMASS I",
-                "range": [1, 1.45],
-                "position": [2, 2]
-            },
-            "AIRMASS_WMEAN_Z": {
-                "label": "AIRMASS Z",
-                "range": [1, 1.4],
-                "position": [2, 3]
-            },
-            "MAGLIM_R": {
-                "label": "MAGLIM R",
-                "range": [23, 24.8],
-                "position": [3, 0]
-            },
-            "MAGLIM_I": {
-                "label": "MAGLIM I",
-                "range": [22.4, 24.0],
-                "position": [3, 1]
-            },
-            "MAGLIM_Z": {
-                "label": "MAGLIM Z",
-                "range": [21.8, 23.2],
-                "position": [3, 2]
-            },
-            "EBV_SFD98": {
-                "label": "EBV SFD98",
-                "range": [-0.01, 0.10],
-                "position": [3, 3]
-            }
-        },
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/classifier_multiv_deep_cut.png",
-        title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog with Deep Cut Applied"
-    )
+    if cfg["PLT_FIG_2"] is True:
+        plot_number_density_fluctuation(
+            df_balrog=df_balrog_clf,
+            df_gandalf=df_gandalf_clf,
+            columns=[
+                "BDF_MAG_DERED_CALIB_R",
+                "BDF_MAG_DERED_CALIB_I",
+                "BDF_MAG_DERED_CALIB_Z",
+                "BDF_T",
+                "BDF_G",
+                "FWHM_WMEAN_R",
+                "FWHM_WMEAN_I",
+                "FWHM_WMEAN_Z",
+                "AIRMASS_WMEAN_R",
+                "AIRMASS_WMEAN_I",
+                "AIRMASS_WMEAN_Z",
+                "MAGLIM_R",
+                "MAGLIM_I",
+                "MAGLIM_Z",
+                "EBV_SFD98"
+            ],
+            labels=[
+                "BDF Mag R",
+                "BDF Mag I",
+                "BDF Mag Z",
+                "BDF T",
+                "BDF G",
+                "FWHM R",
+                "FWHM I",
+                "FWHM Z",
+                "AIRMASS R",
+                "AIRMASS I",
+                "AIRMASS Z",
+                "MAGLIM R",
+                "MAGLIM I",
+                "MAGLIM Z",
+                "EBV SFD98"
+            ],
+            ranges=[
+                [18, 26],
+                [18, 26],
+                [18, 26],
+                [-1, 1.5],
+                [-0.1, 0.8],
+                [0.8, 1.2],
+                [0.7, 1.1],
+                [0.7, 1.0],
+                [1, 1.4],
+                [1, 1.4],
+                [1, 1.4],
+                [23.5, 24.5],
+                [23, 23.75],
+                [22, 23],
+                [0, 0.05]
+            ],
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{path_save_plots}/number_density_fluctuation.png",
+            title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections"
+        )
 
 def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_cat, path_save_plots, columns):
     """"""

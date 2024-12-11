@@ -13,6 +13,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_c
 from sklearn.calibration import calibration_curve
 from scipy.stats import binned_statistic, median_abs_deviation
 from io import BytesIO
+from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
 from Handler.helper_functions import string_to_tuple, calculate_kde
 import time
@@ -1678,6 +1679,10 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(5 * ncols, 4 * nrows))
     axes = axes.flatten()
 
+    font_size_labels = 16
+    font_size_title = 24
+    font_size_legend = 20
+
     for idx, col in enumerate(columns):
         ax = axes[idx]
         bin_range = ranges[idx]
@@ -1738,8 +1743,8 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
         # Plot a reference line at N/<N> = 1
         ax.axhline(1, color='red', linestyle='--')
 
-        ax.set_xlabel(labels[idx])
-        ax.set_ylabel(r'$N / \langle N \rangle$')
+        ax.set_xlabel(labels[idx], fontsize=font_size_labels)
+        ax.set_ylabel(r'Probability Density', fontsize=font_size_labels)
         ax.grid(True)
         ax.set_xlim(range_min, range_max)
 
@@ -1749,10 +1754,10 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
 
     # Create a global legend above the last unused plot
     handles, labels = ax.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower right', bbox_to_anchor=(0.9, 0.1), bbox_transform=plt.gcf().transFigure)
+    fig.legend(handles, labels, loc='lower right', bbox_to_anchor=(0.9, 0.1), bbox_transform=plt.gcf().transFigure, fontsize=font_size_legend)
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make space for the legend at the top
-    plt.suptitle(title)
+    plt.suptitle(title, fontsize=font_size_title)
     if save_plot:
         plt.savefig(save_name, dpi=300)
     if show_plot:
@@ -2489,12 +2494,20 @@ def make_gif(frame_folder, name_save_folder, fps=10):
     imageio.mimwrite(uri=f"{name_save_folder}", ims=images_data, format='.gif', duration=int(1000*1/fps))
 
     
-def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_not_detected, df_gandalf_not_detected, columns, cuts, grid_size, thresh, show_plot, save_plot, save_name, sample_size=5000, x_range=(18, 26), title='Histogram'):
-    import numpy as np
-    from statsmodels.nonparametric.kernel_density import KDEMultivariate
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import matplotlib.patches as mpatches
+def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_not_detected, df_gandalf_not_detected,
+                            columns, cuts, grid_size, thresh, show_plot, save_plot, save_name, sample_size=5000,
+                            x_range=(18, 26), title='Histogram'):
+    # import numpy as np
+    # from statsmodels.nonparametric.kernel_density import KDEMultivariate
+    # import matplotlib.pyplot as plt
+    # import seaborn as sns
+    # import matplotlib.patches as mpatches
+
+    if cuts is True:
+        df_gandalf_detected = df_gandalf_detected[df_gandalf_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+        df_balrog_detected = df_balrog_detected[df_balrog_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+        df_gandalf_not_detected = df_gandalf_not_detected[df_gandalf_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+        df_balrog_not_detected = df_balrog_not_detected[df_balrog_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
 
     print("Sample data...")
     if sample_size is None:
@@ -2529,13 +2542,7 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
     # Mahalanobis distances corresponding to sigma levels
     r_values = np.array(sigma_levels)
 
-    if cuts is True:
-        df_gandalf_detected_sample = df_gandalf_detected_sample[df_gandalf_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
-        df_balrog_detected_sample = df_balrog_detected_sample[df_balrog_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
-        df_gandalf_not_detected_sample = df_gandalf_not_detected_sample[df_gandalf_not_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
-        df_balrog_not_detected_sample = df_balrog_not_detected_sample[df_balrog_not_detected_sample['BDF_MAG_DERED_CALIB_I'] < 37]
-
-    levels = [0.393, 0.865, 0.989]
+    # levels = [0.393, 0.865, 0.989]
 
     # Determine the overall data range
     xmin = min(df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min())
@@ -2554,8 +2561,18 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
         y_range = columns[col]["range"]
         label = columns[col]["label"]
 
-        ymin = min(df_gandalf_detected_sample[col].min(), df_balrog_detected_sample[col].min(), df_gandalf_not_detected_sample[col].min(), df_balrog_not_detected_sample[col].min())
-        ymax = max(df_gandalf_detected_sample[col].max(), df_balrog_detected_sample[col].max(), df_gandalf_not_detected_sample[col].max(), df_balrog_not_detected_sample[col].max())
+        ymin = min(
+            df_gandalf_detected_sample[col].min(),
+            df_balrog_detected_sample[col].min(),
+            df_gandalf_not_detected_sample[col].min(),
+            df_balrog_not_detected_sample[col].min()
+        )
+        ymax = max(
+            df_gandalf_detected_sample[col].max(),
+            df_balrog_detected_sample[col].max(),
+            df_gandalf_not_detected_sample[col].max(),
+            df_balrog_not_detected_sample[col].max()
+        )
 
         # Create a common grid
         xi, yi = np.meshgrid(
@@ -2591,7 +2608,7 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 x=x_gandalf_detected,
                 y=y_gandalf_detected,
                 ax=ax,
-                levels=normalized_density_levels_gandalf_detected,  # normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
+                levels=normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
                 fill=False,
                 cumulative=False,
                 thresh=thresh,
@@ -2599,7 +2616,6 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 color=color_gandalf_detected
             )
         except Exception as e:
-            print(normalized_density_levels_gandalf_detected)
             print(f"An error occurred with plotting seaborn gandalf detected: {e}")
 
         # ---- Gandalf not Detected---- #
@@ -2638,7 +2654,6 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 collection.set_zorder(10)
 
         except Exception as e:
-            print(density_levels_gandalf_not_detected)
             print(f"An error occurred with plotting seaborn gandalf not detected: {e}")
 
         # # ---- Balrog ---- #
@@ -2675,7 +2690,6 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 color=color_balrog_detected
             )
         except Exception as e:
-            print(normalized_density_levels_balrog)
             print(f"An error occurred with plotting seaborn balrog detected: {e}")
 
         # ---- Balrog not Detected---- #
@@ -2714,7 +2728,6 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
                 collection.set_zorder(11)
 
         except Exception as e:
-            print(density_levels_balrog_not_detected)
             print(f"An error occurred with plotting seaborn balrog not detected: {e}")
 
         ax.set_xlim(x_range)
