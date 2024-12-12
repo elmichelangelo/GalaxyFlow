@@ -1666,7 +1666,7 @@ def plot_balrog_histogram_with_error(
 
 
 def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, ranges, title, show_plot, save_plot,
-                                    save_name, kl_detected=None, kl_not_detected=None):
+                                    save_name):
     from scipy.ndimage import gaussian_filter1d
 
     # Create subsets for detected and not detected objects
@@ -1764,6 +1764,257 @@ def plot_number_density_fluctuation(df_balrog, df_gandalf, columns, labels, rang
     if show_plot:
         plt.show()
     plt.close(fig)
+
+
+def plot_number_density_fluctuation_with_diff(df_balrog, df_gandalf, columns, labels, ranges, title, show_plot, save_plot, save_name):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+    from scipy.ndimage import gaussian_filter1d
+
+    # Create subsets for detected and not detected objects
+    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+
+    ncols = 4
+    nrows = (len(columns) + ncols - 1) // ncols
+
+    fig = plt.figure(figsize=(5 * ncols, 8 * nrows))
+    main_gs = GridSpec(nrows, ncols, figure=fig)
+
+    font_size_labels = 16
+    font_size_title = 24
+
+    # Colors and markers for different categories
+    colors = {
+        "balrog_detected": "#51a6fb",
+        "gandalf_detected": "#ff8c00",
+        "balrog_not_detected": "grey",
+        "gandalf_not_detected": "black",
+    }
+    markers = {
+        "balrog_detected": "o",
+        "gandalf_detected": "s",
+        "balrog_not_detected": "+",
+        "gandalf_not_detected": "*",
+    }
+
+    for idx, col in enumerate(columns):
+        row_idx = idx // ncols
+        col_idx = idx % ncols
+
+        # Create a nested GridSpec for each column
+        inner_gs = GridSpecFromSubplotSpec(2, 1, subplot_spec=main_gs[row_idx, col_idx], height_ratios=[3, 1], hspace=0)
+
+        ax_main = fig.add_subplot(inner_gs[0])  # Main fluctuation plot
+        ax_diff = fig.add_subplot(inner_gs[1], sharex=ax_main)  # Difference plot
+
+        bin_range = ranges[idx]
+        range_min, range_max = bin_range if bin_range else (df_balrog[col].min(), df_gandalf[col].max())
+
+        num_bins = 20
+        bins = np.linspace(range_min, range_max, num_bins + 1)
+
+        # Compute histograms
+        counts_balrog_detected, _ = np.histogram(df_balrog_detected[col], bins=bins)
+        counts_gandalf_detected, _ = np.histogram(df_gandalf_detected[col], bins=bins)
+        counts_balrog_not_detected, _ = np.histogram(df_balrog_not_detected[col], bins=bins)
+        counts_gandalf_not_detected, _ = np.histogram(df_gandalf_not_detected[col], bins=bins)
+
+        # Compute mean counts
+        epsilon = 1e-10
+        mean_counts_balrog_detected = np.mean(counts_balrog_detected) + epsilon
+        mean_counts_gandalf_detected = np.mean(counts_gandalf_detected) + epsilon
+        mean_counts_balrog_not_detected = np.mean(counts_balrog_not_detected) + epsilon
+        mean_counts_gandalf_not_detected = np.mean(counts_gandalf_not_detected) + epsilon
+
+        # Compute fluctuations
+        fluctuation_balrog_detected = counts_balrog_detected / mean_counts_balrog_detected
+        fluctuation_gandalf_detected = counts_gandalf_detected / mean_counts_gandalf_detected
+        fluctuation_balrog_not_detected = counts_balrog_not_detected / mean_counts_balrog_not_detected
+        fluctuation_gandalf_not_detected = counts_gandalf_not_detected / mean_counts_gandalf_not_detected
+
+        # Apply smoothing
+        smoothed_balrog_detected = gaussian_filter1d(fluctuation_balrog_detected, sigma=1)
+        smoothed_gandalf_detected = gaussian_filter1d(fluctuation_gandalf_detected, sigma=1)
+        smoothed_balrog_not_detected = gaussian_filter1d(fluctuation_balrog_not_detected, sigma=1)
+        smoothed_gandalf_not_detected = gaussian_filter1d(fluctuation_gandalf_not_detected, sigma=1)
+
+        # Calculate differences
+        diff_detected = smoothed_gandalf_detected - smoothed_balrog_detected
+        diff_not_detected = smoothed_gandalf_not_detected - smoothed_balrog_not_detected
+
+        # Bin centers
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+
+        # Main panel: Fluctuations
+        ax_main.plot(
+            bin_centers,
+            smoothed_balrog_detected,
+            color=colors["balrog_detected"],
+            marker=markers["balrog_detected"],
+            alpha=0.5
+        )
+        ax_main.plot(
+            bin_centers,
+            smoothed_gandalf_detected,
+            color=colors["gandalf_detected"],
+            marker=markers["gandalf_detected"],
+            alpha=0.5
+        )
+        ax_main.plot(
+            bin_centers,
+            smoothed_balrog_not_detected,
+            color=colors["balrog_not_detected"],
+            marker=markers["balrog_not_detected"],
+            alpha=0.5
+        )
+        ax_main.plot(
+            bin_centers,
+            smoothed_gandalf_not_detected,
+            color=colors["gandalf_not_detected"],
+            marker=markers["gandalf_not_detected"],
+            alpha=0.5
+        )
+        ax_main.axhline(1, color='red', linestyle='--')  # Reference line
+        ax_main.set_xlim(range_min, range_max)
+        ax_main.set_ylabel(r"$\frac{N}{<N>}$", fontsize=font_size_labels)
+        ax_main.grid(True)
+
+        # Difference panel
+        ax_diff.plot(bin_centers, diff_detected, color="green", label="Difference detected")
+        ax_diff.plot(bin_centers, diff_not_detected, color="purple", label="Difference not detected")
+
+        ax_diff.axhline(0, color='red', linestyle='--')  # Reference line
+        ax_diff.set_xlim(range_min, range_max)
+        ax_diff.set_xlabel(labels[idx], fontsize=font_size_labels)
+        ax_diff.set_ylabel("Difference", fontsize=font_size_labels - 2)
+        ax_diff.grid(True)
+
+        # Hide x tick labels on the main plot
+        plt.setp(ax_main.get_xticklabels(), visible=False)
+
+    # Unified legend outside the plot
+    handles, labels = ax_main.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size_labels, bbox_to_anchor=(0.5, 1.02))
+
+    # Adjust layout and save/show
+    plt.tight_layout()
+    plt.suptitle(title, fontsize=font_size_title, y=1.05)
+    if save_plot:
+        plt.savefig(save_name, dpi=300, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close()
+
+
+def plot_number_density_fluctuation_with_error_bars(df_balrog, df_gandalf, columns, labels, ranges, title, show_plot, save_plot, save_name):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+    from scipy.stats import binned_statistic
+
+    # Create subsets for detected and not detected objects
+    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+
+    ncols = 4
+    nrows = (len(columns) + ncols - 1) // ncols
+
+    fig = plt.figure(figsize=(5 * ncols, 8 * nrows))
+    main_gs = GridSpec(nrows, ncols, figure=fig)
+
+    font_size_labels = 16
+    font_size_title = 24
+
+    for idx, col in enumerate(columns):
+        row_idx = idx // ncols
+        col_idx = idx % ncols
+
+        inner_gs = GridSpecFromSubplotSpec(2, 1, subplot_spec=main_gs[row_idx, col_idx], height_ratios=[3, 1], hspace=0)
+
+        ax_main = fig.add_subplot(inner_gs[0])  # Main fluctuation plot
+        ax_diff = fig.add_subplot(inner_gs[1], sharex=ax_main)  # Error bar plot
+
+        bin_range = ranges[idx]
+        range_min, range_max = bin_range if bin_range else (df_balrog[col].min(), df_gandalf[col].max())
+
+        num_bins = 20
+        bins = np.linspace(range_min, range_max, num_bins + 1)
+
+        # Compute histograms
+        counts_balrog_detected, _ = np.histogram(df_balrog_detected[col], bins=bins)
+        counts_gandalf_detected, _ = np.histogram(df_gandalf_detected[col], bins=bins)
+        counts_balrog_not_detected, _ = np.histogram(df_balrog_not_detected[col], bins=bins)
+        counts_gandalf_not_detected, _ = np.histogram(df_gandalf_not_detected[col], bins=bins)
+
+        # Compute mean counts
+        epsilon = 1e-10
+        mean_counts_balrog_detected = np.mean(counts_balrog_detected) + epsilon
+        mean_counts_gandalf_detected = np.mean(counts_gandalf_detected) + epsilon
+        mean_counts_balrog_not_detected = np.mean(counts_balrog_not_detected) + epsilon
+        mean_counts_gandalf_not_detected = np.mean(counts_gandalf_not_detected) + epsilon
+
+        # Compute fluctuations
+        fluctuation_balrog_detected = counts_balrog_detected / mean_counts_balrog_detected
+        fluctuation_gandalf_detected = counts_gandalf_detected / mean_counts_gandalf_detected
+        fluctuation_balrog_not_detected = counts_balrog_not_detected / mean_counts_balrog_not_detected
+        fluctuation_gandalf_not_detected = counts_gandalf_not_detected / mean_counts_gandalf_not_detected
+
+        # Calculate differences
+        diff_detected = fluctuation_gandalf_detected - fluctuation_balrog_detected
+        diff_not_detected = fluctuation_gandalf_not_detected - fluctuation_balrog_not_detected
+
+        # Error bars for detected
+        diff_err_detected, _, _ = binned_statistic(
+            df_balrog_detected[col], diff_detected[:len(df_balrog_detected[col])], statistic='std', bins=bins
+        )
+
+        # Error bars for not detected
+        diff_err_not_detected, _, _ = binned_statistic(
+            df_balrog_not_detected[col], diff_not_detected[:len(df_balrog_not_detected[col])], statistic='std',
+            bins=bins
+        )
+
+        # Main panel: Fluctuations
+        ax_main.plot((bins[:-1] + bins[1:]) / 2, fluctuation_balrog_detected, color="blue", label="Balrog detected")
+        ax_main.plot((bins[:-1] + bins[1:]) / 2, fluctuation_gandalf_detected, color="orange", label="Gandalf detected")
+        ax_main.axhline(1, color='red', linestyle='--')  # Reference line
+        ax_main.set_xlim(range_min, range_max)
+        ax_main.set_ylabel("Fluctuation", fontsize=font_size_labels)
+        ax_main.grid(True)
+
+        # Error bar plot
+        ax_diff.errorbar(
+            (bins[:-1] + bins[1:]) / 2, diff_detected, yerr=diff_err_detected, fmt='o', color="green", label="Detected"
+        )
+        ax_diff.errorbar(
+            (bins[:-1] + bins[1:]) / 2, diff_not_detected, yerr=diff_err_not_detected, fmt='o', color="purple",
+            label="Not detected"
+        )
+        ax_diff.axhline(0, color='red', linestyle='--')  # Reference line
+        ax_diff.set_xlim(range_min, range_max)
+        ax_diff.set_xlabel(labels[idx], fontsize=font_size_labels)
+        ax_diff.set_ylabel("Difference", fontsize=font_size_labels - 2)
+        ax_diff.grid(True)
+
+        plt.setp(ax_main.get_xticklabels(), visible=False)
+
+    # Unified legend outside the plot
+    handles, labels = ax_main.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size_labels, bbox_to_anchor=(0.5, 1.02))
+
+    plt.tight_layout()
+    plt.suptitle(title, fontsize=font_size_title, y=1.05)
+    if save_plot:
+        plt.savefig(save_name, dpi=300, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close()
 
 
 def plot_tomo_bin_redshift_bootstrap(zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means, plot_settings,
@@ -2543,11 +2794,19 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
     # Mahalanobis distances corresponding to sigma levels
     r_values = np.array(sigma_levels)
 
-    # levels = [0.393, 0.865, 0.989]
-
     # Determine the overall data range
-    xmin = min(df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min(), df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min())
-    xmax = max(df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].max(), df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].max(), df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max(), df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max())
+    xmin = min(
+        df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].min(),
+        df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].min(),
+        df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min(),
+        df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min()
+    )
+    xmax = max(
+        df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].max(),
+        df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].max(),
+        df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max(),
+        df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max()
+    )
 
     x_gandalf_detected = df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].values
     x_gandalf_not_detected = df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
@@ -2593,7 +2852,6 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
         )
         zi_gandalf_detected = kde_gandalf_detected.pdf(positions).reshape(xi.shape)
 
-
         # Compute density levels
         f0_gandalf_detected = zi_gandalf_detected.max()
         density_levels_gandalf_detected = f0_gandalf_detected * np.exp(-0.5 * r_values**2)
@@ -2629,7 +2887,6 @@ def plot_multivariate_clf_2(df_balrog_detected, df_gandalf_detected, df_balrog_n
             bw='scott'
         )
         zi_gandalf_not_detected = kde_gandalf_not_detected.pdf(positions).reshape(xi.shape)
-
 
         # Compute density levels
         f0_gandalf_not_detected = zi_gandalf_not_detected.max()
