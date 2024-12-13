@@ -274,7 +274,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             show_plot=cfg["SHOW_PLOT"],
             save_plot= cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/classifier_multiv_2.png",
-            sample_size=5000,
+            sample_size=None,
             x_range=(18, 26),
             title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
         )

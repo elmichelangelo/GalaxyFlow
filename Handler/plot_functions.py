@@ -1955,47 +1955,61 @@ def plot_number_density_fluctuation_with_error_bars(df_balrog, df_gandalf, colum
         # Compute mean counts
         epsilon = 1e-10
         mean_counts_balrog_detected = np.mean(counts_balrog_detected) + epsilon
-        mean_counts_gandalf_detected = np.mean(counts_gandalf_detected) + epsilon
         mean_counts_balrog_not_detected = np.mean(counts_balrog_not_detected) + epsilon
-        mean_counts_gandalf_not_detected = np.mean(counts_gandalf_not_detected) + epsilon
 
-        # Compute fluctuations
-        fluctuation_balrog_detected = counts_balrog_detected / mean_counts_balrog_detected
-        fluctuation_gandalf_detected = counts_gandalf_detected / mean_counts_gandalf_detected
-        fluctuation_balrog_not_detected = counts_balrog_not_detected / mean_counts_balrog_not_detected
-        fluctuation_gandalf_not_detected = counts_gandalf_not_detected / mean_counts_gandalf_not_detected
+        if len(df_gandalf_detected[col].values) > len(df_balrog_detected[col].values):
+            df_gandalf_detected = df_gandalf_detected[:len(df_balrog_detected)]
+        else:
+            df_balrog_detected = df_balrog_detected[:len(df_gandalf_detected)]
 
-        # Calculate differences
-        diff_detected = fluctuation_gandalf_detected - fluctuation_balrog_detected
-        diff_not_detected = fluctuation_gandalf_not_detected - fluctuation_balrog_not_detected
+        if len(df_gandalf_not_detected[col].values) > len(df_balrog_not_detected[col].values):
+            df_gandalf_not_detected = df_gandalf_not_detected[:len(df_balrog_not_detected)]
+        else:
+            df_balrog_not_detected = df_balrog_not_detected[:len(df_gandalf_not_detected)]
 
-        # Error bars for detected
-        diff_err_detected, _, _ = binned_statistic(
-            df_balrog_detected[col], diff_detected[:len(df_balrog_detected[col])], statistic='std', bins=bins
+        # Calculate object-level differences for detected
+        detected_diff_values = (
+                (df_gandalf_detected[col].values - df_balrog_detected[col].values) / mean_counts_balrog_detected
         )
 
-        # Error bars for not detected
+        # Bin the object-level differences
+        diff_err_detected, _, _ = binned_statistic(
+            df_balrog_detected[col], detected_diff_values, statistic='std', bins=bins
+        )
+
+        # Repeat for not detected objects
+        not_detected_diff_values = (
+                (df_gandalf_not_detected[col].values - df_balrog_not_detected[
+                    col].values) / mean_counts_balrog_not_detected
+        )
         diff_err_not_detected, _, _ = binned_statistic(
-            df_balrog_not_detected[col], diff_not_detected[:len(df_balrog_not_detected[col])], statistic='std',
-            bins=bins
+            df_balrog_not_detected[col], not_detected_diff_values, statistic='std', bins=bins
         )
 
         # Main panel: Fluctuations
-        ax_main.plot((bins[:-1] + bins[1:]) / 2, fluctuation_balrog_detected, color="blue", label="Balrog detected")
-        ax_main.plot((bins[:-1] + bins[1:]) / 2, fluctuation_gandalf_detected, color="orange", label="Gandalf detected")
+        ax_main.plot((bins[:-1] + bins[1:]) / 2, counts_balrog_detected / mean_counts_balrog_detected, color="blue",
+                     label="Balrog detected", marker="o")
+        ax_main.plot((bins[:-1] + bins[1:]) / 2, counts_gandalf_detected / mean_counts_balrog_detected, color="orange",
+                     label="Gandalf detected", marker="s")
+        ax_main.plot((bins[:-1] + bins[1:]) / 2, counts_balrog_not_detected / mean_counts_balrog_not_detected, color="green",
+                     label="Balrog detected", marker="^", )
+        ax_main.plot((bins[:-1] + bins[1:]) / 2, counts_gandalf_not_detected / mean_counts_balrog_not_detected, color="black",
+                     label="Gandalf detected", marker="*")
         ax_main.axhline(1, color='red', linestyle='--')  # Reference line
         ax_main.set_xlim(range_min, range_max)
         ax_main.set_ylabel("Fluctuation", fontsize=font_size_labels)
         ax_main.grid(True)
 
         # Error bar plot
-        ax_diff.errorbar(
-            (bins[:-1] + bins[1:]) / 2, diff_detected, yerr=diff_err_detected, fmt='o', color="green", label="Detected"
-        )
-        ax_diff.errorbar(
-            (bins[:-1] + bins[1:]) / 2, diff_not_detected, yerr=diff_err_not_detected, fmt='o', color="purple",
-            label="Not detected"
-        )
+        ax_diff.plot(
+            (bins[:-1] + bins[1:]) / 2, diff_err_detected, color="green",
+            label="Detected", marker="+"
+        ) #  yerr=diff_err_detected, fmt='o',
+        ax_diff.plot(
+            (bins[:-1] + bins[1:]) / 2, diff_err_not_detected, color="purple",
+            label="Not detected", marker="*"
+        ) # yerr=diff_err_not_detected, fmt='o',
+        
         ax_diff.axhline(0, color='red', linestyle='--')  # Reference line
         ax_diff.set_xlim(range_min, range_max)
         ax_diff.set_xlabel(labels[idx], fontsize=font_size_labels)
