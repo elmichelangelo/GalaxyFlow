@@ -273,7 +273,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             thresh=0.02,
             show_plot=cfg["SHOW_PLOT"],
             save_plot= cfg["SAVE_PLOT"],
-            save_name=f"{path_save_plots}/classifier_multiv_2.png",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv_2.png",
             sample_size=5000,  # None,
             x_range=(18, 26),
             title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
@@ -336,7 +336,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             ],
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
-            save_name=f"{path_save_plots}/number_density_fluctuation.png",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_number_density_fluctuation.png",
             title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections"
         )
 
@@ -713,6 +713,7 @@ def main(cfg, path_data, path_master_cat, filename_clf_balrog, filename_clf_gand
 if __name__ == '__main__':
     import pandas as pd
     from Handler import *
+    from datetime import datetime
     import os
     import sys
     import argparse
@@ -748,6 +749,9 @@ if __name__ == '__main__':
 
     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
+
+    now = datetime.now()
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
 
     main(
         cfg=cfg,
