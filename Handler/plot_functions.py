@@ -2921,7 +2921,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         mpatches.Patch(color=color_balrog_not_detected, alpha=0.5, label='Balrog Not Detected')
     ]
 
-    fig.legend(handles=legend_elements, loc='upper right', fontsize=18, bbox_to_anchor=(0.99, 0.76))
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=18, bbox_to_anchor=(1.0, 0.76))
 
     plt.suptitle(title, fontsize=20)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
