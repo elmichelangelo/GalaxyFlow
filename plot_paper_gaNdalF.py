@@ -204,7 +204,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
                     # },
                     "BDF_MAG_DERED_CALIB_Z": {
                         "label": "BDF Mag Z",
-                        "range": [18, 26],
+                        "range": None,  # [18, 26],
                         "position": [0, 1]
                     },
                     # "BDF_T": {
@@ -274,15 +274,15 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             show_plot=cfg["SHOW_PLOT"],
             save_plot= cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/classifier_multiv_2.png",
-            sample_size=None,
+            sample_size=5000,  # None,
             x_range=(18, 26),
             title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
         )
 
     if cfg["PLT_FIG_2"] is True:
         plot_number_density_fluctuation_with_error_bars(
-            df_balrog=df_balrog_clf,
-            df_gandalf=df_gandalf_clf,
+            df_balrog=df_balrog_clf_deep_cut,
+            df_gandalf=df_gandalf_clf_deep_cut,
             columns=[
                 "BDF_MAG_DERED_CALIB_R",
                 "BDF_MAG_DERED_CALIB_I",
