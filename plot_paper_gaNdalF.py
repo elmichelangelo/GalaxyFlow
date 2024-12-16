@@ -269,7 +269,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
                     #  }
                 },
             grid_size=200,
-            bw='normal_reference',  # 'scott', 'silverman', 'normal_reference', or float
+            bw='silverman',  # 'scott', 'silverman', 'normal_reference', or float
             thresh=0.02,
             show_plot=cfg["SHOW_PLOT"],
             save_plot= cfg["SAVE_PLOT"],
