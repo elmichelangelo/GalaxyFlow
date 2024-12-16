@@ -191,7 +191,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
     # print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
 
     if cfg["PLT_FIG_1"] is True:
-        plot_multivariate_clf_2(
+        plot_multivariate_clf(
             df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1],
             df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1],
             df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0],
@@ -204,7 +204,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
                     # },
                     "BDF_MAG_DERED_CALIB_Z": {
                         "label": "BDF Mag Z",
-                        "range": None,  # [18, 26],
+                        "range": [17, 26.5],
                         "position": [0, 1]
                     },
                     # "BDF_T": {
@@ -268,19 +268,19 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
                     #      "position": [3, 3]
                     #  }
                 },
-            cuts=False,
             grid_size=200,
+            bw='silverman',  # 'scott', 'silverman', 'normal_reference', or float
             thresh=0.02,
             show_plot=cfg["SHOW_PLOT"],
             save_plot= cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv_2.png",
             sample_size=5000,  # None,
-            x_range=(18, 26),
+            x_range=(17, 26.5),
             title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
         )
 
     if cfg["PLT_FIG_2"] is True:
-        plot_number_density_fluctuation_with_error_bars(
+        plot_number_density_fluctuation(
             df_balrog=df_balrog_clf_deep_cut,
             df_gandalf=df_gandalf_clf_deep_cut,
             columns=[
