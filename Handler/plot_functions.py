@@ -1724,12 +1724,12 @@ def plot_number_density_fluctuation(
     # ----------------------------------------------------------------------
     # Define colors/markers for different subsets
     # ----------------------------------------------------------------------
-    color_marker_gandalf_detected = ['#ff8c00', 'o']
-    color_marker_balrog_detected = ['#51a6fb', 's']
-    color_marker_gandalf_not_detected = ['black', 'D']
-    color_marker_balrog_not_detected = ['grey', '^']
-    color_marker_difference_detected = ['purple', 'v']
-    color_marker_difference_not_detected = ['lightgrey', 'P']
+    color_marker_gandalf_detected = ['darkgreen', 'o']  # ['#ff8c00', 'o']
+    color_marker_balrog_detected = ['purple', 's']  # ['#51a6fb', 's']
+    color_marker_gandalf_not_detected = ['green', 'D']  # ['black', 'D']
+    color_marker_balrog_not_detected = ['darkviolet', '^']  # ['grey', '^']
+    color_marker_difference_detected = ['magenta', 'v']  # ['purple', 'v']
+    color_marker_difference_not_detected = ['lightgreen', 'P']  # ['lightgrey', 'P']
 
     # ----------------------------------------------------------------------
     # Determine layout for subplots
@@ -2418,224 +2418,482 @@ def plot_binning_statistics_properties(
     plt.close()
 
 
-def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, show_plot=True, save_plot=False,
-                                     path_save_plots=""):
+# def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, show_plot=True, save_plot=False,
+#                                      path_save_plots=""):
+#
+#     print("start plotting")
+#
+#     color_gandalf = '#ff8c00'
+#     color_balrog = '#51a6fb'
+#     standard_levels = [0.393, 0.865, 0.989]
+#
+#     # Define the grid layout
+#     fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(18, 18), sharex=False, sharey=False)
+#
+#     # Define the conditions and their corresponding bands, explicitly grouped by column
+#     conditions_bands = {
+#         "R": [("FWHM_WMEAN_R", "r"), ("AIRMASS_WMEAN_R", "r"), ("MAGLIM_R", "r"), ("EBV_SFD98", "r")],
+#         "I": [("FWHM_WMEAN_I", "i"), ("AIRMASS_WMEAN_I", "i"), ("MAGLIM_I", "i"), ("EBV_SFD98", "i")],
+#         "Z": [("FWHM_WMEAN_Z", "z"), ("AIRMASS_WMEAN_Z", "z"), ("MAGLIM_Z", "z"), ("EBV_SFD98", "z")],
+#     }
+#
+#     # Iterate over columns (bands) and rows (conditions)
+#     for col_idx, (band, conditions) in enumerate(conditions_bands.items()):
+#         for row_idx, (condition, band_letter) in enumerate(conditions):
+#             ax = axes[row_idx, col_idx]  # Correctly index the subplot based on row and column
+#             print(f"Plotting {band_letter.upper()} - {condition}")
+#
+#             output = f'unsheared/mag_{band_letter}'
+#             true_output = f'BDF_MAG_DERED_CALIB_{band_letter.upper()}'
+#             output_err = f'unsheared/mag_err_{band_letter}'
+#
+#             # Calculate normalized residuals
+#             diff_true = (df_balrog[true_output] - df_balrog[output]) / (df_balrog[true_output])
+#             diff_generated = (df_gandalf[true_output] - df_gandalf[output]) / (df_gandalf[true_output])
+#
+#             # Downsample data for faster plotting
+#             df_conditional_true = pd.DataFrame(
+#                 {condition: df_balrog[condition], f"residual band {band_letter}": diff_true})
+#             df_conditional_generated = pd.DataFrame(
+#                 {condition: df_gandalf[condition], f"residual band {band_letter}": diff_generated})
+#
+#             sampled_true = df_conditional_true.sample(n=min(sample_size, len(df_conditional_true)), random_state=42)
+#             sampled_generated = df_conditional_generated.sample(n=min(sample_size, len(df_conditional_generated)),
+#                                                                 random_state=42)
+#
+#             # Binning statistics
+#             cond_lims = np.percentile(df_balrog[condition], [2, 98])
+#             bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
+#                 sampled_true[condition], sampled_true[f"residual band {band_letter}"], statistic='median', bins=10,
+#                 range=cond_lims)
+#             bin_stds_true, _, _ = binned_statistic(
+#                 sampled_true[condition], sampled_true[f"residual band {band_letter}"], statistic=median_abs_deviation,
+#                 bins=10, range=cond_lims)
+#
+#             bin_means_generated, bin_edges_mean_generated, _ = binned_statistic(
+#                 sampled_generated[condition], sampled_generated[f"residual band {band_letter}"], statistic='median',
+#                 bins=10, range=cond_lims)
+#             bin_stds_generated, _, _ = binned_statistic(
+#                 sampled_generated[condition], sampled_generated[f"residual band {band_letter}"],
+#                 statistic=median_abs_deviation, bins=10, range=cond_lims)
+#
+#             xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
+#             xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
+#             xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
+#             xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+#
+#             # KDE plot
+#             # sns.kdeplot(
+#             #     data=sampled_true,
+#             #     x=condition,
+#             #     y=f"residual band {band_letter}",
+#             #     fill=True,
+#             #     thresh=0,
+#             #     alpha=.4,
+#             #     levels=standard_levels,
+#             #     color=color_balrog,
+#             #     legend="Balrog",
+#             #     ax=ax
+#             # )
+#             # sns.kdeplot(
+#             #     data=sampled_generated,
+#             #     x=condition,
+#             #     y=f"residual band {band_letter}",
+#             #     fill=False,
+#             #     thresh=0,
+#             #     levels=standard_levels,
+#             #     color=color_gandalf,
+#             #     legend="gaNdalF",
+#             #     ax=ax
+#             # )
+#
+#             # Plot binned statistics
+#             ax.errorbar(
+#                 xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, fmt='o',
+#                 color=color_balrog, alpha=0.5, label="Balrog Binning"
+#             )
+#             ax.errorbar(
+#                 xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, fmt='o',
+#                 color=color_gandalf, alpha=0.5, label="gaNdalF Binning"
+#             )
+#
+#             m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
+#             range_ = [m - 4 * s, m + 4 * s]
+#
+#             ax.axhline(np.median(diff_true), c=color_balrog, ls='--', label='median Balrog')
+#             ax.axhline(0, c='grey', ls='--', label='zero')
+#             ax.axhline(np.median(diff_generated), c=color_gandalf, ls='--', label='median gaNdalF')
+#             ax.axvline(np.median(df_balrog[condition]), c='grey', ls='--', label='median conditional')
+#
+#             # Formatting
+#             ax.set_xlim(cond_lims)
+#             ax.set_ylim(range_)
+#             ax.set_xlabel(condition, fontsize=8)
+#             ax.set_ylabel(f"Residual Band {band_letter.upper()}", fontsize=8)
+#             # ax.set_title(f"{band_letter.upper()} - {condition}", fontsize=10)
+#             ax.tick_params(axis='both', which='major', labelsize=8)
+#             # if row_idx == 0 and col_idx == 0:
+#             ax.legend(fontsize=6)
+#
+#     # Adjust layout and save/show the plot
+#     fig.tight_layout()
+#     if save_plot:
+#         save_name = f"{path_save_plots}/combined_binning_kde.png"
+#         plt.savefig(save_name, dpi=300)
+#     if show_plot:
+#         plt.show()
+#     plt.close()
 
-    print("start plotting")
 
-    color_gandalf = '#ff8c00'
-    color_balrog = '#51a6fb'
-    standard_levels = [0.393, 0.865, 0.989]
+# import numpy as np
+# import pandas as pd
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+# from statsmodels.nonparametric.kernel_density import KDEMultivariate
+# from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+# import matplotlib.patches as mpatches
+# from scipy.stats import binned_statistic, median_abs_deviation
 
-    # Define the grid layout
-    fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(18, 18), sharex=False, sharey=False)
+def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000,
+                                     save_plot=False, show_plot=True, path_save_plots=""):
+    print("Start plotting")
 
-    # Define the conditions and their corresponding bands, explicitly grouped by column
-    conditions_bands = {
-        "R": [("FWHM_WMEAN_R", "r"), ("AIRMASS_WMEAN_R", "r"), ("MAGLIM_R", "r"), ("EBV_SFD98", "r")],
-        "I": [("FWHM_WMEAN_I", "i"), ("AIRMASS_WMEAN_I", "i"), ("MAGLIM_I", "i"), ("EBV_SFD98", "i")],
-        "Z": [("FWHM_WMEAN_Z", "z"), ("AIRMASS_WMEAN_Z", "z"), ("MAGLIM_Z", "z"), ("EBV_SFD98", "z")],
-    }
+    # Define colors and levels
+    color_gandalf = '#ff8c00'  # Orange
+    color_balrog = '#51a6fb'   # Blue
+    sigma_levels = [1, 2, 3]  # 1σ, 2σ, 3σ
+    r_values = np.array(sigma_levels)
 
-    # Iterate over columns (bands) and rows (conditions)
-    for col_idx, (band, conditions) in enumerate(conditions_bands.items()):
-        for row_idx, (condition, band_letter) in enumerate(conditions):
-            ax = axes[row_idx, col_idx]  # Correctly index the subplot based on row and column
-            print(f"Plotting {band_letter.upper()} - {condition}")
+    # Define bands and conditions
+    bands = ['r', 'i', 'z']
+    conditions = [("FWHM_WMEAN", "FWHM"), ("AIRMASS_WMEAN", "AIRMASS"),
+                  ("MAGLIM", "MAGLIM"), ("EBV_SFD98", "EBV SFD98")]
 
-            output = f'unsheared/mag_{band_letter}'
-            true_output = f'BDF_MAG_DERED_CALIB_{band_letter.upper()}'
-            output_err = f'unsheared/mag_err_{band_letter}'
+    # Initialize the figure and main GridSpec
+    fig = plt.figure(figsize=(18, 24))  # Adjust height as needed
+    main_gs = GridSpec(len(conditions), len(bands), figure=fig)  # Rows: conditions, Columns: bands
 
-            # Calculate normalized residuals
-            diff_true = (df_balrog[true_output] - df_balrog[output]) / (df_balrog[true_output])
-            diff_generated = (df_gandalf[true_output] - df_gandalf[output]) / (df_gandalf[true_output])
+    for condition_idx, (condition_base, label_base) in enumerate(conditions):
+        for band_idx, band in enumerate(bands):
+            # Construct condition and label strings
+            if condition_base != "EBV_SFD98":
+                condition = f"{condition_base}_{band.upper()}"
+                label = f"{label_base} {band.upper()}"
+            else:
+                condition = condition_base  # EBV_SFD98 does not vary by band
+                label = label_base
 
-            # Downsample data for faster plotting
-            df_conditional_true = pd.DataFrame(
-                {condition: df_balrog[condition], f"residual band {band_letter}": diff_true})
-            df_conditional_generated = pd.DataFrame(
-                {condition: df_gandalf[condition], f"residual band {band_letter}": diff_generated})
+            print(f"Plotting {band.upper()} - {condition}")
 
-            sampled_true = df_conditional_true.sample(n=min(sample_size, len(df_conditional_true)), random_state=42)
-            sampled_generated = df_conditional_generated.sample(n=min(sample_size, len(df_conditional_generated)),
-                                                                random_state=42)
+            # Create a nested GridSpec within the main GridSpec cell
+            inner_gs = GridSpecFromSubplotSpec(2, 1,  # 2 rows, 1 column
+                                               subplot_spec=main_gs[condition_idx, band_idx],
+                                               height_ratios=[3, 1],  # Adjust as needed
+                                               hspace=0)  # No space between distribution and error plots
 
-            # Binning statistics
+            # Subplots for main plot and error bar plot
+            ax_main = fig.add_subplot(inner_gs[0])
+            ax_err = fig.add_subplot(inner_gs[1], sharex=ax_main)
+
+            # Residual calculations
+            output = f'unsheared/mag_{band}'
+            true_output = f'BDF_MAG_DERED_CALIB_{band.upper()}'
+            output_err = f'unsheared/mag_err_{band}'
+
+            residual = (df_balrog[output] - df_gandalf[output]) / df_balrog[output_err]
+            residual = residual[np.isfinite(residual)]
+
+            residual_gandalf = (df_gandalf[true_output] - df_gandalf[output]) / df_gandalf[true_output]
+            residual_balrog = (df_balrog[true_output] - df_balrog[output]) / df_balrog[true_output]
+
+            # Prepare dataframes
+            df_conditional = pd.DataFrame({condition: df_balrog[condition], "residual": residual})
+            df_conditional_gandalf = pd.DataFrame({condition: df_gandalf[condition], "residual": residual_gandalf})
+            df_conditional_balrog = pd.DataFrame({condition: df_balrog[condition], "residual": residual_balrog})
+
+            # Downsample data
+            print(f"Downsampling data for {band} - {condition}, sample size: {sample_size}")
+            sampled_generated = df_conditional.sample(n=min(sample_size, len(df_conditional)), random_state=42)
+            sampled_generated_gandalf = df_conditional_gandalf.sample(
+                n=min(sample_size, len(df_conditional_gandalf)), random_state=42)
+            sampled_generated_balrog = df_conditional_balrog.sample(
+                n=min(sample_size, len(df_conditional_balrog)), random_state=42)
+
+            # Compute KDE for Gandalf
+            print(f"Computing KDE for Gandalf {band} - {condition}")
+            kde_gandalf = KDEMultivariate(
+                data=[sampled_generated_gandalf[condition], sampled_generated_gandalf["residual"]],
+                var_type='cc',
+                bw='silverman'
+            )
+            xi, yi = np.meshgrid(
+                np.linspace(sampled_generated_gandalf[condition].min(), sampled_generated_gandalf[condition].max(), 100),
+                np.linspace(sampled_generated_gandalf["residual"].min(), sampled_generated_gandalf["residual"].max(), 100)
+            )
+            positions = np.vstack([xi.ravel(), yi.ravel()])
+            zi_gandalf = kde_gandalf.pdf(positions).reshape(xi.shape)
+
+            f0_gandalf = zi_gandalf.max()
+            density_levels_gandalf = f0_gandalf * np.exp(-0.5 * r_values**2)
+            density_levels_gandalf = np.sort(density_levels_gandalf)
+            normalized_density_levels_gandalf = density_levels_gandalf / f0_gandalf
+
+            # Compute KDE for Balrog
+            print(f"Computing KDE for Balrog {band} - {condition}")
+            kde_balrog = KDEMultivariate(
+                data=[sampled_generated_balrog[condition], sampled_generated_balrog["residual"]],
+                var_type='cc',
+                bw='silverman'
+            )
+            zi_balrog = kde_balrog.pdf(positions).reshape(xi.shape)
+
+            f0_balrog = zi_balrog.max()
+            density_levels_balrog = f0_balrog * np.exp(-0.5 * r_values**2)
+            density_levels_balrog = np.sort(density_levels_balrog)
+            normalized_density_levels_balrog = density_levels_balrog / f0_balrog
+            print(f"Normalized density levels: {normalized_density_levels_gandalf}")
+
+            # Then plot the KDE contours
+            print(f"Plotting KDE for Gandalf {band} - {condition}")
+            sns.kdeplot(
+                x=sampled_generated_gandalf[condition],
+                y=sampled_generated_gandalf["residual"],
+                ax=ax_main,
+                levels=normalized_density_levels_gandalf,
+                fill=False,
+                alpha=0.5,
+                color=color_gandalf,
+                bw_method='silverman'
+            )
+
+            print(f"Plotting KDE for Balrog {band} - {condition}")
+            sns.kdeplot(
+                x=sampled_generated_balrog[condition],
+                y=sampled_generated_balrog["residual"],
+                ax=ax_main,
+                levels=normalized_density_levels_balrog,
+                fill=False,
+                alpha=0.5,
+                color=color_balrog,
+                bw_method='silverman'
+            )
+
+            # Add dashed lines at y=0 and x=mean(condition)
+            mean_condition = sampled_generated[condition].mean()
+            ax_main.axhline(0, linestyle='--', color='gray')
+
+            line_res_balrog = ax_main.axhline(
+                residual_balrog.mean(), linestyle='--', color='lightgrey',
+                label=f"<res Balrog> = {residual_balrog.mean():.3f}")
+            line_res_gandalf = ax_main.axhline(
+                residual_gandalf.mean(), linestyle='--', color='darkgrey',
+                label=f"<res gaNdalF> = {residual_gandalf.mean():.3f}")
+
+            ax_main.axvline(mean_condition, color='black')
+            ax_err.axhline(0, color='black')
+            ax_err.axvline(mean_condition, color='black')
+
             cond_lims = np.percentile(df_balrog[condition], [2, 98])
-            bin_means_true, bin_edges_mean_true, binnumber_true = binned_statistic(
-                sampled_true[condition], sampled_true[f"residual band {band_letter}"], statistic='median', bins=10,
-                range=cond_lims)
-            bin_stds_true, _, _ = binned_statistic(
-                sampled_true[condition], sampled_true[f"residual band {band_letter}"], statistic=median_abs_deviation,
-                bins=10, range=cond_lims)
 
-            bin_means_generated, bin_edges_mean_generated, _ = binned_statistic(
-                sampled_generated[condition], sampled_generated[f"residual band {band_letter}"], statistic='median',
-                bins=10, range=cond_lims)
-            bin_stds_generated, _, _ = binned_statistic(
-                sampled_generated[condition], sampled_generated[f"residual band {band_letter}"],
-                statistic=median_abs_deviation, bins=10, range=cond_lims)
+            # Binned statistics for error bar plot
+            bin_means, bin_edges, _ = binned_statistic(
+                sampled_generated[condition], sampled_generated["residual"], statistic='median', bins=10, range=cond_lims)
+            bin_stds, _, _ = binned_statistic(
+                sampled_generated[condition], sampled_generated["residual"], statistic=median_abs_deviation, bins=10, range=cond_lims)
+            xmean = (bin_edges[1:] + bin_edges[:-1]) / 2
 
-            xerr_true = (bin_edges_mean_true[1:] - bin_edges_mean_true[:-1]) / 2
-            xmean_true = (bin_edges_mean_true[1:] + bin_edges_mean_true[:-1]) / 2
-            xerr_generated = (bin_edges_mean_generated[1:] - bin_edges_mean_generated[:-1]) / 2
-            xmean_generated = (bin_edges_mean_generated[1:] + bin_edges_mean_generated[:-1]) / 2
+            # Error bar plot on ax_err
+            ax_err.errorbar(xmean, bin_means, yerr=bin_stds, fmt='.', color="purple", label="gaNdalF")
+            ax_err.axhline(bin_means.mean(), linestyle='--', color="purple", label=f"<abs res> = {bin_means.mean():.3f}")
 
-            # KDE plot
-            # sns.kdeplot(
-            #     data=sampled_true,
-            #     x=condition,
-            #     y=f"residual band {band_letter}",
-            #     fill=True,
-            #     thresh=0,
-            #     alpha=.4,
-            #     levels=standard_levels,
-            #     color=color_balrog,
-            #     legend="Balrog",
-            #     ax=ax
-            # )
-            # sns.kdeplot(
-            #     data=sampled_generated,
-            #     x=condition,
-            #     y=f"residual band {band_letter}",
-            #     fill=False,
-            #     thresh=0,
-            #     levels=standard_levels,
-            #     color=color_gandalf,
-            #     legend="gaNdalF",
-            #     ax=ax
-            # )
-
-            # Plot binned statistics
-            ax.errorbar(
-                xmean_true, bin_means_true, xerr=xerr_true, yerr=bin_stds_true, fmt='o',
-                color=color_balrog, alpha=0.5, label="Balrog Binning"
-            )
-            ax.errorbar(
-                xmean_generated, bin_means_generated, xerr=xerr_generated, yerr=bin_stds_generated, fmt='o',
-                color=color_gandalf, alpha=0.5, label="gaNdalF Binning"
-            )
-
-            m, s = np.median(diff_generated), median_abs_deviation(diff_generated)
-            range_ = [m - 4 * s, m + 4 * s]
-
-            ax.axhline(np.median(diff_true), c=color_balrog, ls='--', label='median Balrog')
-            ax.axhline(0, c='grey', ls='--', label='zero')
-            ax.axhline(np.median(diff_generated), c=color_gandalf, ls='--', label='median gaNdalF')
-            ax.axvline(np.median(df_balrog[condition]), c='grey', ls='--', label='median conditional')
+            # Adjust axis limits
+            if len(residual) > 0:
+                m, s = np.median(residual), median_abs_deviation(residual)
+                y_range = [m - 4 * s, m + 4 * s]
+            else:
+                y_range = [-0.02, 0.02]
+            ax_main.set_ylim(y_range)
+            ax_main.set_xlim(cond_lims)
+            ax_err.set_ylim(y_range)
+            ax_err.set_xlim(cond_lims)
+            ax_err.legend()
 
             # Formatting
-            ax.set_xlim(cond_lims)
-            ax.set_ylim(range_)
-            ax.set_xlabel(condition, fontsize=8)
-            ax.set_ylabel(f"Residual Band {band_letter.upper()}", fontsize=8)
-            # ax.set_title(f"{band_letter.upper()} - {condition}", fontsize=10)
-            ax.tick_params(axis='both', which='major', labelsize=8)
-            # if row_idx == 0 and col_idx == 0:
-            ax.legend(fontsize=6)
+            ax_main.set_title(f"{band} - {label}", fontsize=10)
+            ax_main.set_ylabel(f"$\\frac{{\\mathrm{{true\\ mag\\ }} - \\mathrm{{meas\\ mag\\ }}}}{{\\mathrm{{true\\ mag\\ }}}}$")
+            ax_err.set_xlabel(label)
+            ax_err.set_ylabel(f"$\\frac{{\\mathrm{{Balrog\\ meas\\ mag\\ }} - \\mathrm{{gaNdalF\\ meas\\ mag\\ }}}}{{\\mathrm{{Balrog\\ meas\\ mag\\ err\\ }}}}$", fontsize=6)
+            ax_main.set_xlabel('')
 
-    # Adjust layout and save/show the plot
+            # Create custom legend handles
+            handles_main = [
+                mpatches.Patch(color=color_gandalf, label='gaNdalF'),
+                mpatches.Patch(color=color_balrog, label='Balrog'),
+                line_res_balrog,
+                line_res_gandalf
+            ]
+            ax_main.legend(handles=handles_main)
+            ax_main.grid(True)
+            ax_err.grid(True)
+            # Remove x tick labels from ax_main
+            plt.setp(ax_main.get_xticklabels(), visible=False)
+            ax_main.tick_params(axis='x', which='both', length=0)
+
+    # Adjust layout and save/show plot
     fig.tight_layout()
     if save_plot:
-        save_name = f"{path_save_plots}/combined_binning_kde.png"
-        plt.savefig(save_name, dpi=300)
+        fig.savefig(f"{path_save_plots}/binning_combined.png", dpi=300)
     if show_plot:
         plt.show()
-    plt.close()
 
 
-def create_combined_statistics_plot(
-    df_gandalf, df_balrog, bands, conditions, residual_properties, sample_size=10000, save_plot=False, path_save_plots=""
-):
-    # import matplotlib.pyplot as plt
-    # import seaborn as sns
-    # import numpy as np
-    # import pandas as pd
-    # from scipy.stats import binned_statistic, median_abs_deviation
-
-    print("Start plotting combined statistics")
-
-    # Colors and levels for KDE plots
-    color_balrog = '#51a6fb'
-    standard_levels = [0.393, 0.865, 0.989]
-
-    # Initialize figure
-    n_conditions = len(conditions)
-    n_properties = len(residual_properties)
-    fig, axes = plt.subplots(
-        nrows=n_conditions * len(bands),
-        ncols=n_properties * 2,
-        figsize=(24, len(bands) * 10),
-        gridspec_kw={"height_ratios": [2, 1] * len(bands) * n_conditions},
-        sharex=False,
-        sharey=False
-    )
-
-    # Loop through bands, conditions, and residual properties
-    for band_idx, band in enumerate(bands):
-        for cond_idx, condition in enumerate(conditions):
-            for prop_idx, property_ in enumerate(residual_properties):
-                # Compute subplot index
-                row_idx = band_idx * n_conditions + cond_idx
-                col_idx = prop_idx * 2
-
-                # Top plot (KDE)
-                ax_kde = axes[row_idx, col_idx]
-                # Bottom plot (Binned statistics)
-                ax_bin = axes[row_idx, col_idx + 1]
-
-                # Prepare data
-                residual_key = f"unsheared/{property_}_{band}"
-                residual = (df_balrog[residual_key] - df_gandalf[residual_key]) / df_balrog[f"{residual_key}_err"]
-                residual = residual[np.isfinite(residual)]
-                df_conditional = pd.DataFrame({condition: df_balrog[condition], "Residual": residual})
-                sampled = df_conditional.sample(n=min(sample_size, len(df_conditional)), random_state=42)
-
-                # KDE plot
-                sns.kdeplot(
-                    data=sampled, x=condition, y="Residual",
-                    fill=True, thresh=0, alpha=0.4, levels=standard_levels,
-                    color=color_balrog, ax=ax_kde
-                )
-
-                # Binned statistics
-                cond_lims = np.percentile(df_balrog[condition], [2, 98])
-                bin_means, bin_edges, _ = binned_statistic(
-                    sampled[condition], sampled["Residual"], statistic='median', bins=10, range=cond_lims)
-                bin_stds, _, _ = binned_statistic(
-                    sampled[condition], sampled["Residual"], statistic=median_abs_deviation, bins=10, range=cond_lims)
-                xerr = (bin_edges[1:] - bin_edges[:-1]) / 2
-                xmean = (bin_edges[1:] + bin_edges[:-1]) / 2
-
-                ax_bin.errorbar(xmean, bin_means, xerr=xerr, yerr=bin_stds, fmt='o', color=color_balrog)
-
-                # Formatting
-                ax_kde.set_title(f"KDE: {property_} vs {condition}", fontsize=10)
-                ax_kde.set_xlabel(condition, fontsize=8)
-                ax_kde.set_ylabel("Residual", fontsize=8)
-
-                ax_bin.set_title(f"Binned: {property_} vs {condition}", fontsize=10)
-                ax_bin.set_xlabel(condition, fontsize=8)
-                ax_bin.set_ylabel("Residual", fontsize=8)
-
-                # Adjust axis limits
-                if len(residual) > 0:
-                    m, s = np.median(residual), median_abs_deviation(residual)
-                    range_ = [m - 4 * s, m + 4 * s]
-                else:
-                    range_ = [-0.02, 0.02]
-
-                ax_kde.set_ylim(range_)
-                ax_bin.set_ylim(range_)
-
-    # Adjust layout
-    fig.tight_layout()
-    if save_plot:
-        save_name = f"{path_save_plots}/combined_statistics.png"
-        plt.savefig(save_name, dpi=300)
-    plt.show()
-    plt.close()
+# def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000,
+#                                      save_plot=False, show_plot=True, path_save_plots=""):
+#     print("Start plotting")
+#
+#     # Define colors and levels
+#     color_gandalf = '#ff8c00'  # Orange
+#     color_balrog = '#51a6fb'   # Blue
+#     standard_levels = [0.393, 0.865, 0.989]
+#
+#     # Define bands and conditions
+#     bands = ['r', 'i', 'z']
+#     conditions = [("FWHM_WMEAN", "FWHM"), ("AIRMASS_WMEAN", "AIRMASS"),
+#                   ("MAGLIM", "MAGLIM"), ("EBV_SFD98", "EBV SFD98")]
+#
+#     # Initialize the figure and main GridSpec
+#     fig = plt.figure(figsize=(18, 24))  # Adjust height as needed
+#     main_gs = GridSpec(len(conditions), len(bands), figure=fig)  # Rows: conditions, Columns: bands
+#
+#     for condition_idx, (condition_base, label_base) in enumerate(conditions):
+#         for band_idx, band in enumerate(bands):
+#             # Construct condition and label strings
+#             if condition_base != "EBV_SFD98":
+#                 condition = f"{condition_base}_{band.upper()}"
+#                 label = f"{label_base} {band.upper()}"
+#             else:
+#                 condition = condition_base  # EBV_SFD98 does not vary by band
+#                 label = label_base
+#
+#             print(f"Plotting {band.upper()} - {condition}")
+#
+#             # Create a nested GridSpec within the main GridSpec cell
+#             inner_gs = GridSpecFromSubplotSpec(2, 1,  # 2 rows, 1 column
+#                                                subplot_spec=main_gs[condition_idx, band_idx],
+#                                                height_ratios=[3, 1],  # Adjust as needed
+#                                                hspace=0)  # No space between distribution and error plots
+#
+#             # Subplots for main plot and error bar plot
+#             ax_main = fig.add_subplot(inner_gs[0])
+#             ax_err = fig.add_subplot(inner_gs[1], sharex=ax_main)
+#
+#             # Residual calculations
+#             output = f'unsheared/mag_{band}'
+#             true_output = f'BDF_MAG_DERED_CALIB_{band.upper()}'
+#             output_err = f'unsheared/mag_err_{band}'
+#
+#             residual = (df_balrog[output] - df_gandalf[output]) / df_balrog[output_err]
+#             residual = residual[np.isfinite(residual)]
+#
+#             residual_gandalf = (df_gandalf[true_output] - df_gandalf[output]) / df_gandalf[true_output]
+#             residual_balrog = (df_balrog[true_output] - df_balrog[output]) / df_balrog[true_output]
+#
+#             # Prepare dataframes
+#             df_conditional = pd.DataFrame({condition: df_balrog[condition], "residual": residual})
+#             df_conditional_gandalf = pd.DataFrame({condition: df_gandalf[condition], "residual": residual_gandalf})
+#             df_conditional_balrog = pd.DataFrame({condition: df_balrog[condition], "residual": residual_balrog})
+#
+#             # Downsample data
+#             sampled_generated = df_conditional.sample(n=min(sample_size, len(df_conditional)), random_state=42)
+#             sampled_generated_gandalf = df_conditional_gandalf.sample(
+#                 n=min(sample_size, len(df_conditional_gandalf)), random_state=42)
+#             sampled_generated_balrog = df_conditional_balrog.sample(
+#                 n=min(sample_size, len(df_conditional_balrog)), random_state=42)
+#
+#             # KDE plot on ax_main
+#             # First, plot the data points
+#             ax_main.scatter(sampled_generated_gandalf[condition], sampled_generated_gandalf["residual"],
+#                             color=color_gandalf, s=1, alpha=0.5)
+#             ax_main.scatter(sampled_generated_balrog[condition], sampled_generated_balrog["residual"],
+#                             color=color_balrog, s=1, alpha=0.5)
+#
+#             # Then plot the KDE contours
+#             sns.kdeplot(
+#                 data=sampled_generated_gandalf, x=condition, y="residual", fill=False, levels=standard_levels,
+#                 color=color_gandalf, ax=ax_main
+#             )
+#             sns.kdeplot(
+#                 data=sampled_generated_balrog, x=condition, y="residual", fill=True, alpha=0.8, levels=standard_levels,
+#                 color=color_balrog, ax=ax_main
+#             )
+#
+#             # Add dashed lines at y=0 and x=mean(condition)
+#             mean_condition = sampled_generated[condition].mean()
+#             ax_main.axhline(0, linestyle='--', color='gray')
+#
+#             line_res_balrog = ax_main.axhline(
+#                 residual_balrog.mean(), linestyle='--', color=color_balrog,
+#                 label=f"<res Balrog> = {residual_balrog.mean():.3f}")
+#             line_res_gandalf = ax_main.axhline(
+#                 residual_gandalf.mean(), linestyle='--', color=color_gandalf,
+#                 label=f"<res gaNdalF> = {residual_gandalf.mean():.3f}")
+#
+#             ax_main.axvline(mean_condition, linestyle='--', color='gray')
+#             ax_err.axhline(0, linestyle='--', color='gray')
+#             ax_err.axvline(mean_condition, linestyle='--', color='gray')
+#
+#             cond_lims = np.percentile(df_balrog[condition], [2, 98])
+#
+#             # Binned statistics for error bar plot
+#             bin_means, bin_edges, _ = binned_statistic(
+#                 sampled_generated[condition], sampled_generated["residual"], statistic='median', bins=10, range=cond_lims)
+#             bin_stds, _, _ = binned_statistic(
+#                 sampled_generated[condition], sampled_generated["residual"], statistic=median_abs_deviation, bins=10, range=cond_lims)
+#             xmean = (bin_edges[1:] + bin_edges[:-1]) / 2
+#
+#             # Error bar plot on ax_err
+#             ax_err.errorbar(xmean, bin_means, yerr=bin_stds, fmt='.', color="purple", label="gaNdalF")
+#             ax_err.axhline(bin_means.mean(), linestyle='--', color="purple", label=f"<abs res> = {bin_means.mean():.3f}")
+#
+#             # Adjust axis limits
+#             if len(residual) > 0:
+#                 m, s = np.median(residual), median_abs_deviation(residual)
+#                 y_range = [m - 4 * s, m + 4 * s]
+#             else:
+#                 y_range = [-0.02, 0.02]
+#             ax_main.set_ylim(y_range)
+#             ax_main.set_xlim(cond_lims)
+#             ax_err.set_ylim(y_range)
+#             ax_err.set_xlim(cond_lims)
+#             ax_err.legend()
+#
+#             # Formatting
+#             ax_main.set_title(f"{band} - {label}", fontsize=10)
+#             ax_main.set_ylabel(f"$\\frac{{\\mathrm{{true\\ mag\\ }} - \\mathrm{{meas\\ mag\\ }}}}{{\\mathrm{{true\\ mag\\ }}}}$")
+#             ax_err.set_xlabel(label)
+#             ax_err.set_ylabel(f"$\\frac{{\\mathrm{{Balrog\\ meas\\ mag\\ }} - \\mathrm{{gaNdalF\\ meas\\ mag\\ }}}}{{\\mathrm{{Balrog\\ meas\\ mag\\ err\\ }}}}$", fontsize=6)
+#             ax_main.set_xlabel('')
+#
+#             # Create custom legend handles
+#             handles_main = [
+#                 mpatches.Patch(color=color_gandalf, label='gaNdalF'),
+#                 mpatches.Patch(color=color_balrog, label='Balrog'),
+#                 line_res_balrog,
+#                 line_res_gandalf
+#             ]
+#             ax_main.legend(handles=handles_main)
+#             ax_main.grid(True)
+#             ax_err.grid(True)
+#             # Remove x tick labels from ax_main
+#             plt.setp(ax_main.get_xticklabels(), visible=False)
+#             ax_main.tick_params(axis='x', which='both', length=0)
+#
+#     # Adjust layout and save/show plot
+#     fig.tight_layout()
+#     if save_plot:
+#         fig.savefig(f"{path_save_plots}/binning_combined.png", dpi=300)
+#     if show_plot:
+#         plt.show()
 
 
 def make_gif(frame_folder, name_save_folder, fps=10):
@@ -2648,19 +2906,8 @@ def make_gif(frame_folder, name_save_folder, fps=10):
 
     
 def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not_detected, df_gandalf_not_detected,
-                            columns, bw, grid_size, thresh, show_plot, save_plot, save_name, sample_size=5000,
-                            x_range=(18, 26), title='Histogram'):
-    # import numpy as np
-    # from statsmodels.nonparametric.kernel_density import KDEMultivariate
-    # import matplotlib.pyplot as plt
-    # import seaborn as sns
-    # import matplotlib.patches as mpatches
-
-    # if cuts is True:
-    #     df_gandalf_detected = df_gandalf_detected[df_gandalf_detected['BDF_MAG_DERED_CALIB_I'] < 37]
-    #     df_balrog_detected = df_balrog_detected[df_balrog_detected['BDF_MAG_DERED_CALIB_I'] < 37]
-    #     df_gandalf_not_detected = df_gandalf_not_detected[df_gandalf_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
-    #     df_balrog_not_detected = df_balrog_not_detected[df_balrog_not_detected['BDF_MAG_DERED_CALIB_I'] < 37]
+                          columns, show_plot, save_plot, save_name, sample_size=5000, x_range=(18, 26),
+                          title='Histogram'):
 
     print("Sample data...")
     if sample_size is None:
@@ -2676,45 +2923,29 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
     print("Data sampled!")
 
     # Calculate the number of rows and columns
-    num_cols = 4 # int(np.ceil(np.sqrt(len(columns))))
-    num_rows = 4 # int(np.ceil(len(columns) / num_cols))
+    num_cols = 4
+    num_rows = 4
 
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
 
-    color_balrog_detected = '#51a6fb'
-    color_gandalf_detected = '#ff8c00'
-    color_balrog_not_detected = "grey"  # 'coral'
-    color_gandalf_not_detected = "black"  # 'blueviolet'
-
-    hatch_patterns_gandalf_not_detected = ['\\', '|', '*']
-    hatch_patterns_balrog_not_detected = ['/', '-', '+']
-
-    # Sigma levels
-    sigma_levels = [1, 2, 3]  # 1σ, 2σ, 3σ
-
-    # Mahalanobis distances corresponding to sigma levels
-    r_values = np.array(sigma_levels)
-
-    # Determine the overall data range
-    xmin = min(
-        df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].min(),
-        df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].min(),
-        df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min(),
-        df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].min()
-    )
-    xmax = max(
-        df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].max(),
-        df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].max(),
-        df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max(),
-        df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].max()
-    )
-
-    x_gandalf_detected = df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].values
-    x_gandalf_not_detected = df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
-    x_balrog_detected = df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].values
-    x_balrog_not_detected = df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].values
+    color_balrog_detected = 'purple'  # '#51a6fb'
+    color_gandalf_detected = 'darkgreen'  # '#ff8c00'
+    color_balrog_not_detected = "darkviolet"  # 'coral'
+    color_gandalf_not_detected = "green"  # 'blueviolet'
 
     for i, col in enumerate(columns.keys()):
+        df_detected = pd.DataFrame({
+            f"{col}": df_gandalf_detected_sample[col].to_list() + df_balrog_detected_sample[col].to_list(),
+            f"BDF_MAG_DERED_CALIB_I": df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list() + df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list(),
+            f"Catalog": ["gaNdalF" for _ in range(len(df_gandalf_detected_sample[col]))] + ["Balrog" for _ in range(len(df_balrog_detected_sample[col]))],
+        })
+
+        df_not_detected = pd.DataFrame({
+            f"{col}": df_gandalf_not_detected_sample[col].to_list() + df_balrog_not_detected_sample[col].to_list(),
+            f"BDF_MAG_DERED_CALIB_I": df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list() + df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list(),
+            f"Catalog": ["gaNdalF" for _ in range(len(df_gandalf_not_detected_sample[col]))] + ["Balrog" for _ in range(len(df_balrog_not_detected_sample[col]))],
+        })
+
         pos = columns[col]["position"]
         ax = axes[pos[0], pos[1]]
 
@@ -2722,184 +2953,41 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         y_range = columns[col]["range"]
         label = columns[col]["label"]
 
-        ymin = min(
-            df_gandalf_detected_sample[col].min(),
-            df_balrog_detected_sample[col].min(),
-            df_gandalf_not_detected_sample[col].min(),
-            df_balrog_not_detected_sample[col].min()
-        )
-        ymax = max(
-            df_gandalf_detected_sample[col].max(),
-            df_balrog_detected_sample[col].max(),
-            df_gandalf_not_detected_sample[col].max(),
-            df_balrog_not_detected_sample[col].max()
-        )
-
-        # Create a common grid
-        xi, yi = np.meshgrid(
-            np.linspace(xmin, xmax, grid_size),
-            np.linspace(ymin, ymax, grid_size)
-        )
-        positions = np.vstack([xi.ravel(), yi.ravel()])
-
-        # ---- Gandalf Detected---- #
-        y_gandalf_detected = df_gandalf_detected_sample[col].values
-
-        # Compute KDE
-        kde_gandalf_detected = KDEMultivariate(
-            data=[x_gandalf_detected, y_gandalf_detected],
-            var_type='cc',
-            bw=bw
-        )
-        zi_gandalf_detected = kde_gandalf_detected.pdf(positions).reshape(xi.shape)
-
-        # Compute density levels
-        f0_gandalf_detected = zi_gandalf_detected.max()
-        if f0_gandalf_detected == 0:
-            print(
-                f"Warning: f0_gandalf_detected is zero for column {col}. Adjusting bandwidth or checking data might be necessary.")
-            continue
-
-        density_levels_gandalf_detected = f0_gandalf_detected * np.exp(-0.5 * r_values**2)
-        density_levels_gandalf_detected = np.sort(density_levels_gandalf_detected)
-        print(f"Gandalf Detected Density Levels at Sigma Levels: {density_levels_gandalf_detected}")
-
-        normalized_density_levels_gandalf_detected = density_levels_gandalf_detected / f0_gandalf_detected
-        print(f"Gandalf Detected Normalized Density Levels at Sigma Levels: {normalized_density_levels_gandalf_detected}")
-
-        # Overlay Seaborn's kdeplot
         try:
             sns.kdeplot(
-                x=x_gandalf_detected,
-                y=y_gandalf_detected,
+                data=df_detected,
+                x=f"BDF_MAG_DERED_CALIB_I",
+                y=f"{col}",
+                hue="Catalog",
                 ax=ax,
-                levels=normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
+                levels=3,  #[0.393, 0.865, 0.989],  # normalized_density_levels_gandalf_detected,  # [0.393, 0.865, 0.989]
                 fill=False,
-                cumulative=False,
-                thresh=thresh,
-                bw_method=bw,
-                color=color_gandalf_detected,
-                alpha=0.5
+                palette={"gaNdalF": color_gandalf_detected, "Balrog": color_balrog_detected},
+                linewidths=.8,
+                legend=False
             )
+
         except Exception as e:
             print(f"An error occurred with plotting seaborn gandalf detected: {e}")
 
-        # ---- Gandalf not Detected---- #
-        y_gandalf_not_detected = df_gandalf_not_detected_sample[col].values
-
-        # Compute KDE
-        kde_gandalf_not_detected = KDEMultivariate(
-            data=[x_gandalf_not_detected, y_gandalf_not_detected],
-            var_type='cc',
-            bw=bw  # bw='scott'
-        )
-        zi_gandalf_not_detected = kde_gandalf_not_detected.pdf(positions).reshape(xi.shape)
-
-        # Compute density levels
-        f0_gandalf_not_detected = zi_gandalf_not_detected.max()
-        density_levels_gandalf_not_detected = f0_gandalf_not_detected * np.exp(-0.5 * r_values**2)
-        density_levels_gandalf_not_detected = np.sort(density_levels_gandalf_not_detected)
-        print(f"Gandalf not Detected Density Levels at Sigma Levels: {density_levels_gandalf_not_detected}")
-
         # Plot contours
         try:
-            contour_set_gandalf_not_detected = ax.contourf(
-                xi, yi, zi_gandalf_not_detected,
-                levels=density_levels_gandalf_not_detected,  # density_levels_gandalf_not_detected,
-                alpha=0.5
+            sns.kdeplot(
+                data=df_not_detected,
+                x=f"BDF_MAG_DERED_CALIB_I",
+                y=f"{col}",
+                hue="Catalog",
+                ax=ax,
+                levels=3,
+                fill=True,
+                palette={"gaNdalF": color_gandalf_not_detected, "Balrog": color_balrog_not_detected},
+                alpha=0.5,
+                linewidths=.8,
+                legend=False
             )
-
-            # Apply hatches
-            for j, collection in enumerate(contour_set_gandalf_not_detected.collections):
-                hatch = hatch_patterns_gandalf_not_detected[j % len(hatch_patterns_gandalf_not_detected)]
-                collection.set_facecolor('none')
-                collection.set_edgecolor('grey')  # color_gandalf_detected
-                collection.set_hatch(hatch)
-                collection.set_linewidth(1)
-                collection.set_zorder(10)
 
         except Exception as e:
             print(f"An error occurred with plotting seaborn gandalf not detected: {e}")
-
-        # # ---- Balrog ---- #
-        y_balrog_detected = df_balrog_detected_sample[col].values
-
-        # Compute KDE
-        kde_balrog = KDEMultivariate(
-            data=[x_balrog_detected, y_balrog_detected],
-            var_type='cc',
-            bw=bw  # 'scott'  # scott silverman
-        )
-        zi_balrog = kde_balrog.pdf(positions).reshape(xi.shape)
-
-        # Compute density levels
-        f0_balrog = zi_balrog.max()
-        if f0_balrog == 0:
-            print(
-                f"Warning: f0_balrog is zero for column {col}. Adjusting bandwidth or checking data might be necessary.")
-            continue  # Skip plotting for this column if f0_balrog is zero
-
-        density_levels_balrog = f0_balrog * np.exp(-0.5 * r_values**2)
-        density_levels_balrog = np.sort(density_levels_balrog)
-        print(f"Gandalf Density Levels at Sigma Levels: {density_levels_balrog}")
-
-        normalized_density_levels_balrog = density_levels_balrog / f0_balrog
-        print(f"balrog Normalized Density Levels at Sigma Levels: {normalized_density_levels_balrog}")
-
-        # Overlay Seaborn's kdeplot
-        try:
-            sns.kdeplot(
-                x=x_balrog_detected,
-                y=y_balrog_detected,
-                ax=ax,
-                levels=normalized_density_levels_balrog,  # levels, normalized_density_levels_balrog
-                fill=False,
-                cumulative=False,
-                thresh=thresh,
-                bw_method=bw,
-                color=color_balrog_detected,
-                alpha=0.5
-            )
-        except Exception as e:
-            print(f"An error occurred with plotting seaborn balrog detected: {e}")
-
-        # ---- Balrog not Detected---- #
-        y_balrog_not_detected = df_balrog_not_detected_sample[col].values
-
-        # Compute KDE
-        kde_balrog_not_detected = KDEMultivariate(
-            data=[x_balrog_not_detected, y_balrog_not_detected],
-            var_type='cc',
-            bw=bw
-        )
-        zi_balrog_not_detected = kde_balrog_not_detected.pdf(positions).reshape(xi.shape)
-
-
-        # Compute density levels
-        f0_balrog_not_detected = zi_balrog_not_detected.max()
-        density_levels_balrog_not_detected = f0_balrog_not_detected * np.exp(-0.5 * r_values**2)
-        density_levels_balrog_not_detected = np.sort(density_levels_balrog_not_detected)
-        print(f"Gandalf not Detected Density Levels at Sigma Levels: {density_levels_balrog_not_detected}")
-
-        try:
-            # Plot contours
-            contour_set_balrog_not_detected = ax.contourf(
-                xi, yi, zi_balrog_not_detected,
-                levels=density_levels_balrog_not_detected,  # density_levels_balrog_not_detected,
-                alpha=0.5
-            )
-
-            # # Apply hatches
-            for j, collection in enumerate(contour_set_balrog_not_detected.collections):  # get_paths()  collections
-                hatch = hatch_patterns_balrog_not_detected[j % len(hatch_patterns_balrog_not_detected)]
-                collection.set_facecolor('none')
-                collection.set_edgecolor('black')  # color_balrog_detected
-                collection.set_hatch(hatch)
-                collection.set_linewidth(1)
-                collection.set_zorder(11)
-
-        except Exception as e:
-            print(f"An error occurred with plotting seaborn balrog not detected: {e}")
 
         ax.set_xlim(x_range)
         ax.set_ylim(y_range)
@@ -2915,8 +3003,8 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
 
     # Customize layout and legend
     legend_elements = [
-        mpatches.Patch(color=color_gandalf_detected, alpha=0.5, label='Gandalf Detected'),
-        mpatches.Patch(color=color_balrog_detected, alpha=0.5, label='Balrog Detected'),
+        mpatches.Patch(color=color_gandalf_detected, alpha=1, label='Gandalf Detected'),
+        mpatches.Patch(color=color_balrog_detected, alpha=1, label='Balrog Detected'),
         mpatches.Patch(color=color_gandalf_not_detected, alpha=0.5, label='Gandalf Not Detected'),
         mpatches.Patch(color=color_balrog_not_detected, alpha=0.5, label='Balrog Not Detected')
     ]
@@ -2928,6 +3016,6 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
     if show_plot:
         plt.show()
     if save_plot:
-        plt.savefig(save_name, dpi=300)
+        plt.savefig(save_name, dpi=300, bbox_inches='tight')
     plt.clf()
     plt.close(fig)

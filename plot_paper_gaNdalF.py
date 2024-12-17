@@ -177,19 +177,6 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
         data_frame=df_gandalf_clf
     )
 
-    # print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
-    # print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
-    # print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
-    # print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
-    # print(f"Length of Balrog detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1])}")
-    # print(f"Length of Balrog not detected deep cut objects: {len(df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0])}")
-    # print(f"Length of gaNdalF detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1])}")
-    # print(f"Length of gaNdalF not detected deep cut objects: {len(df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0])}")
-    # print(f"Length of Balrog detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 1])}")
-    # print(f"Length of Balrog not detected objects: {len(df_balrog_clf[df_balrog_clf['detected'] == 0])}")
-    # print(f"Length of gaNdalF detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 1])}")
-    # print(f"Length of gaNdalF not detected objects: {len(df_gandalf_clf[df_gandalf_clf['detected'] == 0])}")
-
     if cfg["PLT_FIG_1"] is True:
         plot_multivariate_clf(
             df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1],
@@ -197,85 +184,82 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0],
             df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0],
             columns={
-                    # "BDF_MAG_DERED_CALIB_R": {
-                    #     "label": "BDF Mag R",
-                    #     "range": [18.5, 28],
-                    #     "position": [0, 0]
-                    # },
+                    "BDF_MAG_DERED_CALIB_R": {
+                        "label": "BDF Mag R",
+                        "range": [17.5, 26.5],
+                        "position": [0, 0]
+                    },
                     "BDF_MAG_DERED_CALIB_Z": {
                         "label": "BDF Mag Z",
-                        "range": [17, 26.5],
+                        "range": [17.5, 26.5],
                         "position": [0, 1]
                     },
-                    # "BDF_T": {
-                    #     "label": "BDF T",
-                    #     "range": [-0.25, 1.8],
-                    #     "position": [0, 2]
-                    # },
-                    # "BDF_G": {
-                    #     "label": "BDF G",
-                    #     "range": [-0.1, 0.9],
-                    #     "position": [1, 0]
-                    # },
-                    # "FWHM_WMEAN_R": {
-                    #     "label": "FWHM R",
-                    #     "range": [0.7, 1.3],
-                    #     "position": [1, 1]
-                    # },
-                    # "FWHM_WMEAN_I": {
-                    #     "label": "FWHM I",
-                    #     "range": [0.7, 1.1],
-                    #     "position": [1, 2]
-                    # },
-                    # "FWHM_WMEAN_Z": {
-                    #      "label": "FWHM Z",
-                    #      "range": [0.6, 1.16],
-                    #      "position": [2, 0]
-                    #  },
-                    #  "AIRMASS_WMEAN_R": {
-                    #      "label": "AIRMASS R",
-                    #      "range": [0.95, 1.45],
-                    #      "position": [2, 1]
-                    #  },
-                    #  "AIRMASS_WMEAN_I": {
-                    #      "label": "AIRMASS I",
-                    #      "range": [1, 1.45],
-                    #      "position": [2, 2]
-                    #  },
-                    #  "AIRMASS_WMEAN_Z": {
-                    #      "label": "AIRMASS Z",
-                    #      "range": [1, 1.4],
-                    #      "position": [2, 3]
-                    #  },
-                    #  "MAGLIM_R": {
-                    #      "label": "MAGLIM R",
-                    #      "range": [23, 24.8],
-                    #      "position": [3, 0]
-                    #  },
-                    #  "MAGLIM_I": {
-                    #      "label": "MAGLIM I",
-                    #      "range": [22.4, 24.0],
-                    #      "position": [3, 1]
-                    #  },
-                    #  "MAGLIM_Z": {
-                    #      "label": "MAGLIM Z",
-                    #      "range": [21.8, 23.2],
-                    #      "position": [3, 2]
-                    #  },
-                    #  "EBV_SFD98": {
-                    #      "label": "EBV SFD98",
-                    #      "range": [-0.01, 0.10],
-                    #      "position": [3, 3]
-                    #  }
+                    "BDF_T": {
+                        "label": "BDF T",
+                        "range": [-0.25, 1.8],
+                        "position": [0, 2]
+                    },
+                    "BDF_G": {
+                        "label": "BDF G",
+                        "range": [-0.1, 0.9],
+                        "position": [1, 0]
+                    },
+                    "FWHM_WMEAN_R": {
+                        "label": "FWHM R",
+                        "range": [0.7, 1.3],
+                        "position": [1, 1]
+                    },
+                    "FWHM_WMEAN_I": {
+                        "label": "FWHM I",
+                        "range": [0.7, 1.1],
+                        "position": [1, 2]
+                    },
+                    "FWHM_WMEAN_Z": {
+                         "label": "FWHM Z",
+                         "range": [0.6, 1.16],
+                         "position": [2, 0]
+                     },
+                     "AIRMASS_WMEAN_R": {
+                         "label": "AIRMASS R",
+                         "range": [0.95, 1.45],
+                         "position": [2, 1]
+                     },
+                     "AIRMASS_WMEAN_I": {
+                         "label": "AIRMASS I",
+                         "range": [1, 1.45],
+                         "position": [2, 2]
+                     },
+                     "AIRMASS_WMEAN_Z": {
+                         "label": "AIRMASS Z",
+                         "range": [1, 1.4],
+                         "position": [2, 3]
+                     },
+                     "MAGLIM_R": {
+                         "label": "MAGLIM R",
+                         "range": [23, 24.8],
+                         "position": [3, 0]
+                     },
+                     "MAGLIM_I": {
+                         "label": "MAGLIM I",
+                         "range": [22.4, 24.0],
+                         "position": [3, 1]
+                     },
+                     "MAGLIM_Z": {
+                         "label": "MAGLIM Z",
+                         "range": [21.8, 23.2],
+                         "position": [3, 2]
+                     },
+                     "EBV_SFD98": {
+                         "label": "EBV SFD98",
+                         "range": [-0.01, 0.10],
+                         "position": [3, 3]
+                     }
                 },
-            grid_size=200,
-            bw='silverman',  # 'scott', 'silverman', 'normal_reference', or float
-            thresh=0.02,
             show_plot=cfg["SHOW_PLOT"],
-            save_plot= cfg["SAVE_PLOT"],
-            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv_2.png",
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv.pdf",
             sample_size=5000,  # None,
-            x_range=(17, 26.5),
+            x_range=(17.5, 26.5),
             title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
         )
 
@@ -336,11 +320,11 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             ],
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
-            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_number_density_fluctuation.png",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_number_density_fluctuation.pdf",
             title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections"
         )
 
-def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_cat, path_save_plots, columns):
+def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_master_cat, path_save_plots, columns):
     """"""
     df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
     df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
@@ -385,15 +369,45 @@ def plot_flow(path_data, filename_flw_balrog, filename_flw_gandalf, path_master_
     conditions = ['AIRMASS_WMEAN', 'MAGLIM', 'FWHM_WMEAN', 'EBV_SFD98']
     residual_properties = ['mag', 'snr', 'size_ratio', 'T', 'weight']
 
-    create_combined_statistics_plot(
-        df_gandalf=df_gandalf_flw_cut,
-        df_balrog=df_balrog_flw_cut,
-        bands=bands,
-        conditions=conditions,
-        residual_properties=residual_properties,
-        save_plot=True,
-        path_save_plots=path_save_plots
-    )
+    if cfg["PLT_FIG_3"] is True:
+        plot_binning_statistics_combined(
+            df_gandalf=df_gandalf_flw,
+            df_balrog=df_balrog_flw,
+            sample_size=10000,
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            path_save_plots=path_save_plots
+        )
+        # plot_binning_statistics(
+        #     df_gandalf=df_gandalf_flw_cut,
+        #     df_balrog=df_balrog_flw_cut,
+        #     conditions=[
+        #         "FWHM_WMEAN_R",
+        #         "FWHM_WMEAN_I",
+        #         "FWHM_WMEAN_Z",
+        #         "AIRMASS_WMEAN_R",
+        #         "AIRMASS_WMEAN_I",
+        #         "AIRMASS_WMEAN_Z",
+        #         "MAGLIM_R",
+        #         "MAGLIM_I",
+        #         "MAGLIM_Z",
+        #         "EBV_SFD98"
+        #     ],
+        #     bands=["r", "i", "z"],
+        #     sample_size=100000,
+        #     show_plot=cfg["SHOW_PLOT"],
+        #     save_plot=cfg["SAVE_PLOT"],
+        #     path_save_plots=path_save_plots
+        # )
+        # plot_binning_statistics_combined(
+        #     df_gandalf=df_gandalf_flw_cut,
+        #     df_balrog=df_balrog_flw_cut,
+        #     bands=bands,
+        #     conditions=conditions,
+        #     residual_properties=residual_properties,
+        #     save_plot=True,
+        #     path_save_plots=path_save_plots
+        # )
 
     # plot_binning_statistics_combined(
     #     df_gandalf=df_gandalf_flw_cut,
@@ -695,6 +709,7 @@ def main(cfg, path_data, path_master_cat, filename_clf_balrog, filename_clf_gand
 
     if plt_flow is True:
         plot_flow(
+            cfg=cfg,
             path_data=path_data,
             filename_flw_balrog=filename_flw_balrog,
             filename_flw_gandalf=filename_flw_gandalf,
