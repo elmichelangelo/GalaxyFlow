@@ -1824,7 +1824,7 @@ def plot_number_density_fluctuation(
             color=color_marker_balrog_detected[0],
             marker=color_marker_balrog_detected[1],
             label="Balrog detected",
-            alpha=0.5
+            # alpha=0.5
         )
         ax_main.plot(
             bin_centers,
@@ -1832,7 +1832,7 @@ def plot_number_density_fluctuation(
             color=color_marker_gandalf_detected[0],
             marker=color_marker_gandalf_detected[1],
             label="Gandalf detected",
-            alpha=0.5
+            # alpha=0.5
         )
         ax_main.plot(
             bin_centers,
@@ -1865,7 +1865,7 @@ def plot_number_density_fluctuation(
             detected_diff_values,
             color=color_marker_difference_detected[0],
             marker=color_marker_difference_detected[1],
-            alpha=0.5,
+            # alpha=0.5,
             label="Difference detected"
         )
         ax_diff.plot(
