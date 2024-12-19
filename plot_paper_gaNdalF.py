@@ -196,7 +196,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
                     },
                     "BDF_T": {
                         "label": "BDF T",
-                        "range": [-0.25, 1.8],
+                        "range": [-2, 3],
                         "position": [0, 2]
                     },
                     "BDF_G": {
@@ -378,6 +378,7 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
             save_plot=cfg["SAVE_PLOT"],
             path_save_plots=path_save_plots
         )
+        exit()
         # plot_binning_statistics(
         #     df_gandalf=df_gandalf_flw_cut,
         #     df_balrog=df_balrog_flw_cut,
