@@ -371,13 +371,25 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
 
     if cfg["PLT_FIG_3"] is True:
         plot_binning_statistics_combined(
-            df_gandalf=df_gandalf_flw,
-            df_balrog=df_balrog_flw,
+            df_gandalf=df_gandalf_flw_cut,
+            df_balrog=df_balrog_flw_cut,
             sample_size=10000,
+            plot_scatter=False,
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
-            path_save_plots=path_save_plots
+            title="Binning Statistics of gaNdalF and Balrog",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_binning_statistics_combined.pdf",
         )
+        # plot_binning_statistics_combined_2(
+        #     df_gandalf=df_gandalf_flw_cut,
+        #     df_balrog=df_balrog_flw_cut,
+        #     sample_size=10000,
+        #     plot_scatter=False,
+        #     show_plot=cfg["SHOW_PLOT"],
+        #     save_plot=cfg["SAVE_PLOT"],
+        #     title="Binning Statistics of gaNdalF and Balrog",
+        #     save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_binning_statistics_combined.pdf",
+        # )
         exit()
         # plot_binning_statistics(
         #     df_gandalf=df_gandalf_flw_cut,
