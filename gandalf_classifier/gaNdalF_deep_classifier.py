@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
-from Handler import plot_classification_results, plot_confusion_matrix, plot_roc_curve, plot_recall_curve, plot_probability_hist
+from Handler import plot_classification_results, plot_confusion_matrix, plot_roc_curve, plot_recall_curve, plot_probability_hist, plot_multivariate_clf
 from sklearn.metrics import accuracy_score
 from gandalf_galaxie_dataset import DESGalaxies
 from torch import nn
@@ -292,6 +292,94 @@ class gaNdalFClassifier(nn.Module):
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_EBV_Color_{epoch}.png",
         ]
+        if self.cfg['PLOT_MULTIVARIATE_CLF'] is True:
+            try:
+                plot_multivariate_clf(
+                    df_balrog_detected=df_test_data[df_test_data['true_detected'] == 1],
+                    df_gandalf_detected=df_test_data[df_test_data['detected_calibrated'] == 1],
+                    df_balrog_not_detected=df_test_data[df_test_data['true_detected'] == 0],
+                    df_gandalf_not_detected=df_test_data[df_test_data['detected_calibrated'] == 0],
+                    columns={
+                        "BDF_MAG_DERED_CALIB_R": {
+                            "label": "BDF Mag R",
+                            "range": [17.5, 26.5],
+                            "position": [0, 0]
+                        },
+                        "BDF_MAG_DERED_CALIB_Z": {
+                            "label": "BDF Mag Z",
+                            "range": [17.5, 26.5],
+                            "position": [0, 1]
+                        },
+                        "BDF_T": {
+                            "label": "BDF T",
+                            "range": [-2, 3],
+                            "position": [0, 2]
+                        },
+                        "BDF_G": {
+                            "label": "BDF G",
+                            "range": [-0.1, 0.9],
+                            "position": [1, 0]
+                        },
+                        "FWHM_WMEAN_R": {
+                            "label": "FWHM R",
+                            "range": [0.7, 1.3],
+                            "position": [1, 1]
+                        },
+                        "FWHM_WMEAN_I": {
+                            "label": "FWHM I",
+                            "range": [0.7, 1.1],
+                            "position": [1, 2]
+                        },
+                        "FWHM_WMEAN_Z": {
+                            "label": "FWHM Z",
+                            "range": [0.6, 1.16],
+                            "position": [2, 0]
+                        },
+                        "AIRMASS_WMEAN_R": {
+                            "label": "AIRMASS R",
+                            "range": [0.95, 1.45],
+                            "position": [2, 1]
+                        },
+                        "AIRMASS_WMEAN_I": {
+                            "label": "AIRMASS I",
+                            "range": [1, 1.45],
+                            "position": [2, 2]
+                        },
+                        "AIRMASS_WMEAN_Z": {
+                            "label": "AIRMASS Z",
+                            "range": [1, 1.4],
+                            "position": [2, 3]
+                        },
+                        "MAGLIM_R": {
+                            "label": "MAGLIM R",
+                            "range": [23, 24.8],
+                            "position": [3, 0]
+                        },
+                        "MAGLIM_I": {
+                            "label": "MAGLIM I",
+                            "range": [22.4, 24.0],
+                            "position": [3, 1]
+                        },
+                        "MAGLIM_Z": {
+                            "label": "MAGLIM Z",
+                            "range": [21.8, 23.2],
+                            "position": [3, 2]
+                        },
+                        "EBV_SFD98": {
+                            "label": "EBV SFD98",
+                            "range": [-0.01, 0.10],
+                            "position": [3, 3]
+                        }
+                    },
+                    show_plot=self.cfg["SHOW_PLOT"],
+                    save_plot=self.cfg["SAVE_PLOT"],
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'MULTIVARIATE_CLF']}/{epoch}_classifier_multiv.pdf",
+                    sample_size=100000,  # None,
+                    x_range=(17.5, 26.5),
+                    title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison"
+                )
+            except:
+                print("Plott error multivar")
         if self.cfg['PLOT_MISS_CLASSF'] is True:
             for idx_cols, cols in enumerate(lst_cols):
                 plot_classification_results(
