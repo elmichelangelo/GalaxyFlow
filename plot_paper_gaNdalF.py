@@ -80,11 +80,28 @@
 #     return kl_detected, kl_not_detected, percent_diff_detected, percent_diff_not_detected
 
 
-def calc_kullback_leibler(df_balrog, df_gandalf, columns):
+def get_scaler(data_frame):
+    """"""
+    from sklearn.preprocessing import  MaxAbsScaler
+    scaler = MaxAbsScaler()
+    scaler.fit(data_frame)
+    return scaler
+
+def get_yj_transformer(data_frame, columns):
+    """"""
+    from sklearn.preprocessing import PowerTransformer
+    dict_pt = {}
+    for col in columns:
+        pt = PowerTransformer(method="yeo-johnson")
+        pt.fit(np.array(data_frame[col]).reshape(-1, 1))
+        data_frame[col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1))
+        dict_pt[f"{col} pt"] = pt
+    return data_frame, dict_pt
+
+def calc_kullback_leibler(df_balrog, df_gandalf, columns, print_text):
 
     # Initialize dictionaries to store KL divergence values
     dict_kl_divergence = {}
-    dict_percent_diff = {}
 
     # Compute KL divergence for each feature
     for column in columns:
@@ -112,14 +129,122 @@ def calc_kullback_leibler(df_balrog, df_gandalf, columns):
         kl_value = scipy.stats.entropy(hist1, hist2)
         dict_kl_divergence[column] = kl_value
 
-        # Calculate percent difference as normalized KL divergence
-        dict_percent_diff[column] = (kl_value / (kl_value + 1)) * 100  # Normalize
-
-    print("KL Divergence and Percent Difference for Detected Objects:")
+    print(print_text)
     for column in columns:
-        print(f"{column}: KL Divergence = {dict_kl_divergence[column]:.4f}, Percent Difference = {dict_percent_diff[column]:.2f}%")
+        print(f"{column}: KL Divergence = {dict_kl_divergence[column]}")
 
-    return dict_kl_divergence, dict_percent_diff
+    return dict_kl_divergence
+
+def calc_wasserstein_distance(df_balrog, df_gandalf, columns, print_text):
+    """Compute Wasserstein Distance between two distributions"""
+    dict_wasserstein = {}
+
+    for column in columns:
+        data_balrog = df_balrog[column]
+        data_gandalf = df_gandalf[column]
+
+        # Compute Wasserstein distance
+        distance = scipy.stats.wasserstein_distance(data_balrog, data_gandalf)
+        dict_wasserstein[column] = distance
+
+    print(print_text)
+    for column, value in dict_wasserstein.items():
+        print(f"{column}: Wasserstein Distance = {value}")
+
+    return dict_wasserstein
+
+
+def calc_mean_std_diff(df_balrog, df_gandalf, columns, print_text):
+    """Compute Mean and Standard Deviation differences"""
+    dict_mean_diff = {}
+    dict_std_diff = {}
+
+    for column in columns:
+        mean_diff = abs(df_balrog[column].mean() - df_gandalf[column].mean())
+        std_diff = abs(df_balrog[column].std() - df_gandalf[column].std())
+
+        dict_mean_diff[column] = mean_diff
+        dict_std_diff[column] = std_diff
+
+    print(print_text)
+    for column in columns:
+        print(f"{column}: Mean Difference = {dict_mean_diff[column]}, Std Dev Difference = {dict_std_diff[column]}")
+
+    return dict_mean_diff, dict_std_diff
+
+
+def calc_total_variation_distance(df_balrog, df_gandalf, columns, print_text):
+    """Compute Total Variation Distance between two distributions"""
+    dict_tvd = {}
+
+    for column in columns:
+        min_value = min(df_balrog[column].min(), df_gandalf[column].min())
+        max_value = max(df_balrog[column].max(), df_gandalf[column].max())
+        bins = np.linspace(min_value, max_value, 50)
+
+        hist1, _ = np.histogram(df_balrog[column], bins=bins, density=True)
+        hist2, _ = np.histogram(df_gandalf[column], bins=bins, density=True)
+
+        hist1 /= hist1.sum()
+        hist2 /= hist2.sum()
+
+        tvd = 0.5 * np.sum(np.abs(hist1 - hist2))
+        dict_tvd[column] = tvd
+
+    print(print_text)
+    for column, value in dict_tvd.items():
+        print(f"{column}: Total Variation Distance = {value}")
+
+    return dict_tvd
+
+
+def calc_skewness_kurtosis_diff(df_balrog, df_gandalf, columns, print_text):
+    """Compute differences in Skewness and Kurtosis"""
+    dict_skewness_diff = {}
+    dict_kurtosis_diff = {}
+
+    for column in columns:
+        skewness_diff = abs(scipy.stats.skew(df_balrog[column]) - scipy.stats.skew(df_gandalf[column]))
+        kurtosis_diff = abs(scipy.stats.kurtosis(df_balrog[column]) - scipy.stats.kurtosis(df_gandalf[column]))
+
+        dict_skewness_diff[column] = skewness_diff
+        dict_kurtosis_diff[column] = kurtosis_diff
+
+    print(print_text)
+    for column in columns:
+        print(f"{column}: Skewness Diff = {dict_skewness_diff[column]}, Kurtosis Diff = {dict_kurtosis_diff[column]}")
+
+    return dict_skewness_diff, dict_kurtosis_diff
+
+
+def calc_correlation(df_balrog, df_gandalf, columns, print_text, sample_size=2_000_000):
+    """Compute Pearson and Spearman Correlations"""
+    dict_pearson = {}
+    dict_spearman = {}
+
+    # Ensure the sample size does not exceed the actual dataset size
+    sample_size_balrog = min(sample_size, len(df_balrog))
+    sample_size_gandalf = min(sample_size, len(df_gandalf))
+
+    # Randomly sample from both datasets
+    df_balrog_sample = df_balrog.sample(n=sample_size_balrog, random_state=42)
+    df_gandalf_sample = df_gandalf.sample(n=sample_size_gandalf, random_state=42)
+
+    # Align both sampled dataframes to ensure they have the same indices
+    # df_balrog_sample, df_gandalf_sample = df_balrog_sample.align(df_gandalf_sample, join='inner', axis=0)
+
+    for column in columns:
+        pearson_corr, _ = scipy.stats.pearsonr(df_balrog_sample[column], df_gandalf_sample[column])
+        spearman_corr, _ = scipy.stats.spearmanr(df_balrog_sample[column], df_gandalf_sample[column])
+
+        dict_pearson[column] = pearson_corr
+        dict_spearman[column] = spearman_corr
+
+    print(print_text)
+    for column in columns:
+        print(f"{column}: Pearson Correlation = {dict_pearson[column]}, Spearman Correlation = {dict_spearman[column]}")
+
+    return dict_pearson, dict_spearman
 
 
 def replace_nan(data_frame, cols, default_values):
@@ -260,7 +385,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv.pdf",
             sample_size=100000,  # None,
             x_range=(17.5, 26.5),
-            title=f"Multivariate Comparison of Detection Distributions in gaNdalF and Balrog"
+            title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison"
         )
 
     if cfg["PLT_FIG_2"] is True:
@@ -321,7 +446,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_number_density_fluctuation.pdf",
-            title=f"Number Density Fluctuation Analysis of gaNdalF vs. Balrog Detections"
+            title=f"gaNdalF vs. Balrog: Detection Number Density Comparison"
         )
 
 def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_master_cat, path_save_plots, columns):
@@ -365,10 +490,6 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
     print(f"Length of Balrog objects after mag cut: {len(df_balrog_flw_cut)}")
     print(f"Length of gaNdalF objects after mag cut: {len(df_gandalf_flw_cut)}")
 
-    bands = ['r', 'i', 'z']
-    conditions = ['AIRMASS_WMEAN', 'MAGLIM', 'FWHM_WMEAN', 'EBV_SFD98']
-    residual_properties = ['mag', 'snr', 'size_ratio', 'T', 'weight']
-
     if cfg["PLT_FIG_3"] is True:
         plot_binning_statistics_combined(
             df_gandalf=df_gandalf_flw_cut,
@@ -377,259 +498,53 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
             plot_scatter=False,
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
-            title="Binning Statistics of gaNdalF and Balrog",
-            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_binning_statistics_combined.pdf",
+            title="gaNdalF vs. Balrog: Measured Photometric Property Distribution Comparison",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_binning_statistics_combined",
         )
-        # plot_binning_statistics_combined_2(
-        #     df_gandalf=df_gandalf_flw_cut,
-        #     df_balrog=df_balrog_flw_cut,
-        #     sample_size=10000,
-        #     plot_scatter=False,
-        #     show_plot=cfg["SHOW_PLOT"],
-        #     save_plot=cfg["SAVE_PLOT"],
-        #     title="Binning Statistics of gaNdalF and Balrog",
-        #     save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_binning_statistics_combined.pdf",
-        # )
-        exit()
-        # plot_binning_statistics(
-        #     df_gandalf=df_gandalf_flw_cut,
-        #     df_balrog=df_balrog_flw_cut,
-        #     conditions=[
-        #         "FWHM_WMEAN_R",
-        #         "FWHM_WMEAN_I",
-        #         "FWHM_WMEAN_Z",
-        #         "AIRMASS_WMEAN_R",
-        #         "AIRMASS_WMEAN_I",
-        #         "AIRMASS_WMEAN_Z",
-        #         "MAGLIM_R",
-        #         "MAGLIM_I",
-        #         "MAGLIM_Z",
-        #         "EBV_SFD98"
-        #     ],
-        #     bands=["r", "i", "z"],
-        #     sample_size=100000,
-        #     show_plot=cfg["SHOW_PLOT"],
-        #     save_plot=cfg["SAVE_PLOT"],
-        #     path_save_plots=path_save_plots
-        # )
-        # plot_binning_statistics_combined(
-        #     df_gandalf=df_gandalf_flw_cut,
-        #     df_balrog=df_balrog_flw_cut,
-        #     bands=bands,
-        #     conditions=conditions,
-        #     residual_properties=residual_properties,
-        #     save_plot=True,
-        #     path_save_plots=path_save_plots
-        # )
 
-    # plot_binning_statistics_combined(
-    #     df_gandalf=df_gandalf_flw_cut,
-    #     df_balrog=df_balrog_flw_cut,
-    #     sample_size=10000,
-    #     show_plot=False,
-    #     save_plot=True,
-    #     path_save_plots=path_save_plots
-    # )
-    # plot_binning_statistics_comparison(
-    #     df_gandalf=df_gandalf_flw_cut,
-    #     df_balrog=df_balrog_flw_cut,
-    #     sample_size=10000,
-    #     show_plot=False,
-    #     save_plot=True,
-    #     path_save_plots=path_save_plots
-    # )
-    # plot_binning_statistics_properties(
-    #     df_gandalf=df_gandalf_flw_cut,
-    #     df_balrog=df_balrog_flw_cut,
-    #     sample_size=10000,
-    #     show_plot=False,
-    #     save_plot=True,
-    #     path_save_plots=path_save_plots
-    # )
-    exit()
-    plot_binning_statistics(
-        df_gandalf=df_gandalf_flw_cut,
-        df_balrog=df_balrog_flw_cut,
-        conditions=[
-            "FWHM_WMEAN_R",
-            "FWHM_WMEAN_I",
-            "FWHM_WMEAN_Z",
-            "AIRMASS_WMEAN_R",
-            "AIRMASS_WMEAN_I",
-            "AIRMASS_WMEAN_Z",
-            "MAGLIM_R",
-            "MAGLIM_I",
-            "MAGLIM_Z",
-            "EBV_SFD98"
-        ],
-        bands=["r", "i", "z"],
-        sample_size=100000,
-        show_plot=False,
-        save_plot=True,
-        path_save_plots=path_save_plots
-    )
-
-    df_balrog_flw = df_balrog_flw[columns]
-    df_gandalf_flw = df_gandalf_flw[columns]
-
-    df_balrog_flw_cut = df_balrog_flw_cut[columns]
-    df_gandalf_flw_cut = df_gandalf_flw_cut[columns]
-
-    exit()
-
-    plot_compare_corner(
-        data_frame_generated=df_gandalf_flw,
-        data_frame_true=df_balrog_flw,
-        dict_delta=None,
-        epoch=None,
-        title=f"Compare Measured Galaxy Properties Balrog-gaNdalF",
-        columns=columns,
-        labels=[
-            "r-i",
-            "i-z",
-            "mag r",
-            "mag i",
-            "mag z",
-            "snr",
-            "size ratio",
-            "weight",
-            "T"
-        ],
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/compare_measured_galaxy_properties_datapoints.png",
-        ranges=[
-            [-0.5, 1.5],
-            [-0.5, 1.5],
-            [18, 24.5],
-            [18, 24.5],
-            [18, 24.5],
-            [2, 100],
-            [-0.5, 5],
-            [10, 80],
-            [0, 3.5]
-        ]
-    )
-
-    plot_compare_corner(
-        data_frame_generated=df_gandalf_flw_cut,
-        data_frame_true=df_balrog_flw_cut,
-        dict_delta=None,
-        epoch=None,
-        title=f"Compare MCAL Measured Galaxy Properties Balrog-gaNdalF",
-        columns=columns,
-        labels=[
-            "r-i",
-            "i-z",
-            "mag r",
-            "mag i",
-            "mag z",
-            "snr",
-            "size ratio",
-            "weight",
-            "T"
-        ],
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/compare_mcal_measured_galaxy_properties_datapoints.png",
-        ranges=[
-            [-0.5, 1.5],
-            [-0.5, 1.5],
-            [18, 24.5],
-            [18, 24.5],
-            [18, 24.5],
-            [2, 100],
-            [-0.5, 5],
-            [10, 80],
-            [0, 3.5]
-        ]
-    )
-
-    plot_balrog_histogram_with_error(
-        df_gandalf=df_gandalf_flw,
-        df_balrog=df_balrog_flw,
-        columns=columns,
-        labels=[
-            "r-i",
-            "i-z",
-            "mag r",
-            "mag i",
-            "mag z",
-            "snr",
-            "size ratio",
-            "weight",
-            "T"
-        ],
-        ranges=[
-            [-0.5, 1.5],  # mag r-i
-            [-0.5, 1.5],  # mag i-z
-            [18, 24.5],  # mag r
-            [18, 24.5],  # mag i
-            [18, 24.5],  # mag z
-            [2, 100],  # snr
-            [-0.5, 5],  # size ratio
-            [10, 80],  # weight
-            [0, 3.5]  # T
-        ],
-        binwidths=[
-            0.08,  # mag r-i
-            0.08,  # mag i-z
-            None,  # mag r
-            None,  # mag i
-            None,  # mag z
-            2,  # snr
-            0.2,  # size ratio
-            2,  # weight
-            0.2  # T
-        ],
-        title="Compare Histogram",
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/hist_plot.png"
-    )
-
-    plot_balrog_histogram_with_error(
-        df_gandalf=df_gandalf_flw_cut,
-        df_balrog=df_balrog_flw_cut,
-        columns=columns,
-        labels=[
-            "mag r-i",
-            "mag i-z",
-            "mag r",
-            "mag i",
-            "mag z",
-            "snr",
-            "size ratio",
-            "weight",
-            "T"
-        ],
-        ranges=[
-            [-0.5, 1.5],  # mag r-i
-            [-0.5, 1.5],  # mag i-z
-            [18, 24.5],  # mag r
-            [18, 24.5],  # mag i
-            [18, 24.5],  # mag z
-            [2, 100],  # snr
-            [-0.5, 5],  # size ratio
-            [10, 80],  # weight
-            [0, 3.5]  # T
-        ],
-        binwidths=[
-            0.08,  # mag r-i
-            0.08,  # mag i-z
-            None,  # mag r
-            None,  # mag i
-            None,  # mag z
-            2,  # snr
-            0.2,  # size ratio
-            2,  # weight
-            0.2  # T
-        ],
-        title="Compare MCAL Histogram",
-        show_plot=False,
-        save_plot=True,
-        save_name=f"{path_save_plots}/mcal_hist_plot.png"
-    )
+    if cfg["PLT_FIG_4"] is True:
+        plot_balrog_histogram_with_error(
+            df_gandalf=df_gandalf_flw_cut,
+            df_balrog=df_balrog_flw_cut,
+            columns=columns,
+            labels=[
+                "mag r-i",
+                "mag i-z",
+                "mag r",
+                "mag i",
+                "mag z",
+                "snr",
+                "size ratio",
+                "weight",
+                "T"
+            ],
+            ranges=[
+                [-0.5, 1.5],  # mag r-i
+                [-0.5, 1.5],  # mag i-z
+                [18, 24.5],  # mag r
+                [18, 24.5],  # mag i
+                [18, 24.5],  # mag z
+                [2, 100],  # snr
+                [-0.5, 5],  # size ratio
+                [10, 80],  # weight
+                [0, 3.5]  # T
+            ],
+            binwidths=[
+                0.08,  # mag r-i
+                0.08,  # mag i-z
+                None,  # mag r
+                None,  # mag i
+                None,  # mag z
+                2,  # snr
+                0.2,  # size ratio
+                2,  # weight
+                0.2  # T
+            ],
+            title = r"gaNdalF vs. Balrog: $\texttt{Metacalibration}$ Property Distribution Comparison",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_mcal_hist_plot.pdf"
+        )
 
 
 def load_zmean_and_files(path_zmean_folder, path_data_folder, path_gandalf_mean):
@@ -681,37 +596,246 @@ def load_zmean_and_files(path_zmean_folder, path_data_folder, path_gandalf_mean)
 
     return zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means
 
-def plot_redshift(path_data_folder, path_zmean_folder, path_gandalf_mean):
+def plot_redshift(cfg, path_data_folder, path_zmean_folder, path_gandalf_mean):
     """"""
     zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means = load_zmean_and_files(
         path_zmean_folder, path_data_folder, path_gandalf_mean)
 
-    plot_tomo_bin_redshift_bootstrap(
-        zmean=zmean,
-        gandalf_files=gandalf_files,
-        balrog_file=balrog_file,
-        gandalf_means=gandalf_means,
-        gandalf_stds=gandalf_stds,
-        balrog_means=balrog_means,
-        plot_settings={"plt_figsize": (10, 6)},
-        show_plot=False,
-        save_plot=True,
-        save_name="/home/p/P.Gebhardt/Output/gaNdalF_paper/redshift_per_bin_bootstrap.png"
-    )
+    if cfg["PLT_FIG_5"] is True:
+        plot_tomo_bin_redshift_bootstrap(
+            zmean=zmean,
+            gandalf_files=gandalf_files,
+            balrog_file=balrog_file,
+            gandalf_means=gandalf_means,
+            gandalf_stds=gandalf_stds,
+            balrog_means=balrog_means,
+            title="gaNdalF vs. Balrog: Tomographic Redshift Distribution Comparison",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_redshift_bin_1_bootstrap.pdf",
+            all_bins=False
+        )
+    if cfg["PLT_FIG_6"] is True:
+        plot_tomo_bin_redshift_bootstrap_all_in_one(
+            zmean=zmean,
+            gandalf_files=gandalf_files,
+            balrog_file=balrog_file,
+            gandalf_means=gandalf_means,
+            gandalf_stds=gandalf_stds,
+            balrog_means=balrog_means,
+            title="gaNdalF vs. Balrog: Tomographic Redshift Distribution Comparison",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_redshift_per_bin_bootstrap.pdf",
+        )
 
 
-def main(cfg, path_data, path_master_cat, filename_clf_balrog, filename_clf_gandalf, filename_flw_balrog,
-         filename_flw_gandalf, path_redshift_hist_folder, path_zmean_folder, path_gandalf_redshift_mean, path_save_plots, calc_kl_div,
-         plt_classf, plt_flow, plt_redshift, flow_columns):
+def main(cfg, path_data, path_master_cat, path_gandalf_odet, filename_flw_balrog,
+         filename_flw_gandalf, path_redshift_hist_folder, path_zmean_folder, path_gandalf_redshift_mean, path_save_plots, calc_metric,
+         plt_classf, plt_flow, plt_redshift, plt_trans_norm, flow_columns):
     """"""
 
-    if calc_kl_div is True:
-        dict_kl_divergence, dict_percent_diff = calc_kullback_leibler(
-            path_data=cfg['PATH_DATA'],
-            filename_balrog=cfg['FILENAME_CLF_BALROG'],
-            filename_gandalf=cfg['FILENAME_CLF_GANDALF'],
-            columns=cfg["CLF_COLUMNS"]
-        )
+    if calc_metric is True:
+        df_clf_balrog_detected = None
+        df_clf_gandalf_detected = None
+        df_clf_balrog_not_detected = None
+        df_clf_gandalf_not_detected = None
+        df_flw_balrog = None
+        df_flw_gandalf = None
+
+        if cfg["CALC_METRIC_DET"] is True or cfg["CALC_METRIC_NOT_DET"] is True:
+            df_clf_balrog = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_BALROG']}")
+            df_clf_gandalf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_GANDALF']}")
+
+            df_balrog_clf_deep_cut = apply_deep_cuts(
+                path_master_cat=path_master_cat,
+                data_frame=df_clf_balrog
+            )
+            df_gandalf_clf_deep_cut = apply_deep_cuts(
+                path_master_cat=path_master_cat,
+                data_frame=df_clf_gandalf
+            )
+
+            if cfg["CALC_METRIC_DET"] is True:
+                df_clf_balrog_detected = df_balrog_clf_deep_cut[df_balrog_clf_deep_cut["detected"] == 1]
+                df_clf_gandalf_detected = df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut["detected"] == 1]
+
+            if cfg["CALC_METRIC_NOT_DET"] is True:
+                df_clf_balrog_not_detected = df_balrog_clf_deep_cut[df_balrog_clf_deep_cut["detected"] == 0]
+                df_clf_gandalf_not_detected = df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut["detected"] == 0]
+
+            del df_clf_balrog, df_clf_gandalf
+
+        if cfg["CALC_METRIC_MCAL"] is True:
+            df_flw_balrog = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FLW_BALROG']}")
+            df_flw_gandalf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FLW_GANDALF']}")
+
+            df_flw_gandalf = replace_nan(
+                data_frame=df_flw_gandalf,
+                cols=[
+                    "unsheared/mag_r",
+                    "unsheared/mag_i",
+                    "unsheared/mag_z",
+                    "unsheared/snr",
+                    "unsheared/size_ratio",
+                    "unsheared/weight",
+                    "unsheared/T",
+                ],
+                default_values=[
+                    df_flw_balrog["unsheared/mag_r"].max(),
+                    df_flw_balrog["unsheared/mag_i"].max(),
+                    df_flw_balrog["unsheared/mag_z"].max(),
+                    df_flw_balrog["unsheared/snr"].max(),
+                    df_flw_balrog["unsheared/size_ratio"].max(),
+                    df_flw_balrog["unsheared/weight"].max(),
+                    df_flw_balrog["unsheared/T"].max(),
+                ]
+            )
+
+            df_flw_gandalf["Color unsheared MAG r-i"] = df_flw_gandalf["unsheared/mag_r"] - df_flw_gandalf[
+                "unsheared/mag_i"]
+            df_flw_gandalf["Color unsheared MAG i-z"] = df_flw_gandalf["unsheared/mag_i"] - df_flw_gandalf[
+                "unsheared/mag_z"]
+
+            df_flw_balrog = check_idf_flux(df_flw_balrog)
+            df_flw_gandalf = check_idf_flux(df_flw_gandalf)
+
+            df_flw_balrog = apply_cuts(df_flw_balrog, path_master_cat)
+            df_flw_gandalf = apply_cuts(df_flw_gandalf, path_master_cat)
+
+        # Detected +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        if cfg["CALC_METRIC_DET"] is True:
+            calc_kullback_leibler(
+                df_balrog=df_clf_balrog_detected,
+                df_gandalf=df_clf_gandalf_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="KL Divergence for Detected Objects:"
+            )
+
+            calc_wasserstein_distance(
+                df_balrog=df_clf_balrog_detected,
+                df_gandalf=df_clf_gandalf_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Wasserstein Distance (Earth Mover’s Distance, EMD) for Detected Objects:"
+            )
+
+            calc_mean_std_diff(
+                df_balrog=df_clf_balrog_detected,
+                df_gandalf=df_clf_gandalf_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Mean and Standard Deviation Differences for Detected Objects:"
+            )
+
+            calc_total_variation_distance(
+                df_balrog=df_clf_balrog_detected,
+                df_gandalf=df_clf_gandalf_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Total Variation Distance (TVD) for Detected Objects:"
+            )
+
+            calc_skewness_kurtosis_diff(
+                df_balrog=df_clf_balrog_detected,
+                df_gandalf=df_clf_gandalf_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Skewness and Kurtosis Differences for Detected Objects:"
+            )
+
+            calc_correlation(
+                df_balrog=df_clf_balrog_detected,
+                df_gandalf=df_clf_gandalf_detected,
+                columns = cfg["CLF_COLUMNS"],
+                print_text="Pearson and Spearman Correlation for Detected Objects:"
+            )
+
+        # Not Detected +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        if cfg["CALC_METRIC_NOT_DET"] is True:
+            calc_kullback_leibler(
+                df_balrog=df_clf_balrog_not_detected,
+                df_gandalf=df_clf_gandalf_not_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="KL Divergence for not Detected Objects:",
+
+            )
+
+            calc_wasserstein_distance(
+                df_balrog=df_clf_balrog_not_detected,
+                df_gandalf=df_clf_gandalf_not_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Wasserstein Distance (Earth Mover’s Distance, EMD) for not Detected Objects:"
+            )
+
+            calc_mean_std_diff(
+                df_balrog=df_clf_balrog_not_detected,
+                df_gandalf=df_clf_gandalf_not_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Mean and Standard Deviation Differences for not Detected Objects:"
+            )
+
+            calc_total_variation_distance(
+                df_balrog=df_clf_balrog_not_detected,
+                df_gandalf=df_clf_gandalf_not_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Total Variation Distance (TVD) for not Detected Objects:"
+            )
+
+            calc_skewness_kurtosis_diff(
+                df_balrog=df_clf_balrog_not_detected,
+                df_gandalf=df_clf_gandalf_not_detected,
+                columns=cfg["CLF_COLUMNS"],
+                print_text="Skewness and Kurtosis Differences for not Detected Objects:"
+            )
+
+            calc_correlation(
+                df_balrog=df_clf_balrog_not_detected,
+                df_gandalf=df_clf_gandalf_not_detected,
+                columns = cfg["CLF_COLUMNS"],
+                print_text="Pearson and Spearman Correlation for not Detected Objects:"
+            )
+
+        # Mcal +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        if cfg["CALC_METRIC_MCAL"] is True:
+            calc_kullback_leibler(
+                df_balrog=df_flw_balrog,
+                df_gandalf=df_flw_gandalf,
+                columns=cfg["FLW_COLUMNS"],
+                print_text="KL Divergence for mcal Objects:"
+            )
+
+            calc_wasserstein_distance(
+                df_balrog=df_flw_balrog,
+                df_gandalf=df_flw_gandalf,
+                columns=cfg["FLW_COLUMNS"],
+                print_text="Wasserstein Distance (Earth Mover’s Distance, EMD) for mcal Objects:"
+            )
+
+            calc_mean_std_diff(
+                df_balrog=df_flw_balrog,
+                df_gandalf=df_flw_gandalf,
+                columns=cfg["FLW_COLUMNS"],
+                print_text="Mean and Standard Deviation Differences for mcal Objects:"
+            )
+
+            calc_total_variation_distance(
+                df_balrog=df_flw_balrog,
+                df_gandalf=df_flw_gandalf,
+                columns=cfg["FLW_COLUMNS"],
+                print_text="Total Variation Distance (TVD) for mcal Objects:"
+            )
+
+            calc_skewness_kurtosis_diff(
+                df_balrog=df_flw_balrog,
+                df_gandalf=df_flw_gandalf,
+                columns=cfg["FLW_COLUMNS"],
+                print_text="Skewness and Kurtosis Differences for mcal Objects:"
+            )
+
+            calc_correlation(
+                df_balrog=df_flw_balrog,
+                df_gandalf=df_flw_gandalf,
+                columns=cfg["FLW_COLUMNS"],
+                print_text="Pearson and Spearman Correlation for mcal Objects:",
+                sample_size = 2_000_000
+            )
 
     if plt_classf is True:
         plot_classifier(
@@ -733,9 +857,38 @@ def main(cfg, path_data, path_master_cat, filename_clf_balrog, filename_clf_gand
 
     if plt_redshift is True:
         plot_redshift(
+            cfg=cfg,
             path_data_folder=path_redshift_hist_folder,
             path_zmean_folder=path_zmean_folder,
             path_gandalf_mean=path_gandalf_redshift_mean
+        )
+
+    if plt_trans_norm is True:
+        df = pd.read_pickle(path_gandalf_odet)
+        df = df[['MAGLIM_R', 'MAGLIM_I']]
+        df_yj = df.copy()
+        df_yj, dict_yj_transformer = get_yj_transformer(
+            data_frame=df_yj,
+            columns=['MAGLIM_R', 'MAGLIM_I']
+        )
+
+        scaler = get_scaler(
+            data_frame=df_yj[["MAGLIM_R", 'MAGLIM_I']]
+        )
+        yj_scaled = scaler.transform(df_yj[["MAGLIM_R", "MAGLIM_I"]])
+        df_yj_scaled = pd.DataFrame(yj_scaled, columns=["MAGLIM_R", 'MAGLIM_I'])
+
+        plot_trans_norm_compare(
+            data_frame=df,
+            data_frame_yj=df_yj,
+            data_frame_yj_scaled=df_yj_scaled,
+            column="MAGLIM_R",
+            ranges=[(23, 24.5), (-3.5, 3), (-0.6, 0.6)],
+            bins=30,
+            title="Effect of Yeo-Johnson Transformation and Normalization",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_YJ_TRANS_MAXABS_MAGLIM_R.pdf",
         )
 
 if __name__ == '__main__':
@@ -785,17 +938,17 @@ if __name__ == '__main__':
         cfg=cfg,
         path_data=cfg["PATH_DATA"],
         path_master_cat=cfg["PATH_MASTER_CAT"],
-        filename_clf_balrog=cfg["FILENAME_CLF_BALROG"],
-        filename_clf_gandalf=cfg["FILENAME_CLF_GANDALF"],
         filename_flw_balrog=cfg["FILENAME_FLW_BALROG"],
         filename_flw_gandalf=cfg["FILENAME_FLW_GANDALF"],
+        path_gandalf_odet=cfg["PATH_GANDALF_ODET"],
         path_redshift_hist_folder=cfg["PATH_REDSHIFT_HIST_FOLDER"],
         path_zmean_folder=cfg["PATH_ZMEAN_FOLDER"],
         path_gandalf_redshift_mean=cfg["PATH_GANDALF_REDSHIFT_MEAN"],
         path_save_plots=cfg["PATH_SAVE_PLOTS"],
-        calc_kl_div=cfg["CALC_KL_DIV"],
+        calc_metric=cfg["CALC_METRIC"],
         plt_classf=cfg["PLT_CLF"],
         plt_flow=cfg["PLT_FLW"],
         plt_redshift=cfg["PLT_REDSHIFT"],
+        plt_trans_norm=cfg["PLT_TRANS_NORM"],
         flow_columns=cfg["FLW_COLUMNS"]
     )
