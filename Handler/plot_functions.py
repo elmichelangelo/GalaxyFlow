@@ -2676,7 +2676,7 @@ def make_gif(frame_folder, name_save_folder, fps=10):
 
     
 def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not_detected, df_gandalf_not_detected,
-                          columns, show_plot, save_plot, save_name, sample_size=5000, x_range=(18, 26),
+                          columns, show_plot, save_plot, save_name, train_plot=False, sample_size=5000, x_range=(18, 26),
                           title='Histogram'):
     import matplotlib as mpl
     # Use LaTeX fonts in matplotlib
@@ -2707,6 +2707,9 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
     # Calculate the number of rows and columns
     num_cols = 4
     num_rows = 4
+    if train_plot is True:
+        num_cols = 1
+        num_rows = 1
 
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
 
@@ -2729,7 +2732,13 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         })
 
         pos = columns[col]["position"]
-        ax = axes[pos[0], pos[1]]
+
+        if train_plot is True:
+            ax = axes
+        else:
+            ax = axes[pos[0], pos[1]]
+
+
 
         # Set the plot ranges
         y_range = columns[col]["range"]
@@ -2777,12 +2786,16 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         ax.set_ylabel(label) # , fontsize=font_size_label
 
         # Add axis labels only to the bottom row subplots
-        if i >= len(axes) - num_cols:
-            ax.set_xlabel('BDF Mag I') # , fontsize=font_size_label
+        if train_plot is True:
+            ax.set_xlabel('BDF Mag I')  # , fontsize=font_size_label
+        else:
+            if i >= len(axes) - num_cols:
+                ax.set_xlabel('BDF Mag I') # , fontsize=font_size_label
 
         # Remove any unused subplots
-    fig.delaxes(axes[0, 3])
-    fig.delaxes(axes[1, 3])
+    if train_plot is False:
+        fig.delaxes(axes[0, 3])
+        fig.delaxes(axes[1, 3])
 
     # Customize layout and legend
     legend_elements = [

@@ -7,24 +7,27 @@ import sys
 import yaml
 import os
 import warnings
+from torch import nn
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
-def main(cfg, batch_size, lr):
+def main(cfg, batch_size, lr, iteration):
     """"""
 
     train_detector = gaNdalFClassifier(
         cfg=cfg,
         bs=batch_size,
-        lr=lr
+        lr=lr,
+        iteration=iteration
     )
 
     train_detector.run_training()
 
-    train_detector.save_model()
+    if cfg['SAVE_NN_CLASSF'] is True:
+        train_detector.save_model()
 
 
 if __name__ == '__main__':
@@ -66,10 +69,14 @@ if __name__ == '__main__':
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
 
+    cfg["ACTIVATIONS"] = [nn.ReLU, lambda: nn.LeakyReLU(0.2)]
+
     for lr in cfg['LEARNING_RATE_CLASSF']:
         for bs in cfg['BATCH_SIZE_CLASSF']:
-            main(
-                cfg=cfg,
-                batch_size=bs,
-                lr=lr
-            )
+            for iteration in range(cfg["ITERATIONS"]):
+                main(
+                    cfg=cfg,
+                    batch_size=bs,
+                    lr=lr,
+                    iteration=iteration
+                )
