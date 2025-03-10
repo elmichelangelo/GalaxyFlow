@@ -14,4 +14,4 @@
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-srun -n1 python train_gandalf_classifier.py
+srun -n1 python train_gandalf_classifier.py -cf LMU.cfg
