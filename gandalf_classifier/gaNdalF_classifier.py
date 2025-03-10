@@ -8,7 +8,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from Handler import plot_classification_results, plot_confusion_matrix, plot_roc_curve, plot_recall_curve, plot_probability_hist
 import pandas as pd
 import matplotlib.pyplot as plt
-from xgboost import XGBClassifier
+# from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 from gandalf_galaxie_dataset import DESGalaxies
 
@@ -40,7 +40,7 @@ class gaNdalFClassifier(object):
 
         self.make_dirs()
 
-        xgb_clf = XGBClassifier(eval_metric=["error", "logloss"], learning_rate=lr)
+        xgb_clf = None # XGBClassifier(eval_metric=["error", "logloss"], learning_rate=lr)
         pipe = Pipeline([("clf", xgb_clf)])
 
         self.model = CalibratedClassifierCV(pipe, cv=2, method="isotonic")
