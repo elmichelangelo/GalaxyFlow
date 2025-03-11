@@ -5,8 +5,8 @@
 #SBATCH --time=48:00:00
 #SBATCH --mem=128G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
-#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer.log
-#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_err.log
+#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_new.log
+#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_new_err.log
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:1
 #SBATCH --cpus-per-task=8
