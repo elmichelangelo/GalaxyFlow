@@ -158,7 +158,7 @@ class gaNdalFClassifier(nn.Module):
         for epoch in range(self.cfg['EPOCHS_CLASSF']):
             self.model.train()  # Set the model to training mode
             train_loss = 0.0
-            pbar_train = tqdm(total=len(self.train_loader.dataset), unit="batch", ncols=200)
+            # pbar_train = tqdm(total=len(self.train_loader.dataset), unit="batch", ncols=200)
             epoch_loss = 0.0
             # Iterates over the training data in batches
             for batch_idx, data in enumerate(self.train_loader):
@@ -172,17 +172,17 @@ class gaNdalFClassifier(nn.Module):
                 loss.backward()  # Backward pass
                 self.optimizer.step()  # Updates the weights
                 train_loss += loss.item() * output_data.size(0)
-                pbar_train.update(output_data.size(0))
-                pbar_train.set_description(f"Training,\t"
-                                           f"Epoch: {epoch + 1},\t"
-                                           f"learning rate: {self.learning_rate},\t"
-                                           f"batch size: {self.batch_size},\t"
-                                           f"number of layer: {self.number_layer},\t"
-                                           f"hidden size: {self.number_hidden},\t"
-                                           f"activation: {self.activation},\t"
-                                           f"loss: {train_loss / pbar_train.n}")
+                # pbar_train.update(output_data.size(0))
+                # pbar_train.set_description(f"Training,\t"
+                #                            f"Epoch: {epoch + 1},\t"
+                #                            f"learning rate: {self.learning_rate},\t"
+                #                            f"batch size: {self.batch_size},\t"
+                #                            f"number of layer: {self.number_layer},\t"
+                #                            f"hidden size: {self.number_hidden},\t"
+                #                            f"activation: {self.activation},\t"
+                #                            f"loss: {train_loss / pbar_train.n}")
                 epoch_loss += loss.item()
-            pbar_train.close()
+            # pbar_train.close()
             self.lst_loss.append(epoch_loss / len(self.train_loader))
 
             # Calculates the average training loss
@@ -192,7 +192,7 @@ class gaNdalFClassifier(nn.Module):
             self.model.eval()  # Set the model to evaluation mode
             with torch.no_grad():
                 valid_loss = 0.0
-                pbar_val = tqdm(total=len(self.valid_loader.dataset), unit="batch", ncols=200)
+                # pbar_val = tqdm(total=len(self.valid_loader.dataset), unit="batch", ncols=200)
 
                 # Iterates over the validation data in batches
                 for batch_idx, data in enumerate(self.valid_loader):
@@ -203,16 +203,16 @@ class gaNdalFClassifier(nn.Module):
                     outputs = self.model(input_data)
                     loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
                     valid_loss += loss.item() * input_data.size(0)
-                    pbar_val.update(output_data.size(0))
-                    pbar_val.set_description(f"Validation,\t"
-                                             f"Epoch: {epoch + 1},\t"
-                                             f"learning rate: {self.learning_rate},\t"
-                                             f"batch size: {self.batch_size},\t"
-                                             f"number of layer: {self.number_layer},\t"
-                                             f"hidden size: {self.number_hidden},\t"
-                                             f"activation: {self.activation},\t"
-                                             f"loss: {valid_loss / pbar_val.n}")
-                pbar_val.close()
+                #     pbar_val.update(output_data.size(0))
+                #     pbar_val.set_description(f"Validation,\t"
+                #                              f"Epoch: {epoch + 1},\t"
+                #                              f"learning rate: {self.learning_rate},\t"
+                #                              f"batch size: {self.batch_size},\t"
+                #                              f"number of layer: {self.number_layer},\t"
+                #                              f"hidden size: {self.number_hidden},\t"
+                #                              f"activation: {self.activation},\t"
+                #                              f"loss: {valid_loss / pbar_val.n}")
+                # pbar_val.close()
 
             # Calculates the average validation loss
             valid_loss = valid_loss / len(self.valid_loader.dataset)
@@ -605,7 +605,7 @@ class gaNdalFClassifier(nn.Module):
                 show_plot=self.cfg["SHOW_PLOT_CLASSF"],
                 save_plot=self.cfg["SAVE_PLOT_CLASSF"],
                 save_name=f"{self.cfg['PATH_OUTPUT']}/{self.iteration}_classifier_multiv.pdf",
-                sample_size=100000,  # None,
+                sample_size=None,  # None,
                 x_range=(17.5, 26.5),
                 title=f"nl: {self.number_layer}; nh: {self.number_hidden}; af: {self.activation}; lr: {self.learning_rate}; bs: {self.batch_size}; YJ: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}; scaler: {self.cfg['APPLY_SCALER_CLASSF']}"
             )
