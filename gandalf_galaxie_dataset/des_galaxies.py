@@ -18,6 +18,7 @@ class GalaxyDataset(Dataset):
         self.name_yj_transformer = ""
         self.name_scaler = ""
         self.cfg = cfg
+        self.applied_yj_transform = ""
         if kind == "flow_training":
             self.postfix = "_FLOW"
             self.data_set_type = "ODET"
