@@ -8,18 +8,20 @@ import yaml
 import os
 import warnings
 from torch import nn
+import logging
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
-def main(cfg, iteration):
+def main(cfg, iteration, performance_logger):
     """"""
 
     train_detector = gaNdalFClassifier(
         cfg=cfg,
-        iteration=iteration
+        iteration=iteration,
+        performance_logger=performance_logger
     )
 
     train_detector.run_training()
@@ -69,10 +71,32 @@ if __name__ == '__main__':
 
     cfg["ACTIVATIONS"] = [nn.ReLU, lambda: nn.LeakyReLU(0.2)]
 
-    # for learning_rate in cfg['LEARNING_RATE_CLASSF']:
-    #     for batch_size in cfg['BATCH_SIZE_CLASSF']:
+    performance_logger = logging.getLogger("PerformanceLogger")
+    performance_logger.setLevel(logging.INFO)
+    performance_handler = logging.FileHandler(f"{cfg['PATH_OUTPUT']}/time_info_{cfg['RUN_DATE']}.log", mode='a')
+    performance_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s:%(message)s'))
+    performance_logger.addHandler(performance_handler)
+
+    performance_logger.info("############################### CPU-Test gestartet ######################################")
+    cfg["DEVICE_CLASSF"] = "cpu"
+    start = datetime.now()
     for iteration in range(cfg["ITERATIONS"]):
         main(
             cfg=cfg,
-            iteration=iteration
+            iteration=iteration,
+            performance_logger=performance_logger
         )
+    elapsed_cpu = (datetime.now() - start).total_seconds()
+    performance_logger.info(f"CPU-Test beendet: {elapsed_cpu} Seconds")
+    performance_logger.info("############################### GPU-Test gestartet ######################################")
+    cfg["DEVICE_CLASSF"] = "cuda"
+    start = datetime.now()
+    for iteration in range(cfg["ITERATIONS"]):
+        main(
+            cfg=cfg,
+            iteration=iteration,
+            performance_logger=performance_logger
+        )
+    elapsed_gpu = (datetime.now() - start).total_seconds()
+    performance_logger.info(f"GPU-Test beendet: {elapsed_gpu} Seconds")
+

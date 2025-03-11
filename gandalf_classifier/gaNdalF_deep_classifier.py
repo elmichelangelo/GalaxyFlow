@@ -20,19 +20,23 @@ import csv
 class gaNdalFClassifier(nn.Module):
     def __init__(self,
                  cfg,
-                 iteration
+                 iteration,
+                 performance_logger
                  ):
         super().__init__()
         self.cfg = cfg
-        self.batch_size = 16
         self.best_loss = float('inf')
         self.best_acc = 0.0
         self.best_epoch = 0
-        self.learning_rate = 1
         self.iteration = iteration
+        self.performance_logger = performance_logger
+
+        self.batch_size = 16
+        self.learning_rate = 1
         self.activation = nn.ReLU
         self.number_hidden = []
         self.number_layer = 0
+
         self.device = torch.device(cfg["DEVICE_CLASSF"])
         self.lst_loss = []
 
@@ -62,22 +66,30 @@ class gaNdalFClassifier(nn.Module):
         print(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
         print(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
 
-        logging.basicConfig(
-            filename=f"{self.cfg['PATH_OUTPUT']}/model_info_{self.cfg['RUN_DATE']}.log",
-            level=logging.INFO,
-            format='%(asctime)s %(levelname)s:%(message)s',
-            filemode='a'
-        )
+        training_logger = logging.getLogger("TrainingLogger")
+        training_logger.setLevel(logging.INFO)
+        training_handler = logging.FileHandler(f"{self.cfg['PATH_OUTPUT']}/model_info_{self.cfg['RUN_DATE']}.log", mode='a')
+        training_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s:%(message)s'))
+        training_logger.addHandler(training_handler)
 
-        logging.info(f"#########################################################################")
-        logging.info(f"######################## Iteration {self.iteration} #####################")
-        logging.info(f"Number of Layers: {self.number_layer}")
-        logging.info(f"Hidden Sizes: {self.number_hidden}")
-        logging.info(f"Activation Functions: {self.activation}")
-        logging.info(f"Learning Rate: {self.learning_rate}")
-        logging.info(f"Batch Size: {self.batch_size}")
-        logging.info(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
-        logging.info(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
+        training_logger.info(f"#########################################################################")
+        training_logger.info(f"######################## Iteration {self.iteration} #####################")
+        training_logger.info(f"Number of Layers: {self.number_layer}")
+        training_logger.info(f"Hidden Sizes: {self.number_hidden}")
+        training_logger.info(f"Activation Functions: {self.activation}")
+        training_logger.info(f"Learning Rate: {self.learning_rate}")
+        training_logger.info(f"Batch Size: {self.batch_size}")
+        training_logger.info(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
+        training_logger.info(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
+
+        self.performance_logger.info(f"######################## Iteration {self.iteration} #####################")
+        self.performance_logger.info(f"Number of Layers: {self.number_layer}")
+        self.performance_logger.info(f"Hidden Sizes: {self.number_hidden}")
+        self.performance_logger.info(f"Activation Functions: {self.activation}")
+        self.performance_logger.info(f"Learning Rate: {self.learning_rate}")
+        self.performance_logger.info(f"Batch Size: {self.batch_size}")
+        self.performance_logger.info(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
+        self.performance_logger.info(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
 
         self.model.to(self.device)
 
@@ -219,7 +231,7 @@ class gaNdalFClassifier(nn.Module):
 
             # Prints the training and validation loss
             print(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
-            logging.info(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
+            training_logger.info(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
 
             # Saves the model if the validation loss has decreased
             if valid_loss <= self.best_loss:
@@ -435,9 +447,9 @@ class gaNdalFClassifier(nn.Module):
         validation_accuracy = accuracy_score(detected_true, detected)
         validation_accuracy_calibrated = accuracy_score(detected_true, detected_calibrated)
         print(f"Accuracy for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%")
-        logging.info(f'Accuracy (normal) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%')
+        training_logger.info(f'Accuracy (normal) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%')
         print(f"Accuracy calibrated for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%")
-        logging.info(f'Accuracy (calibrated) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
+        training_logger.info(f'Accuracy (calibrated) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
 
         df_test_data['true_detected'] = detected
         df_test_data['detected_calibrated'] = detected_calibrated
@@ -529,83 +541,83 @@ class gaNdalFClassifier(nn.Module):
                 df_gandalf_detected=df_test_data[df_test_data['detected_calibrated'] == 1],
                 df_balrog_not_detected=df_test_data[df_test_data['true_detected'] == 0],
                 df_gandalf_not_detected=df_test_data[df_test_data['detected_calibrated'] == 0],
-                train_plot=True,
+                train_plot=False,
                 columns={
-                    # "BDF_MAG_DERED_CALIB_R": {
-                    #     "label": "BDF Mag R",
-                    #     "range": [17.5, 26.5],
-                    #     "position": [0, 0]
-                    # },
-                    # "BDF_MAG_DERED_CALIB_Z": {
-                    #     "label": "BDF Mag Z",
-                    #     "range": [17.5, 26.5],
-                    #     "position": [0, 1]
-                    # },
+                    "BDF_MAG_DERED_CALIB_R": {
+                        "label": "BDF Mag R",
+                        "range": [17.5, 26.5],
+                        "position": [0, 0]
+                    },
+                    "BDF_MAG_DERED_CALIB_Z": {
+                        "label": "BDF Mag Z",
+                        "range": [17.5, 26.5],
+                        "position": [0, 1]
+                    },
                     "BDF_T": {
                         "label": "BDF T",
                         "range": [-2, 3],
                         "position": [0, 2]
                     },
-                    # "BDF_G": {
-                    #     "label": "BDF G",
-                    #     "range": [-0.1, 0.9],
-                    #     "position": [1, 0]
-                    # },
-                    # "FWHM_WMEAN_R": {
-                    #     "label": "FWHM R",
-                    #     "range": [0.7, 1.3],
-                    #     "position": [1, 1]
-                    # },
-                    # "FWHM_WMEAN_I": {
-                    #     "label": "FWHM I",
-                    #     "range": [0.7, 1.1],
-                    #     "position": [1, 2]
-                    # },
-                    # "FWHM_WMEAN_Z": {
-                    #     "label": "FWHM Z",
-                    #     "range": [0.6, 1.16],
-                    #     "position": [2, 0]
-                    # },
-                    # "AIRMASS_WMEAN_R": {
-                    #     "label": "AIRMASS R",
-                    #     "range": [0.95, 1.45],
-                    #     "position": [2, 1]
-                    # },
-                    # "AIRMASS_WMEAN_I": {
-                    #     "label": "AIRMASS I",
-                    #     "range": [1, 1.45],
-                    #     "position": [2, 2]
-                    # },
-                    # "AIRMASS_WMEAN_Z": {
-                    #     "label": "AIRMASS Z",
-                    #     "range": [1, 1.4],
-                    #     "position": [2, 3]
-                    # },
-                    # "MAGLIM_R": {
-                    #     "label": "MAGLIM R",
-                    #     "range": [23, 24.8],
-                    #     "position": [3, 0]
-                    # },
-                    # "MAGLIM_I": {
-                    #     "label": "MAGLIM I",
-                    #     "range": [22.4, 24.0],
-                    #     "position": [3, 1]
-                    # },
-                    # "MAGLIM_Z": {
-                    #     "label": "MAGLIM Z",
-                    #     "range": [21.8, 23.2],
-                    #     "position": [3, 2]
-                    # },
-                    # "EBV_SFD98": {
-                    #     "label": "EBV SFD98",
-                    #     "range": [-0.01, 0.10],
-                    #     "position": [3, 3]
-                    # }
+                    "BDF_G": {
+                        "label": "BDF G",
+                        "range": [-0.1, 0.9],
+                        "position": [1, 0]
+                    },
+                    "FWHM_WMEAN_R": {
+                        "label": "FWHM R",
+                        "range": [0.7, 1.3],
+                        "position": [1, 1]
+                    },
+                    "FWHM_WMEAN_I": {
+                        "label": "FWHM I",
+                        "range": [0.7, 1.1],
+                        "position": [1, 2]
+                    },
+                    "FWHM_WMEAN_Z": {
+                        "label": "FWHM Z",
+                        "range": [0.6, 1.16],
+                        "position": [2, 0]
+                    },
+                    "AIRMASS_WMEAN_R": {
+                        "label": "AIRMASS R",
+                        "range": [0.95, 1.45],
+                        "position": [2, 1]
+                    },
+                    "AIRMASS_WMEAN_I": {
+                        "label": "AIRMASS I",
+                        "range": [1, 1.45],
+                        "position": [2, 2]
+                    },
+                    "AIRMASS_WMEAN_Z": {
+                        "label": "AIRMASS Z",
+                        "range": [1, 1.4],
+                        "position": [2, 3]
+                    },
+                    "MAGLIM_R": {
+                        "label": "MAGLIM R",
+                        "range": [23, 24.8],
+                        "position": [3, 0]
+                    },
+                    "MAGLIM_I": {
+                        "label": "MAGLIM I",
+                        "range": [22.4, 24.0],
+                        "position": [3, 1]
+                    },
+                    "MAGLIM_Z": {
+                        "label": "MAGLIM Z",
+                        "range": [21.8, 23.2],
+                        "position": [3, 2]
+                    },
+                    "EBV_SFD98": {
+                        "label": "EBV SFD98",
+                        "range": [-0.01, 0.10],
+                        "position": [3, 3]
+                    }
                 },
                 show_plot=self.cfg["SHOW_PLOT_CLASSF"],
                 save_plot=self.cfg["SAVE_PLOT_CLASSF"],
                 save_name=f"{self.cfg['PATH_OUTPUT']}/{self.iteration}_classifier_multiv.pdf",
-                sample_size=None,  # None,
+                sample_size=None,
                 x_range=(17.5, 26.5),
                 title=f"nl: {self.number_layer}; nh: {self.number_hidden}; af: {self.activation}; lr: {self.learning_rate}; bs: {self.batch_size}; YJ: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}; scaler: {self.cfg['APPLY_SCALER_CLASSF']}"
             )
