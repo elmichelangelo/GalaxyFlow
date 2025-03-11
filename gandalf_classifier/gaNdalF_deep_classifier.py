@@ -37,6 +37,8 @@ class gaNdalFClassifier(nn.Module):
         self.activation = nn.ReLU
         self.number_hidden = []
         self.number_layer = 0
+        self.use_batchnorm = False
+        self.dropout_prob = 0.0
 
         self.device = torch.device(cfg["DEVICE_CLASSF"])
         self.lst_loss = []
@@ -123,8 +125,8 @@ class gaNdalFClassifier(nn.Module):
         self.cfg["APPLY_YJ_TRANSFORM_CLASSF"] = random.choice(self.cfg["YJ_TRANSFORMATION"])
         self.cfg["APPLY_SCALER_CLASSF"] = random.choice(self.cfg["MAXABS_SCALER"])
 
-        use_batchnorm = random.choice(self.cfg["USE_BATCHNORM_CLASSF"])  # True oder False
-        dropout_prob = random.choice(self.cfg["DROPOUT_PROB_CLASSF"])  # z.B. 0.0, 0.3, 0.5
+        self.use_batchnorm = random.choice(self.cfg["USE_BATCHNORM_CLASSF"])
+        self.dropout_prob = random.choice(self.cfg["DROPOUT_PROB_CLASSF"])
 
         layers = []
         in_features = input_dim
@@ -133,13 +135,13 @@ class gaNdalFClassifier(nn.Module):
             self.number_hidden.append(out_features)
             layers.append(nn.Linear(in_features, out_features))
 
-            if use_batchnorm:
+            if self.use_batchnorm:
                 layers.append(nn.BatchNorm1d(out_features))
 
             layers.append(chosen_act_fn)
 
-            if dropout_prob > 0.0:
-                layers.append(nn.Dropout(dropout_prob))
+            if self.dropout_prob > 0.0:
+                layers.append(nn.Dropout(self.dropout_prob))
 
             in_features = out_features
 
@@ -473,17 +475,8 @@ class gaNdalFClassifier(nn.Module):
         df_test_data['probability'] = probability
         df_test_data['probability_calibrated'] = probability_calibrated
 
-        # Beispielhaftes Auslesen deiner Parameter (ggf. anpassen je nach Implementierung)
-        lr = self.learning_rate
-        bs = self.batch_size
-        number_layers = self.number_layer
-        hidden_sizes = self.number_hidden  # Das ist eine Liste
-        activation_fns = self.activation  # Ebenfalls Liste aus z.B. ["ReLU", "LeakyReLU", ...]
-
-        # Pfad zur CSV-Datei definieren
         csv_path = os.path.join(self.cfg['PATH_OUTPUT'], "training_results.csv")
 
-        # Prüfen, ob Datei existiert. Falls nicht, Kopfzeile schreiben.
         write_header = not os.path.exists(csv_path)
 
         with open(csv_path, "a", newline='') as f:
@@ -495,20 +488,24 @@ class gaNdalFClassifier(nn.Module):
                     "hidden_sizes",
                     "number_of_layers",
                     "activation_functions",
+                    "batch_norm_layer",
+                    "dropout",
+                    "yj_transformation",
+                    "maxabs_scaler",
                     "accuracy",
                     "calibrated_accuracy"
                 ])
 
-            # Ggf. die Listen in String umwandeln
-            str_hidden = ",".join(str(h) for h in hidden_sizes)
-            str_act = ",".join(str(a) for a in activation_fns)
-
             writer.writerow([
-                lr,
-                bs,
-                str_hidden,
-                number_layers,
-                str_act,
+                self.learning_rate,
+                self.batch_size,
+                ",".join(str(h) for h in self.number_hidden),
+                self.number_layer,
+                ",".join(str(a) for a in self.activation),
+                self.use_batchnorm,
+                self.dropout_prob,
+                self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
+                self.cfg["APPLY_SCALER_CLASSF"],
                 f"{validation_accuracy:.4f}",
                 f"{validation_accuracy_calibrated:.4f}"
             ])

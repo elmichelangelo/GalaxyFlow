@@ -86,18 +86,18 @@ if __name__ == '__main__':
     performance_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s:%(message)s'))
     performance_logger.addHandler(performance_handler)
 
-    performance_logger.info("############################### CPU-Test gestartet ######################################")
-    cfg["DEVICE_CLASSF"] = "cpu"
-    start = datetime.now()
-    for iteration in range(cfg["ITERATIONS"]):
-        main(
-            cfg=cfg,
-            galaxies=galaxies,
-            iteration=iteration,
-            performance_logger=performance_logger
-        )
-    elapsed_cpu = (datetime.now() - start).total_seconds()
-    performance_logger.info(f"CPU-Test beendet: {elapsed_cpu} Seconds")
+    # performance_logger.info("############################### CPU-Test gestartet ######################################")
+    # cfg["DEVICE_CLASSF"] = "cpu"
+    # start = datetime.now()
+    # for iteration in range(cfg["ITERATIONS"]):
+    #     main(
+    #         cfg=cfg,
+    #         galaxies=galaxies,
+    #         iteration=iteration,
+    #         performance_logger=performance_logger
+    #     )
+    # elapsed_cpu = (datetime.now() - start).total_seconds()
+    # performance_logger.info(f"CPU-Test beendet: {elapsed_cpu} Seconds")
     performance_logger.info("############################### GPU-Test gestartet ######################################")
     if get_os() == "Mac":
         cfg["DEVICE_CLASSF"] = "mps"
