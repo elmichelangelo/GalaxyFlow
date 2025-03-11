@@ -8,6 +8,9 @@ import yaml
 import os
 import warnings
 from torch import nn
+from torch.utils.data import DataLoader
+from gandalf_galaxie_dataset import DESGalaxies
+import random
 import logging
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -15,11 +18,12 @@ sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
-def main(cfg, iteration, performance_logger):
+def main(cfg, galaxies, iteration, performance_logger):
     """"""
 
     train_detector = gaNdalFClassifier(
         cfg=cfg,
+        galaxies=galaxies,
         iteration=iteration,
         performance_logger=performance_logger
     )
@@ -71,6 +75,11 @@ if __name__ == '__main__':
 
     cfg["ACTIVATIONS"] = [nn.ReLU, lambda: nn.LeakyReLU(0.2)]
 
+    galaxies = DESGalaxies(
+        cfg=cfg,
+        kind="classifier_training"
+    )
+
     performance_logger = logging.getLogger("PerformanceLogger")
     performance_logger.setLevel(logging.INFO)
     performance_handler = logging.FileHandler(f"{cfg['PATH_OUTPUT']}/time_info_{cfg['RUN_DATE']}.log", mode='a')
@@ -83,6 +92,7 @@ if __name__ == '__main__':
     for iteration in range(cfg["ITERATIONS"]):
         main(
             cfg=cfg,
+            galaxies=galaxies,
             iteration=iteration,
             performance_logger=performance_logger
         )
@@ -97,6 +107,7 @@ if __name__ == '__main__':
     for iteration in range(cfg["ITERATIONS"]):
         main(
             cfg=cfg,
+            galaxies=galaxies,
             iteration=iteration,
             performance_logger=performance_logger
         )

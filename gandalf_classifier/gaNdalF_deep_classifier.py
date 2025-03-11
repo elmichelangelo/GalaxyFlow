@@ -20,6 +20,7 @@ import csv
 class gaNdalFClassifier(nn.Module):
     def __init__(self,
                  cfg,
+                 galaxies,
                  iteration,
                  performance_logger
                  ):
@@ -30,8 +31,8 @@ class gaNdalFClassifier(nn.Module):
         self.best_epoch = 0
         self.iteration = iteration
         self.performance_logger = performance_logger
-
         self.batch_size = 16
+        self.galaxies = galaxies
         self.learning_rate = 1
         self.activation = nn.ReLU
         self.number_hidden = []
@@ -47,7 +48,10 @@ class gaNdalFClassifier(nn.Module):
 
         self.model = self.model.float()
 
-        self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
+        # self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
+        self.train_loader = DataLoader(self.galaxies.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
+        self.valid_loader = DataLoader(self.galaxies.valid_dataset, batch_size=self.batch_size, shuffle=False, num_workers=0)
+        self.test_loader = DataLoader(self.galaxies.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=0)
 
         self.cfg['PATH_PLOTS_FOLDER'] = {}
         self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/iteration_{self.iteration}"
