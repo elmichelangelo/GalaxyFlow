@@ -45,6 +45,8 @@ class gaNdalFClassifier(nn.Module):
             output_dim=1
         )
 
+        self.model = self.model.float()
+
         self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
 
         self.cfg['PATH_PLOTS_FOLDER'] = {}
@@ -66,21 +68,21 @@ class gaNdalFClassifier(nn.Module):
         print(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
         print(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
 
-        training_logger = logging.getLogger("TrainingLogger")
-        training_logger.setLevel(logging.INFO)
-        training_handler = logging.FileHandler(f"{self.cfg['PATH_OUTPUT']}/model_info_{self.cfg['RUN_DATE']}.log", mode='a')
-        training_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s:%(message)s'))
-        training_logger.addHandler(training_handler)
+        self.training_logger = logging.getLogger("TrainingLogger")
+        self.training_logger.setLevel(logging.INFO)
+        self.training_handler = logging.FileHandler(f"{self.cfg['PATH_OUTPUT']}/model_info_{self.cfg['RUN_DATE']}.log", mode='a')
+        self.training_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s:%(message)s'))
+        self.training_logger.addHandler(self.training_handler)
 
-        training_logger.info(f"#########################################################################")
-        training_logger.info(f"######################## Iteration {self.iteration} #####################")
-        training_logger.info(f"Number of Layers: {self.number_layer}")
-        training_logger.info(f"Hidden Sizes: {self.number_hidden}")
-        training_logger.info(f"Activation Functions: {self.activation}")
-        training_logger.info(f"Learning Rate: {self.learning_rate}")
-        training_logger.info(f"Batch Size: {self.batch_size}")
-        training_logger.info(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
-        training_logger.info(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
+        self.training_logger.info(f"#########################################################################")
+        self.training_logger.info(f"######################## Iteration {self.iteration} #####################")
+        self.training_logger.info(f"Number of Layers: {self.number_layer}")
+        self.training_logger.info(f"Hidden Sizes: {self.number_hidden}")
+        self.training_logger.info(f"Activation Functions: {self.activation}")
+        self.training_logger.info(f"Learning Rate: {self.learning_rate}")
+        self.training_logger.info(f"Batch Size: {self.batch_size}")
+        self.training_logger.info(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
+        self.training_logger.info(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
 
         self.performance_logger.info(f"######################## Iteration {self.iteration} #####################")
         self.performance_logger.info(f"Number of Layers: {self.number_layer}")
@@ -117,13 +119,24 @@ class gaNdalFClassifier(nn.Module):
         self.cfg["APPLY_YJ_TRANSFORM_CLASSF"] = random.choice(self.cfg["YJ_TRANSFORMATION"])
         self.cfg["APPLY_SCALER_CLASSF"] = random.choice(self.cfg["MAXABS_SCALER"])
 
+        use_batchnorm = random.choice(self.cfg["USE_BATCHNORM_CLASSF"])  # True oder False
+        dropout_prob = random.choice(self.cfg["DROPOUT_PROB_CLASSF"])  # z.B. 0.0, 0.3, 0.5
+
         layers = []
         in_features = input_dim
         for _ in range(num_layers):
             out_features = random.choice(self.cfg["POSSIBLE_HIDDEN_SIZES"])
             self.number_hidden.append(out_features)
             layers.append(nn.Linear(in_features, out_features))
+
+            if use_batchnorm:
+                layers.append(nn.BatchNorm1d(out_features))
+
             layers.append(chosen_act_fn)
+
+            if dropout_prob > 0.0:
+                layers.append(nn.Dropout(dropout_prob))
+
             in_features = out_features
 
         # Output-Layer
@@ -174,8 +187,8 @@ class gaNdalFClassifier(nn.Module):
             epoch_loss = 0.0
             # Iterates over the training data in batches
             for batch_idx, data in enumerate(self.train_loader):
-                input_data = data[0].double()
-                output_data = data[1].double()
+                input_data = data[0].float()
+                output_data = data[1].float()
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
                 self.optimizer.zero_grad()  # Clear the gradients
@@ -208,8 +221,8 @@ class gaNdalFClassifier(nn.Module):
 
                 # Iterates over the validation data in batches
                 for batch_idx, data in enumerate(self.valid_loader):
-                    input_data = data[0].double()
-                    output_data = data[1].double()
+                    input_data = data[0].float()
+                    output_data = data[1].float()
                     input_data = input_data.to(self.device)
                     output_data = output_data.to(self.device)
                     outputs = self.model(input_data)
@@ -231,7 +244,7 @@ class gaNdalFClassifier(nn.Module):
 
             # Prints the training and validation loss
             print(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
-            training_logger.info(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
+            self.training_logger.info(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f} \t Validation Loss: {valid_loss:.4f}')
 
             # Saves the model if the validation loss has decreased
             if valid_loss <= self.best_loss:
@@ -271,7 +284,7 @@ class gaNdalFClassifier(nn.Module):
                 df_test_data['detected_true'] = detected_true
                 # Validate the model
                 with torch.no_grad():
-                    probability = self.model(tsr_input.double().to(self.device)).squeeze().cpu().numpy()
+                    probability = self.model(tsr_input.float().to(self.device)).squeeze().cpu().numpy()
                 probability_calibrated = self.predict_calibrated(probability)
                 detected = probability > np.random.rand(len(detected_true))
                 detected_calibrated = probability_calibrated > np.random.rand(len(detected_true))
@@ -398,7 +411,7 @@ class gaNdalFClassifier(nn.Module):
         predictions = []
         tsr_input, tsr_output = self.dataset_to_tensor(self.valid_loader.dataset)
         with torch.no_grad():
-            outputs = self.model(tsr_input.double().to(self.device))
+            outputs = self.model(tsr_input.float().to(self.device))
             predictions.extend(outputs.squeeze().cpu().numpy())
 
         # Fit calibration model
@@ -440,16 +453,16 @@ class gaNdalFClassifier(nn.Module):
         df_test_data['detected_true'] = detected_true
         # Validate the model
         with torch.no_grad():
-            probability = self.model(tsr_input.double().to(self.device)).squeeze().cpu().numpy()
+            probability = self.model(tsr_input.float().to(self.device)).squeeze().cpu().numpy()
         probability_calibrated = self.predict_calibrated(probability)
         detected = probability > np.random.rand(len(detected_true))
         detected_calibrated = probability_calibrated > np.random.rand(len(detected_true))
         validation_accuracy = accuracy_score(detected_true, detected)
         validation_accuracy_calibrated = accuracy_score(detected_true, detected_calibrated)
         print(f"Accuracy for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%")
-        training_logger.info(f'Accuracy (normal) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%')
+        self.training_logger.info(f'Accuracy (normal) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%')
         print(f"Accuracy calibrated for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%")
-        training_logger.info(f'Accuracy (calibrated) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
+        self.training_logger.info(f'Accuracy (calibrated) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
 
         df_test_data['true_detected'] = detected
         df_test_data['detected_calibrated'] = detected_calibrated
@@ -699,8 +712,8 @@ class gaNdalFClassifier(nn.Module):
         with torch.no_grad():
             for batch_data in dataloader:
                 inputs, labels = batch_data
-                inputs = inputs.double().to('cpu')
-                labels = labels.double().to('cpu')
+                inputs = inputs.float().to('cpu')
+                labels = labels.float().to('cpu')
                 data_list.append(inputs.numpy())
                 label_list.append(labels.numpy())
 
