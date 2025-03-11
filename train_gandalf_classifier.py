@@ -14,13 +14,11 @@ sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
 
-def main(cfg, batch_size, lr, iteration):
+def main(cfg, iteration):
     """"""
 
     train_detector = gaNdalFClassifier(
         cfg=cfg,
-        bs=batch_size,
-        lr=lr,
         iteration=iteration
     )
 
@@ -71,12 +69,10 @@ if __name__ == '__main__':
 
     cfg["ACTIVATIONS"] = [nn.ReLU, lambda: nn.LeakyReLU(0.2)]
 
-    for lr in cfg['LEARNING_RATE_CLASSF']:
-        for bs in cfg['BATCH_SIZE_CLASSF']:
-            for iteration in range(cfg["ITERATIONS"]):
-                main(
-                    cfg=cfg,
-                    batch_size=bs,
-                    lr=lr,
-                    iteration=iteration
-                )
+    # for learning_rate in cfg['LEARNING_RATE_CLASSF']:
+    #     for batch_size in cfg['BATCH_SIZE_CLASSF']:
+    for iteration in range(cfg["ITERATIONS"]):
+        main(
+            cfg=cfg,
+            iteration=iteration
+        )

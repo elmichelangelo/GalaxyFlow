@@ -20,17 +20,15 @@ import csv
 class gaNdalFClassifier(nn.Module):
     def __init__(self,
                  cfg,
-                 lr,
-                 bs,
                  iteration
                  ):
         super().__init__()
         self.cfg = cfg
-        self.bs = bs
+        self.batch_size = 16
         self.best_loss = float('inf')
         self.best_acc = 0.0
         self.best_epoch = 0
-        self.lr = lr
+        self.learning_rate = 1
         self.iteration = iteration
         self.activation = nn.ReLU
         self.number_hidden = []
@@ -38,10 +36,15 @@ class gaNdalFClassifier(nn.Module):
         self.device = torch.device(cfg["DEVICE_CLASSF"])
         self.lst_loss = []
 
+        self.model = self.build_random_model(
+            input_dim=len(self.cfg['INPUT_COLS_MAG_CLASSF']),
+            output_dim=1
+        )
+
         self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
 
         self.cfg['PATH_PLOTS_FOLDER'] = {}
-        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_bs_{self.bs}_iter_{self.iteration}"
+        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/iteration_{self.iteration}"
         self.cfg['PATH_WRITER'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_WRITER']}"
         self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_PLOTS']}"
         self.cfg['PATH_SAVE_NN'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_SAVE_NN']}"
@@ -51,44 +54,31 @@ class gaNdalFClassifier(nn.Module):
 
         self.make_dirs()
 
+        print(f"Number of Layers: {self.number_layer}")
+        print(f"Hidden Sizes: {self.number_hidden}")
+        print(f"Activation Functions: {self.activation}")
+        print(f"Learning Rate: {self.learning_rate}")
+        print(f"Batch Size: {self.batch_size}")
+        print(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
+        print(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
+
         logging.basicConfig(
-            filename=f"{self.cfg['PATH_OUTPUT']}/model_info_iter_{self.iteration}.log",
+            filename=f"{self.cfg['PATH_OUTPUT']}/model_info_{self.cfg['RUN_DATE']}.log",
             level=logging.INFO,
-            format='%(asctime)s %(levelname)s:%(message)s'
+            format='%(asctime)s %(levelname)s:%(message)s',
+            filemode='a'
         )
 
-        self.model = self.build_random_model(
-            input_dim=len(self.cfg['INPUT_COLS_MAG_CLASSF']),
-            output_dim=1
-        )
+        logging.info(f"#########################################################################")
+        logging.info(f"######################## Iteration {self.iteration} #####################")
+        logging.info(f"Number of Layers: {self.number_layer}")
+        logging.info(f"Hidden Sizes: {self.number_hidden}")
+        logging.info(f"Activation Functions: {self.activation}")
+        logging.info(f"Learning Rate: {self.learning_rate}")
+        logging.info(f"Batch Size: {self.batch_size}")
+        logging.info(f"Yeo-Johnson Transformation: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}")
+        logging.info(f"MaxAbs Scaler: {self.cfg['APPLY_SCALER_CLASSF']}")
 
-        print(f"Number of layers: {self.number_layer}")
-        print(f"Hidden sizes: {self.number_hidden}")
-        print(f"Activation functions: {self.activation}")
-
-        logging.info(f"Number of layers: {self.number_layer}")
-        logging.info(f"Hidden sizes: {self.number_hidden}")
-        logging.info(f"Activation functions: {self.activation}")
-
-        # self.model = nn.Sequential(
-        #     nn.Linear(in_features=len(self.cfg['INPUT_COLS_MAG_CLASSF']), out_features=64),
-        #     nn.LeakyReLU(0.2),
-        #
-        #     nn.Linear(in_features=64, out_features=1),
-        #     nn.Sigmoid()
-        #
-        #     # nn.Linear(in_features=64, out_features=128),
-        #     # nn.LeakyReLU(0.2),
-        #     #
-        #     # nn.Linear(in_features=128, out_features=64),
-        #     # nn.LeakyReLU(0.2),
-        #     #
-        #     # nn.Linear(in_features=64, out_features=32),
-        #     # nn.LeakyReLU(0.2),
-        #     #
-        #     # nn.Linear(in_features=32, out_features=1),
-        #     # nn.Sigmoid()
-        # )
         self.model.to(self.device)
 
         # Loss function to calculate the error of the neural net (binary cross entropy)
@@ -97,7 +87,7 @@ class gaNdalFClassifier(nn.Module):
         self.loss = 0
 
         # Optimizer to calculate the weight changes
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         self.best_validation_loss = float('inf')
         self.best_validation_acc = 0.0
@@ -110,6 +100,10 @@ class gaNdalFClassifier(nn.Module):
         self.number_layer = num_layers
         chosen_act_fn = random.choice(self.cfg["ACTIVATIONS"])()
         self.activation = chosen_act_fn.__class__.__name__
+        self.learning_rate = random.choice(self.cfg["LEARNING_RATE_CLASSF"])
+        self.batch_size = random.choice(self.cfg["BATCH_SIZE_CLASSF"])
+        self.cfg["APPLY_YJ_TRANSFORM_CLASSF"] = random.choice(self.cfg["YJ_TRANSFORMATION"])
+        self.cfg["APPLY_SCALER_CLASSF"] = random.choice(self.cfg["MAXABS_SCALER"])
 
         layers = []
         in_features = input_dim
@@ -147,9 +141,9 @@ class gaNdalFClassifier(nn.Module):
             kind="classifier_training"
         )
 
-        train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=True, num_workers=0)
-        valid_loader = DataLoader(galaxies.valid_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
-        test_loader = DataLoader(galaxies.test_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
+        train_loader = DataLoader(galaxies.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
+        valid_loader = DataLoader(galaxies.valid_dataset, batch_size=self.batch_size, shuffle=False, num_workers=0)
+        test_loader = DataLoader(galaxies.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=0)
         return train_loader, valid_loader, test_loader, galaxies
 
     def train(self, mode=True):
@@ -181,8 +175,8 @@ class gaNdalFClassifier(nn.Module):
                 pbar_train.update(output_data.size(0))
                 pbar_train.set_description(f"Training,\t"
                                            f"Epoch: {epoch + 1},\t"
-                                           f"learning rate: {self.lr},\t"
-                                           f"batch size: {self.bs},\t"
+                                           f"learning rate: {self.learning_rate},\t"
+                                           f"batch size: {self.batch_size},\t"
                                            f"number of layer: {self.number_layer},\t"
                                            f"hidden size: {self.number_hidden},\t"
                                            f"activation: {self.activation},\t"
@@ -212,8 +206,8 @@ class gaNdalFClassifier(nn.Module):
                     pbar_val.update(output_data.size(0))
                     pbar_val.set_description(f"Validation,\t"
                                              f"Epoch: {epoch + 1},\t"
-                                             f"learning rate: {self.lr},\t"
-                                             f"batch size: {self.bs},\t"
+                                             f"learning rate: {self.learning_rate},\t"
+                                             f"batch size: {self.batch_size},\t"
                                              f"number of layer: {self.number_layer},\t"
                                              f"hidden size: {self.number_hidden},\t"
                                              f"activation: {self.activation},\t"
@@ -230,7 +224,6 @@ class gaNdalFClassifier(nn.Module):
             # Saves the model if the validation loss has decreased
             if valid_loss <= self.best_loss:
                 print(f'Validation loss decreased ({self.best_loss:.6f} --> {valid_loss:.6f})')
-                logging.info(f'Validation loss decreased ({self.best_loss:.6f} --> {valid_loss:.6f})')
                 self.best_loss = valid_loss
 
             if self.cfg['PLOT_MULTIVARIATE_CLF_TRAINING'] is True:
@@ -272,12 +265,12 @@ class gaNdalFClassifier(nn.Module):
                 detected_calibrated = probability_calibrated > np.random.rand(len(detected_true))
                 # validation_accuracy = accuracy_score(detected_true, detected)
                 # validation_accuracy_calibrated = accuracy_score(detected_true, detected_calibrated)
-                # print(f"Accuracy for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%")
-                # logging.info(f'Accuracy (normal) for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%')
+                # print(f"Accuracy for learning_rate={self.learning_rate}, batch_size={self.batch_size}: {validation_accuracy * 100.0:.2f}%")
+                # logging.info(f'Accuracy (normal) for learning_rate={self.learning_rate}, batch_size={self.batch_size}: {validation_accuracy * 100.0:.2f}%')
                 # print(
-                #     f"Accuracy calibrated for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%")
+                #     f"Accuracy calibrated for learning_rate={self.learning_rate}, batch_size={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%")
                 # logging.info(
-                #     f'Accuracy (calibrated) for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%')
+                #     f'Accuracy (calibrated) for learning_rate={self.learning_rate}, batch_size={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
 
                 df_test_data['true_detected'] = detected
                 df_test_data['detected_calibrated'] = detected_calibrated
@@ -381,12 +374,12 @@ class gaNdalFClassifier(nn.Module):
         # save config model
         joblib.dump(
             self.calibration_model,
-            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pkl"
+            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.learning_rate}_bs_{self.batch_size}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pkl"
         )
         # save  model
         torch.save(
             self.model,
-            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.lr}_bs_{self.bs}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pt")
+            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.learning_rate}_bs_{self.batch_size}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pt")
 
     def calibrate(self):
         self.model.eval()  # Set model to evaluation mode
@@ -441,10 +434,10 @@ class gaNdalFClassifier(nn.Module):
         detected_calibrated = probability_calibrated > np.random.rand(len(detected_true))
         validation_accuracy = accuracy_score(detected_true, detected)
         validation_accuracy_calibrated = accuracy_score(detected_true, detected_calibrated)
-        print(f"Accuracy for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%")
-        logging.info(f'Accuracy (normal) for lr={self.lr}, bs={self.bs}: {validation_accuracy * 100.0:.2f}%')
-        print(f"Accuracy calibrated for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%")
-        logging.info(f'Accuracy (calibrated) for lr={self.lr}, bs={self.bs}: {validation_accuracy_calibrated * 100.0:.2f}%')
+        print(f"Accuracy for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%")
+        logging.info(f'Accuracy (normal) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy * 100.0:.2f}%')
+        print(f"Accuracy calibrated for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%")
+        logging.info(f'Accuracy (calibrated) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
 
         df_test_data['true_detected'] = detected
         df_test_data['detected_calibrated'] = detected_calibrated
@@ -452,8 +445,8 @@ class gaNdalFClassifier(nn.Module):
         df_test_data['probability_calibrated'] = probability_calibrated
 
         # Beispielhaftes Auslesen deiner Parameter (ggf. anpassen je nach Implementierung)
-        lr = self.lr
-        bs = self.bs
+        lr = self.learning_rate
+        bs = self.batch_size
         number_layers = self.number_layer
         hidden_sizes = self.number_hidden  # Das ist eine Liste
         activation_fns = self.activation  # Ebenfalls Liste aus z.B. ["ReLU", "LeakyReLU", ...]
@@ -538,11 +531,11 @@ class gaNdalFClassifier(nn.Module):
                 df_gandalf_not_detected=df_test_data[df_test_data['detected_calibrated'] == 0],
                 train_plot=True,
                 columns={
-                    "BDF_MAG_DERED_CALIB_R": {
-                        "label": "BDF Mag R",
-                        "range": [17.5, 26.5],
-                        "position": [0, 0]
-                    },
+                    # "BDF_MAG_DERED_CALIB_R": {
+                    #     "label": "BDF Mag R",
+                    #     "range": [17.5, 26.5],
+                    #     "position": [0, 0]
+                    # },
                     # "BDF_MAG_DERED_CALIB_Z": {
                     #     "label": "BDF Mag Z",
                     #     "range": [17.5, 26.5],
@@ -611,10 +604,10 @@ class gaNdalFClassifier(nn.Module):
                 },
                 show_plot=self.cfg["SHOW_PLOT_CLASSF"],
                 save_plot=self.cfg["SAVE_PLOT_CLASSF"],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'MULTIVARIATE_CLF']}/{epoch}_classifier_multiv.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT']}/{self.iteration}_classifier_multiv.pdf",
                 sample_size=100000,  # None,
                 x_range=(17.5, 26.5),
-                title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison"
+                title=f"nl: {self.number_layer}; nh: {self.number_hidden}; af: {self.activation}; lr: {self.learning_rate}; bs: {self.batch_size}; YJ: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}; scaler: {self.cfg['APPLY_SCALER_CLASSF']}"
             )
         if self.cfg['PLOT_MISS_CLASSF'] is True:
             for idx_cols, cols in enumerate(lst_cols):
@@ -624,7 +617,7 @@ class gaNdalFClassifier(nn.Module):
                     show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                     save_plot=self.cfg['SAVE_PLOT_CLASSF'],
                     save_name=lst_save_names[idx_cols],
-                    title=f"Classification Results, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                    title=f"Classification Results, lr={self.learning_rate}, bs={self.batch_size}, epoch={epoch}"
                 )
 
         if self.cfg['PLOT_MATRIX'] is True:
@@ -633,7 +626,7 @@ class gaNdalFClassifier(nn.Module):
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch_{epoch}.png",
-                title=f"Confusion Matrix, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                title=f"Confusion Matrix, lr={self.learning_rate}, bs={self.batch_size}, epoch={epoch}"
             )
 
         # ROC und AUC
@@ -643,7 +636,7 @@ class gaNdalFClassifier(nn.Module):
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
-                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.learning_rate}, bs={self.batch_size}, epoch={epoch}"
             )
 
         # Precision-Recall-Kurve
@@ -653,7 +646,7 @@ class gaNdalFClassifier(nn.Module):
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{epoch}.png",
-                title=f"recision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                title=f"recision-Recall Curve, lr={self.learning_rate}, bs={self.batch_size}, epoch={epoch}"
             )
 
         # Histogramm der vorhergesagten Wahrscheinlichkeiten
@@ -663,7 +656,7 @@ class gaNdalFClassifier(nn.Module):
                 show_plot=self.cfg['SHOW_PLOT_CLASSF'],
                 save_plot=self.cfg['SAVE_PLOT_CLASSF'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PROB_HIST']}/probability_histogram{epoch}.png",
-                title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                title=f"probability histogram, lr={self.learning_rate}, bs={self.batch_size}, epoch={epoch}"
             )
 
         if self.cfg['PLOT_LOSS_CLASSF'] is True:

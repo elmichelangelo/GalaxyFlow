@@ -274,11 +274,11 @@ class FlowSequential(nn.Sequential):
     #         validation_context=None,
     #         validation_split=0.0,
     #         epoch=20,
-    #         bs=100,
+    #         batch_size=100,
     #         patience=np.inf,
     #         monitor='val_loss',
     #         shuffle=True,
-    #         lr=1e-3,
+    #         learning_rate=1e-3,
     #         device='cpu',
     #         verbose=2):
     #     """
@@ -286,7 +286,7 @@ class FlowSequential(nn.Sequential):
     #
     #     """
     #
-    #     optimizer = torch.optim.Adam(self.parameters(), lr)
+    #     optimizer = torch.optim.Adam(self.parameters(), learning_rate)
     #
     #     if not isinstance(data, torch.Tensor):
     #         data = torch.tensor(data, dtype=torch.float32)
@@ -307,11 +307,11 @@ class FlowSequential(nn.Sequential):
     #     if validation_data is not None:
     #
     #         if use_context:
-    #             train_dl = DataLoader(TensorDataset(data, context), bs, shuffle)
-    #             val_dl = DataLoader(TensorDataset(validation_data, validation_context), bs, shuffle)
+    #             train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
+    #             val_dl = DataLoader(TensorDataset(validation_data, validation_context), batch_size, shuffle)
     #         else:
-    #             train_dl = DataLoader(TensorDataset(data), bs, shuffle)
-    #             val_dl = DataLoader(TensorDataset(validation_data), bs, shuffle)
+    #             train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
+    #             val_dl = DataLoader(TensorDataset(validation_data), batch_size, shuffle)
     #
     #         validation = True
     #     else:
@@ -321,18 +321,18 @@ class FlowSequential(nn.Sequential):
     #             if use_context:
     #                 data, validation_data = data[:split], data[split:]
     #                 context, validation_context = context[:split], context[split:]
-    #                 train_dl = DataLoader(TensorDataset(data, context), bs, shuffle)
-    #                 val_dl = DataLoader(TensorDataset(validation_data, validation_context), bs, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
+    #                 val_dl = DataLoader(TensorDataset(validation_data, validation_context), batch_size, shuffle)
     #             else:
     #                 data, validation_data = data[:split], data[split:]
-    #                 train_dl = DataLoader(TensorDataset(data), bs, shuffle)
-    #                 val_dl = DataLoader(TensorDataset(validation_data), bs, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
+    #                 val_dl = DataLoader(TensorDataset(validation_data), batch_size, shuffle)
     #         else:
     #             validation = False
     #             if use_context:
-    #                 train_dl = DataLoader(TensorDataset(data, context), bs, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data, context), batch_size, shuffle)
     #             else:
-    #                 train_dl = DataLoader(TensorDataset(data), bs, shuffle)
+    #                 train_dl = DataLoader(TensorDataset(data), batch_size, shuffle)
     #
     #     history = {}  # Collects per-epoch loss
     #     history['loss'] = []

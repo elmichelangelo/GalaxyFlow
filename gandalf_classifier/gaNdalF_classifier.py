@@ -40,7 +40,7 @@ class gaNdalFClassifier(object):
 
         self.make_dirs()
 
-        xgb_clf = None # XGBClassifier(eval_metric=["error", "logloss"], learning_rate=lr)
+        xgb_clf = None # XGBClassifier(eval_metric=["error", "logloss"], learning_rate=learning_rate)
         pipe = Pipeline([("clf", xgb_clf)])
 
         self.model = CalibratedClassifierCV(pipe, cv=2, method="isotonic")
