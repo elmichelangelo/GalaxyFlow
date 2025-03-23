@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=lupt_subset_train_gandalf_classifier_run
+#SBATCH --job-name=flux_subset_train_gandalf_classifier_run
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
@@ -14,4 +14,4 @@
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-srun -n1 python train_gandalf_classifier.py -cf LMU.cfg -fpn LUPT
+srun -n1 python train_gandalf_classifier.py -cf LMU.cfg -fpn FLUX
