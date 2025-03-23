@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=flux_subset_train_gandalf_classifier_run
+#SBATCH --job-name=lupt_subset_train_gandalf_classifier_run
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
