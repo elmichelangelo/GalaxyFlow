@@ -49,7 +49,7 @@ if __name__ == '__main__':
         print("load default config-file")
         config_file_name = "default.cfg"
 
-    folder_prefix_name = ""
+    folder_prefix_name = "MAG"
 
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
@@ -84,6 +84,7 @@ if __name__ == '__main__':
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/classifier_training_{cfg['RUN_DATE']}_{args.folder_prefix_name}"
+    cfg["LUM_TYPE_CLASSF"] = args.folder_prefix_name
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
 
