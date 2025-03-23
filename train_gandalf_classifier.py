@@ -49,6 +49,8 @@ if __name__ == '__main__':
         print("load default config-file")
         config_file_name = "default.cfg"
 
+    folder_prefix_name = ""
+
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
         '--config_filename',
@@ -59,17 +61,29 @@ if __name__ == '__main__':
         default=config_file_name,
         help='Name of config file. If not given default.cfg will be used'
     )
+    parser.add_argument(
+        '--folder_prefix_name',
+        "-fpn",
+        type=str,
+        nargs=1,
+        required=False,
+        default=folder_prefix_name,
+        help='Some prefix for saving folder'
+    )
     args = parser.parse_args()
 
     if isinstance(args.config_filename, list):
         args.config_filename = args.config_filename[0]
+
+    if isinstance(args.folder_prefix_name, list):
+        args.folder_prefix_name = args.folder_prefix_name[0]
 
     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
         cfg = yaml.safe_load(fp)
 
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/classifier_training_{cfg['RUN_DATE']}"
+    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/classifier_training_{cfg['RUN_DATE']}_{args.folder_prefix_name}"
     if not os.path.exists(cfg['PATH_OUTPUT']):
         os.mkdir(cfg['PATH_OUTPUT'])
 
