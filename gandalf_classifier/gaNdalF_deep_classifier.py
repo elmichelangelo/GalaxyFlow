@@ -476,39 +476,66 @@ class gaNdalFClassifier(nn.Module):
         df_test_data['probability_calibrated'] = probability_calibrated
 
         csv_path = os.path.join(self.cfg['PATH_OUTPUT'], "training_results.csv")
+        pkl_path = os.path.join(self.cfg['PATH_OUTPUT'], "training_results.pkl")
 
-        write_header = not os.path.exists(csv_path)
+        # Prepare data as dictionary
+        data = {
+            "learning_rate": self.learning_rate,
+            "batch_size": self.batch_size,
+            "hidden_sizes": ",".join(str(h) for h in self.number_hidden),
+            "number_of_layers": self.number_layer,
+            "activation_functions": ",".join(str(a) for a in self.activation),
+            "batch_norm_layer": self.use_batchnorm,
+            "dropout": self.dropout_prob,
+            "yj_transformation": self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
+            "maxabs_scaler": self.cfg["APPLY_SCALER_CLASSF"],
+            "accuracy": validation_accuracy,
+            "calibrated_accuracy": validation_accuracy_calibrated
+        }
 
-        with open(csv_path, "a", newline='') as f:
-            writer = csv.writer(f, delimiter=";")  # Oder Komma, je nach Bedarf
-            if write_header:
-                writer.writerow([
-                    "learning_rate",
-                    "batch_size",
-                    "hidden_sizes",
-                    "number_of_layers",
-                    "activation_functions",
-                    "batch_norm_layer",
-                    "dropout",
-                    "yj_transformation",
-                    "maxabs_scaler",
-                    "accuracy",
-                    "calibrated_accuracy"
-                ])
+        # Check if csv already exists
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path, delimiter=';')
+        else:
+            df = pd.DataFrame(columns=data.keys())
 
-            writer.writerow([
-                self.learning_rate,
-                self.batch_size,
-                ",".join(str(h) for h in self.number_hidden),
-                self.number_layer,
-                ",".join(str(a) for a in self.activation),
-                self.use_batchnorm,
-                self.dropout_prob,
-                self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
-                self.cfg["APPLY_SCALER_CLASSF"],
-                f"{validation_accuracy:.4f}",
-                f"{validation_accuracy_calibrated:.4f}"
-            ])
+        # Append new data
+        df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
+
+        # Save CSV and Pickle
+        df.to_csv(csv_path, index=False, sep=';')
+        df.to_pickle(pkl_path)
+
+        # with open(csv_path, "a", newline='') as f:
+        #     writer = csv.writer(f, delimiter=";")  # Oder Komma, je nach Bedarf
+        #     if write_header:
+        #         writer.writerow([
+        #             "learning_rate",
+        #             "batch_size",
+        #             "hidden_sizes",
+        #             "number_of_layers",
+        #             "activation_functions",
+        #             "batch_norm_layer",
+        #             "dropout",
+        #             "yj_transformation",
+        #             "maxabs_scaler",
+        #             "accuracy",
+        #             "calibrated_accuracy"
+        #         ])
+        #
+        #     writer.writerow([
+        #         self.learning_rate,
+        #         self.batch_size,
+        #         ",".join(str(h) for h in self.number_hidden),
+        #         self.number_layer,
+        #         ",".join(str(a) for a in self.activation),
+        #         self.use_batchnorm,
+        #         self.dropout_prob,
+        #         self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
+        #         self.cfg["APPLY_SCALER_CLASSF"],
+        #         f"{validation_accuracy:.4f}",
+        #         f"{validation_accuracy_calibrated:.4f}"
+        #     ])
 
         if self.cfg['PLOT_CLASSF'] is True:
             self.create_plots(df_test_data, self.cfg['EPOCHS_CLASSF'])
