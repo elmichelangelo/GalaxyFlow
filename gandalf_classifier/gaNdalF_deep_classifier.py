@@ -116,34 +116,63 @@ class gaNdalFClassifier(nn.Module):
         self.calibration_model = None
 
     def build_random_model(self, input_dim, output_dim):
-        num_layers = random.choice(self.cfg["POSSIBLE_NUM_LAYERS"])
-        self.number_layer = num_layers
-        chosen_act_fn = random.choice(self.cfg["ACTIVATIONS"])()
-        self.activation = chosen_act_fn.__class__.__name__
-        self.learning_rate = random.choice(self.cfg["LEARNING_RATE_CLASSF"])
-        self.batch_size = random.choice(self.cfg["BATCH_SIZE_CLASSF"])
-        self.cfg["APPLY_YJ_TRANSFORM_CLASSF"] = random.choice(self.cfg["YJ_TRANSFORMATION"])
-        self.cfg["APPLY_SCALER_CLASSF"] = random.choice(self.cfg["MAXABS_SCALER"])
+        new_catch = False
+        pkl_path = os.path.join(self.cfg['PATH_OUTPUT'], "training_results.pkl")
 
-        self.use_batchnorm = random.choice(self.cfg["USE_BATCHNORM_CLASSF"])
-        self.dropout_prob = random.choice(self.cfg["DROPOUT_PROB_CLASSF"])
+        while not new_catch:
+            self.number_hidden = []  # Reset hidden sizes each iteration
 
-        layers = []
-        in_features = input_dim
-        for _ in range(num_layers):
-            out_features = random.choice(self.cfg["POSSIBLE_HIDDEN_SIZES"])
-            self.number_hidden.append(out_features)
-            layers.append(nn.Linear(in_features, out_features))
+            num_layers = random.choice(self.cfg["POSSIBLE_NUM_LAYERS"])
+            self.number_layer = num_layers
+            chosen_act_fn = random.choice(self.cfg["ACTIVATIONS"])()
+            self.activation = chosen_act_fn.__class__.__name__
+            self.learning_rate = random.choice(self.cfg["LEARNING_RATE_CLASSF"])
+            self.batch_size = random.choice(self.cfg["BATCH_SIZE_CLASSF"])
+            self.cfg["APPLY_YJ_TRANSFORM_CLASSF"] = random.choice(self.cfg["YJ_TRANSFORMATION"])
+            self.cfg["APPLY_SCALER_CLASSF"] = random.choice(self.cfg["MAXABS_SCALER"])
 
-            if self.use_batchnorm:
-                layers.append(nn.BatchNorm1d(out_features))
+            self.use_batchnorm = random.choice(self.cfg["USE_BATCHNORM_CLASSF"])
+            self.dropout_prob = random.choice(self.cfg["DROPOUT_PROB_CLASSF"])
 
-            layers.append(chosen_act_fn)
+            layers = []
+            in_features = input_dim
+            for _ in range(num_layers):
+                out_features = random.choice(self.cfg["POSSIBLE_HIDDEN_SIZES"])
+                self.number_hidden.append(out_features)
+                layers.append(nn.Linear(in_features, out_features))
 
-            if self.dropout_prob > 0.0:
-                layers.append(nn.Dropout(self.dropout_prob))
+                if self.use_batchnorm:
+                    layers.append(nn.BatchNorm1d(out_features))
 
-            in_features = out_features
+                layers.append(chosen_act_fn)
+
+                if self.dropout_prob > 0.0:
+                    layers.append(nn.Dropout(self.dropout_prob))
+
+                in_features = out_features
+
+
+
+            data = {
+                "learning_rate": self.learning_rate,
+                "batch_size": self.batch_size,
+                "hidden_sizes": ",".join(str(h) for h in self.number_hidden),
+                "number_of_layers": self.number_layer,
+                "activation_functions": ",".join(str(a) for a in self.activation),
+                "batch_norm_layer": self.use_batchnorm,
+                "dropout": self.dropout_prob,
+                "yj_transformation": self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
+                "maxabs_scaler": self.cfg["APPLY_SCALER_CLASSF"],
+            }
+
+            # Check if csv already exists
+            if os.path.exists(pkl_path):
+                df = pd.read_pickle(pkl_path)
+                if not ((df[list(data)] == pd.Series(data)).all(axis=1)).any():
+                    new_catch = True
+            else:
+                new_catch = True
+
 
         # Output-Layer
         layers.append(nn.Linear(in_features, output_dim))
@@ -495,16 +524,22 @@ class gaNdalFClassifier(nn.Module):
 
         # Check if csv already exists
         if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path, delimiter=';')
+            df_cvs = pd.read_csv(csv_path, delimiter=';')
         else:
-            df = pd.DataFrame(columns=data.keys())
+            df_cvs = pd.DataFrame(columns=data.keys())
+
+        if os.path.exists(pkl_path):
+            df_pkl = pd.read_pickle(pkl_path)
+        else:
+            df_pkl = pd.DataFrame(columns=data.keys())
 
         # Append new data
-        df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
+        df_cvs = pd.concat([df_cvs, pd.DataFrame([data])], ignore_index=True)
+        df_pkl = pd.concat([df_pkl, pd.DataFrame([data])], ignore_index=True)
 
         # Save CSV and Pickle
-        df.to_csv(csv_path, index=False, sep=';')
-        df.to_pickle(pkl_path)
+        df_cvs.to_csv(csv_path, index=False, sep=';')
+        df_pkl.to_pickle(pkl_path)
 
         # with open(csv_path, "a", newline='') as f:
         #     writer = csv.writer(f, delimiter=";")  # Oder Komma, je nach Bedarf
