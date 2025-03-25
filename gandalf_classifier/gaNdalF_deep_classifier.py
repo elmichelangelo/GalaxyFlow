@@ -484,13 +484,15 @@ class gaNdalFClassifier(nn.Module):
                 data_frame=df_test_data,
                 columns=trans_col
             )
-        detected_true = tsr_output.numpy()
+        # detected_true = tsr_output.numpy()
+        detected_true = tsr_output.numpy().reshape(-1).astype(int)
         df_test_data['detected_true'] = detected_true
         # Validate the model
         with torch.no_grad():
             probability = self.model(tsr_input.float().to(self.device)).squeeze().cpu().numpy()
         probability_calibrated = self.predict_calibrated(probability)
         detected = probability > np.random.rand(len(detected_true))
+        detected = detected.astype(int)
         detected_calibrated = probability_calibrated > np.random.rand(len(detected_true))
         validation_accuracy = accuracy_score(detected_true, detected)
         validation_accuracy_calibrated = accuracy_score(detected_true, detected_calibrated)
@@ -499,10 +501,22 @@ class gaNdalFClassifier(nn.Module):
         print(f"Accuracy calibrated for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%")
         self.training_logger.info(f'Accuracy (calibrated) for lr={self.learning_rate}, bs={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
 
+        print("detected shape:", detected.shape)
+        print("detected_true shape:", detected_true.shape)
+        print("detected dtype:", detected.dtype)
+        print("detected_true dtype:", detected_true.dtype)
+
         df_test_data['true_detected'] = detected
         df_test_data['detected_calibrated'] = detected_calibrated
         df_test_data['probability'] = probability
         df_test_data['probability_calibrated'] = probability_calibrated
+
+        false_positives = np.sum((detected == 1) & (detected_true == 0))
+        false_negatives = np.sum((detected == 0) & (detected_true == 1))
+        false_positives_cal = np.sum((detected_calibrated == 1) & (detected_true == 0))
+        false_negatives_cal = np.sum((detected_calibrated == 0) & (detected_true == 1))
+
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
         csv_path = os.path.join(self.cfg['PATH_OUTPUT'], "training_results.csv")
         pkl_path = os.path.join(self.cfg['PATH_OUTPUT'], "training_results.pkl")
@@ -519,58 +533,25 @@ class gaNdalFClassifier(nn.Module):
             "yj_transformation": self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
             "maxabs_scaler": self.cfg["APPLY_SCALER_CLASSF"],
             "accuracy": validation_accuracy,
-            "calibrated_accuracy": validation_accuracy_calibrated
+            "calibrated_accuracy": validation_accuracy_calibrated,
+            "false_positives": false_positives,
+            "false_negatives": false_negatives,
+            "false_positives_calibrated": false_positives_cal,
+            "false_negatives_calibrated": false_negatives_cal,
+            "length": len(detected_true),
+            "trainable_params": trainable_params
         }
 
-        # Check if csv already exists
-        if os.path.exists(csv_path):
-            df_cvs = pd.read_csv(csv_path, delimiter=';')
-        else:
-            df_cvs = pd.DataFrame(columns=data.keys())
+        df_cvs = pd.DataFrame([data])
+        write_header = not os.path.exists(csv_path)
+        df_cvs.to_csv(csv_path, index=False, sep=';', mode="a", header=write_header)
 
         if os.path.exists(pkl_path):
             df_pkl = pd.read_pickle(pkl_path)
         else:
             df_pkl = pd.DataFrame(columns=data.keys())
-
-        # Append new data
-        df_cvs = pd.concat([df_cvs, pd.DataFrame([data])], ignore_index=True)
         df_pkl = pd.concat([df_pkl, pd.DataFrame([data])], ignore_index=True)
-
-        # Save CSV and Pickle
-        df_cvs.to_csv(csv_path, index=False, sep=';')
         df_pkl.to_pickle(pkl_path)
-
-        # with open(csv_path, "a", newline='') as f:
-        #     writer = csv.writer(f, delimiter=";")  # Oder Komma, je nach Bedarf
-        #     if write_header:
-        #         writer.writerow([
-        #             "learning_rate",
-        #             "batch_size",
-        #             "hidden_sizes",
-        #             "number_of_layers",
-        #             "activation_functions",
-        #             "batch_norm_layer",
-        #             "dropout",
-        #             "yj_transformation",
-        #             "maxabs_scaler",
-        #             "accuracy",
-        #             "calibrated_accuracy"
-        #         ])
-        #
-        #     writer.writerow([
-        #         self.learning_rate,
-        #         self.batch_size,
-        #         ",".join(str(h) for h in self.number_hidden),
-        #         self.number_layer,
-        #         ",".join(str(a) for a in self.activation),
-        #         self.use_batchnorm,
-        #         self.dropout_prob,
-        #         self.cfg["APPLY_YJ_TRANSFORM_CLASSF"],
-        #         self.cfg["APPLY_SCALER_CLASSF"],
-        #         f"{validation_accuracy:.4f}",
-        #         f"{validation_accuracy_calibrated:.4f}"
-        #     ])
 
         if self.cfg['PLOT_CLASSF'] is True:
             self.create_plots(df_test_data, self.cfg['EPOCHS_CLASSF'])
