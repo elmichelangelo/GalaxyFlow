@@ -323,3 +323,11 @@ def calculate_percentage_of_outliers(data_frame, column_name, lower_bound, upper
           f"({upper_outliers_percentage:.2f}%)")
 
     return lower_outliers_percentage, upper_outliers_percentage
+
+
+def compute_weights_from_magnitude(mags, bin_edges):
+    counts, _ = np.histogram(mags, bins=bin_edges)
+    weights_per_bin = 1.0 / (counts + 1e-6)
+    bin_indices = np.digitize(mags, bin_edges) - 1
+    bin_indices = np.clip(bin_indices, 0, len(weights_per_bin) - 1)
+    return weights_per_bin[bin_indices]

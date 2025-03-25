@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=flux_subset_train_gandalf_classifier_run
+#SBATCH --job-name=weight_subset_train_gandalf_classifier_run
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=128G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
-#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_flux.log
-#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_flux_err.log
+#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_weight.log
+#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_weight_err.log
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:1
 #SBATCH --cpus-per-task=8
@@ -14,4 +14,4 @@
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-srun -n1 python train_gandalf_classifier.py -cf LMU.cfg -fpn FLUX
+srun -n1 python train_gandalf_classifier.py -cf LMU.cfg -fpn MAG

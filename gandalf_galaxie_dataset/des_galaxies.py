@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 import gc
 import joblib
-from Handler.helper_functions import calculate_percentage_of_outliers
+from Handler.helper_functions import compute_weights_from_magnitude
 
 
 class GalaxyDataset(Dataset):
@@ -92,12 +92,19 @@ class GalaxyDataset(Dataset):
             self.df_train_cut_cols = df_train[cfg[f'CUT_COLS{self.postfix}']]
             self.df_valid_cut_cols = df_valid[cfg[f'CUT_COLS{self.postfix}']]
             self.df_test_cut_cols = df_test[cfg[f'CUT_COLS{self.postfix}']]
-
+        df_train_weights = None
         if self.postfix == "_CLASSF":
             arr_classf_train_output_cols = df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values
             df_train = df_train[
                 cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"] + cfg[f"OUTPUT_COLS_{self.lum_type}_FLOW"]
             ]
+
+            mag_column = "BDF_MAG_DERED_CALIB_I"
+            mag_bins = [18, 22, 23, 24, 25, 26, 28]
+            df_train_weights = pd.DataFrame(
+                {"WEIGHTS": compute_weights_from_magnitude(df_train[mag_column].values, mag_bins)},
+                index=df_train.index  # ensure it aligns properly
+            )
 
             arr_classf_valid_output_cols = df_valid[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values
             df_valid = df_valid[
@@ -219,9 +226,12 @@ class GalaxyDataset(Dataset):
             #
             # )
         else:
+            if df_train_weights is not None:
+                df_train["WEIGHTS"] = df_train_weights["WEIGHTS"]
             self.train_dataset = TensorDataset(
-                torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
-                torch.tensor(df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values)
+                torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values, dtype=torch.float32),
+                torch.tensor(df_train[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values, dtype=torch.float32),
+                torch.tensor(df_train["WEIGHTS"].values, dtype=torch.float32)
             )
             self.valid_dataset = TensorDataset(
                 torch.tensor(df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),

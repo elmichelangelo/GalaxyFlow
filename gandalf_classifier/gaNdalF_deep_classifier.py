@@ -102,7 +102,7 @@ class gaNdalFClassifier(nn.Module):
         self.model.to(self.device)
 
         # Loss function to calculate the error of the neural net (binary cross entropy)
-        self.loss_function = nn.BCELoss()
+        self.loss_function = nn.BCELoss(reduction='none')
 
         self.loss = 0
 
@@ -221,16 +221,16 @@ class gaNdalFClassifier(nn.Module):
             # pbar_train = tqdm(total=len(self.train_loader.dataset), unit="batch", ncols=200)
             epoch_loss = 0.0
             # Iterates over the training data in batches
-            for batch_idx, data in enumerate(self.train_loader):
-                input_data = data[0].float()
-                output_data = data[1].float()
+            for batch_idx, (input_data, output_data, weights_tensor) in enumerate(self.train_loader):
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
+                weights_tensor = weights_tensor.to(self.device)
                 self.optimizer.zero_grad()  # Clear the gradients
                 outputs = self.model(input_data)  # Forward pass
-                loss = self.loss_function(outputs.squeeze(), output_data.squeeze())  # Calculate loss
-                loss.backward()  # Backward pass
-                self.optimizer.step()  # Updates the weights
+                loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
+                loss = (loss * weights_tensor).mean()
+                loss.backward()
+                self.optimizer.step()
                 train_loss += loss.item() * output_data.size(0)
                 # pbar_train.update(output_data.size(0))
                 # pbar_train.set_description(f"Training,\t"
