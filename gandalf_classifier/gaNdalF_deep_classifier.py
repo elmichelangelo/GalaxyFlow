@@ -102,7 +102,10 @@ class gaNdalFClassifier(nn.Module):
         self.model.to(self.device)
 
         # Loss function to calculate the error of the neural net (binary cross entropy)
-        self.loss_function = nn.BCELoss(reduction='none')
+        if self.cfg["WEIGHTING"] is True:
+            self.loss_function = nn.BCELoss(reduction='none')
+        else:
+            self.loss_function = nn.BCELoss()
 
         self.loss = 0
 
@@ -228,7 +231,8 @@ class gaNdalFClassifier(nn.Module):
                 self.optimizer.zero_grad()  # Clear the gradients
                 outputs = self.model(input_data)  # Forward pass
                 loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
-                loss = (loss * weights_tensor).mean()
+                if self.cfg["WEIGHTING"] is True:
+                    loss = (loss * weights_tensor).mean()
                 loss.backward()
                 self.optimizer.step()
                 train_loss += loss.item() * output_data.size(0)
@@ -262,6 +266,7 @@ class gaNdalFClassifier(nn.Module):
                     output_data = output_data.to(self.device)
                     outputs = self.model(input_data)
                     loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
+                    loss = loss.mean()  # or .sum(), depending on how you want to accumulate
                     valid_loss += loss.item() * input_data.size(0)
                 #     pbar_val.update(output_data.size(0))
                 #     pbar_val.set_description(f"Validation,\t"
@@ -442,16 +447,20 @@ class gaNdalFClassifier(nn.Module):
             f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.learning_rate}_bs_{self.batch_size}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pt")
 
     def calibrate(self):
-        self.model.eval()  # Set model to evaluation mode
+        self.model.eval()
         predictions = []
         tsr_input, tsr_output = self.dataset_to_tensor(self.valid_loader.dataset)
         with torch.no_grad():
             outputs = self.model(tsr_input.float().to(self.device))
-            predictions.extend(outputs.squeeze().cpu().numpy())
+            predictions = outputs.squeeze().cpu().numpy()
 
-        # Fit calibration model
+        # Drop samples with NaN predictions
+        mask = ~np.isnan(predictions)
+        predictions = np.array(predictions)[mask].reshape(-1, 1)
+        labels = tsr_output.numpy().ravel()[mask]
+
         calibration_model = LogisticRegression()
-        calibration_model.fit(np.array(predictions).reshape(-1, 1), tsr_output.numpy().ravel())
+        calibration_model.fit(predictions, labels)
         return calibration_model
 
     def predict_calibrated(self, y_pred):
