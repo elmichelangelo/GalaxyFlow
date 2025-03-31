@@ -127,6 +127,40 @@ class GalaxyDataset(Dataset):
                 cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 ]
 
+        if self.postfix == "_CLASSF":
+            if cfg["WEIGHTING"] is True:
+                mag_column = "BDF_MAG_DERED_CALIB_I"
+                mag_bins = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                            32, 33, 34, 35, 36, 37, 38]
+                mags = df_train[mag_column].values
+                print(mags.min(), mags.max())
+                arr_train_weights, counts, weights_per_bin = compute_weights_from_magnitude(
+                    df_train[mag_column].values,
+                    mag_bins
+                )
+                bin_edges = np.array(mag_bins)
+                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                import matplotlib.pyplot as plt
+
+                plt.figure()
+                plt.bar(bin_centers, counts, width=np.diff(bin_edges), edgecolor='black', align='center')
+                plt.xlabel("Magnitude")
+                plt.ylabel("Anzahl pro Bin")
+                plt.title("Histogramm: Verteilung der Magnituden")
+                plt.show()
+
+                plt.figure()
+                plt.bar(bin_centers, weights_per_bin, width=np.diff(bin_edges), edgecolor='black', align='center')
+                plt.xlabel("Magnitude")
+                plt.ylabel("Gewicht (1 / counts)")
+                plt.title("Gewichte pro Bin")
+                plt.show()
+
+            else:
+                arr_train_weights = None
+        else:
+            arr_train_weights = None
+
         if self.postfix == "_RUN":
             if cfg[f"APPLY_YJ_TRANSFORM_CLASSF{self.postfix}"] is True:
                 if cfg[f"TRANSFORM_COLS{self.postfix}"] is None:
@@ -194,18 +228,6 @@ class GalaxyDataset(Dataset):
         #     print(df_run_yj)
         # Test #########################################################################################################
         if self.postfix == "_CLASSF":
-            if cfg["WEIGHTING"] is True:
-                mag_column = "BDF_MAG_DERED_CALIB_I"
-                mag_bins = [18, 22, 23, 24, 25, 26, 28]
-                # df_train_weights = pd.DataFrame(
-                #     {"WEIGHTS": compute_weights_from_magnitude(df_train[mag_column].values, mag_bins)},
-                #     index=df_train.index  # ensure it aligns properly
-                # )
-                # Save weights separately first
-                arr_train_weights = compute_weights_from_magnitude(df_train[mag_column].values, mag_bins)
-            else:
-                arr_train_weights = None
-
             # Only keep input columns for training
             df_train = df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
             df_valid = df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
@@ -234,7 +256,6 @@ class GalaxyDataset(Dataset):
             #
             # )
         else:
-
             self.train_dataset = TensorDataset(
                 torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values, dtype=torch.float32),
                 torch.tensor(arr_classf_train_output_cols, dtype=torch.float32),
