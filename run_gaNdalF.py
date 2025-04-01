@@ -65,7 +65,7 @@ def main(cfg):
         if cfg['CLASSF_GALAXIES']:
             df_balrog, df_gandalf = gandalf.run_classifier(data_frame=df_balrog)
         else:
-            df_gandalf = df_balrog.copy()    
+            df_gandalf = df_balrog.copy()
             
         print("Balrog after classifier")
         print("############################################")
@@ -81,17 +81,18 @@ def main(cfg):
             print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl")
             gandalf.save_data(
                 data_frame=df_balrog,
-                file_name=f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl",
+                file_name=f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl",
                 protocol=5,
                 tmp_samples=False
             )
 
             gandalf.save_data(
                 data_frame=df_gandalf,
-                file_name=f"{cfg['RUN_DATE']}_gandalf_clf_{cfg['DATASET_TYPE']}_sample.pkl",
+                file_name=f"{cfg['RUN_DATE']}_gandalf_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl",
                 protocol=5,
                 tmp_samples=False
             )
+        exit()
 
         df_balrog_detected = df_balrog[df_balrog["detected"] == 1].copy()
         df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1].copy()

@@ -16,4 +16,4 @@
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-srun -n1 python run_gaNdalF.py
+srun -n1 python run_gaNdalF.py -cf LMU.cfg

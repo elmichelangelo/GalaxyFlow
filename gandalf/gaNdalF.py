@@ -71,6 +71,7 @@ class gaNdalF(object):
             arr_classf_gandalf_output = self.gandalf_classifier(torch.tensor(data_frame[self.cfg["INPUT_COLS_MAG_RUN"]].values)).squeeze().numpy()
         arr_gandalf_prob_calib = self.predict_calibrated(arr_classf_gandalf_output)
         arr_gandalf_detected_calib = arr_gandalf_prob_calib > np.random.rand(self.cfg['NUMBER_SAMPLES'])
+        arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.cfg['NUMBER_SAMPLES'])
         validation_accuracy = accuracy_score(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_detected_calib)
 
         gandalf_detected = np.count_nonzero(arr_gandalf_detected_calib)
@@ -101,7 +102,7 @@ class gaNdalF(object):
         df_gandalf = df_balrog.copy()
 
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected_calib.astype(int)
-        df_gandalf.loc[:, "detected non calibrated"] = arr_gandalf_detected_calib.astype(int)
+        df_gandalf.loc[:, "detected non calibrated"] = arr_gandalf_detected.astype(int)
         df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
 
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
