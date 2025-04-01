@@ -227,12 +227,15 @@ class gaNdalFClassifier(nn.Module):
             for batch_idx, (input_data, output_data, weights_tensor) in enumerate(self.train_loader):
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
-                weights_tensor = weights_tensor.to(self.device)
+                if weights_tensor is not None:
+                    weights_tensor = weights_tensor.to(self.device)
                 self.optimizer.zero_grad()  # Clear the gradients
                 outputs = self.model(input_data)  # Forward pass
                 loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
                 if self.cfg["WEIGHTING"] is True:
                     loss = (loss * weights_tensor).mean()
+                else:
+                    loss = loss.mean()
                 loss.backward()
                 self.optimizer.step()
                 train_loss += loss.item() * output_data.size(0)
@@ -266,7 +269,7 @@ class gaNdalFClassifier(nn.Module):
                     output_data = output_data.to(self.device)
                     outputs = self.model(input_data)
                     loss = self.loss_function(outputs.squeeze(), output_data.squeeze())
-                    loss = loss.mean()  # or .sum(), depending on how you want to accumulate
+                    loss = loss.mean()
                     valid_loss += loss.item() * input_data.size(0)
                 #     pbar_val.update(output_data.size(0))
                 #     pbar_val.set_description(f"Validation,\t"
@@ -337,15 +340,15 @@ class gaNdalFClassifier(nn.Module):
                 # logging.info(
                 #     f'Accuracy (calibrated) for learning_rate={self.learning_rate}, batch_size={self.batch_size}: {validation_accuracy_calibrated * 100.0:.2f}%')
 
-                df_test_data['true_detected'] = detected
+                df_test_data['detected_non_calibrated'] = detected
                 df_test_data['detected_calibrated'] = detected_calibrated
                 df_test_data['probability'] = probability
                 df_test_data['probability_calibrated'] = probability_calibrated
 
                 plot_multivariate_clf(
-                    df_balrog_detected=df_test_data[df_test_data['true_detected'] == 1],
+                    df_balrog_detected=df_test_data[df_test_data['detected_non_calibrated'] == 1],
                     df_gandalf_detected=df_test_data[df_test_data['detected_calibrated'] == 1],
-                    df_balrog_not_detected=df_test_data[df_test_data['true_detected'] == 0],
+                    df_balrog_not_detected=df_test_data[df_test_data['detected_non_calibrated'] == 0],
                     df_gandalf_not_detected=df_test_data[df_test_data['detected_calibrated'] == 0],
                     train_plot=True,
                     columns={
@@ -515,7 +518,7 @@ class gaNdalFClassifier(nn.Module):
         print("detected dtype:", detected.dtype)
         print("detected_true dtype:", detected_true.dtype)
 
-        df_test_data['true_detected'] = detected
+        df_test_data['detected_non_calibrated'] = detected
         df_test_data['detected_calibrated'] = detected_calibrated
         df_test_data['probability'] = probability
         df_test_data['probability_calibrated'] = probability_calibrated
@@ -603,9 +606,9 @@ class gaNdalFClassifier(nn.Module):
         ]
         if self.cfg['PLOT_MULTIVARIATE_CLF'] is True:
             plot_multivariate_clf(
-                df_balrog_detected=df_test_data[df_test_data['true_detected'] == 1],
+                df_balrog_detected=df_test_data[df_test_data['detected_true'] == 1],
                 df_gandalf_detected=df_test_data[df_test_data['detected_calibrated'] == 1],
-                df_balrog_not_detected=df_test_data[df_test_data['true_detected'] == 0],
+                df_balrog_not_detected=df_test_data[df_test_data['detected_true'] == 0],
                 df_gandalf_not_detected=df_test_data[df_test_data['detected_calibrated'] == 0],
                 train_plot=False,
                 columns={
@@ -682,7 +685,92 @@ class gaNdalFClassifier(nn.Module):
                 },
                 show_plot=self.cfg["SHOW_PLOT_CLASSF"],
                 save_plot=self.cfg["SAVE_PLOT_CLASSF"],
-                save_name=f"{self.cfg['PATH_OUTPUT']}/{self.iteration}_classifier_multiv.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT']}/{self.iteration}_balrog_classifier_multiv.pdf",
+                sample_size=None,
+                x_range=(17.5, 26.5),
+                title=f"nl: {self.number_layer}; nh: {self.number_hidden}; af: {self.activation}; lr: {self.learning_rate}; bs: {self.batch_size}; YJ: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}; scaler: {self.cfg['APPLY_SCALER_CLASSF']}"
+            )
+            plot_multivariate_clf(
+                df_balrog_detected=df_test_data[df_test_data['detected_non_calibrated'] == 1],
+                df_gandalf_detected=df_test_data[df_test_data['detected_calibrated'] == 1],
+                df_balrog_not_detected=df_test_data[df_test_data['detected_non_calibrated'] == 0],
+                df_gandalf_not_detected=df_test_data[df_test_data['detected_calibrated'] == 0],
+                train_plot=False,
+                columns={
+                    "BDF_MAG_DERED_CALIB_R": {
+                        "label": "BDF Mag R",
+                        "range": [17.5, 26.5],
+                        "position": [0, 0]
+                    },
+                    "BDF_MAG_DERED_CALIB_Z": {
+                        "label": "BDF Mag Z",
+                        "range": [17.5, 26.5],
+                        "position": [0, 1]
+                    },
+                    "BDF_T": {
+                        "label": "BDF T",
+                        "range": [-2, 3],
+                        "position": [0, 2]
+                    },
+                    "BDF_G": {
+                        "label": "BDF G",
+                        "range": [-0.1, 0.9],
+                        "position": [1, 0]
+                    },
+                    "FWHM_WMEAN_R": {
+                        "label": "FWHM R",
+                        "range": [0.7, 1.3],
+                        "position": [1, 1]
+                    },
+                    "FWHM_WMEAN_I": {
+                        "label": "FWHM I",
+                        "range": [0.7, 1.1],
+                        "position": [1, 2]
+                    },
+                    "FWHM_WMEAN_Z": {
+                        "label": "FWHM Z",
+                        "range": [0.6, 1.16],
+                        "position": [2, 0]
+                    },
+                    "AIRMASS_WMEAN_R": {
+                        "label": "AIRMASS R",
+                        "range": [0.95, 1.45],
+                        "position": [2, 1]
+                    },
+                    "AIRMASS_WMEAN_I": {
+                        "label": "AIRMASS I",
+                        "range": [1, 1.45],
+                        "position": [2, 2]
+                    },
+                    "AIRMASS_WMEAN_Z": {
+                        "label": "AIRMASS Z",
+                        "range": [1, 1.4],
+                        "position": [2, 3]
+                    },
+                    "MAGLIM_R": {
+                        "label": "MAGLIM R",
+                        "range": [23, 24.8],
+                        "position": [3, 0]
+                    },
+                    "MAGLIM_I": {
+                        "label": "MAGLIM I",
+                        "range": [22.4, 24.0],
+                        "position": [3, 1]
+                    },
+                    "MAGLIM_Z": {
+                        "label": "MAGLIM Z",
+                        "range": [21.8, 23.2],
+                        "position": [3, 2]
+                    },
+                    "EBV_SFD98": {
+                        "label": "EBV SFD98",
+                        "range": [-0.01, 0.10],
+                        "position": [3, 3]
+                    }
+                },
+                show_plot=self.cfg["SHOW_PLOT_CLASSF"],
+                save_plot=self.cfg["SAVE_PLOT_CLASSF"],
+                save_name=f"{self.cfg['PATH_OUTPUT']}/{self.iteration}_classifier_calibrated_non_calibrated_multiv.pdf",
                 sample_size=None,
                 x_range=(17.5, 26.5),
                 title=f"nl: {self.number_layer}; nh: {self.number_hidden}; af: {self.activation}; lr: {self.learning_rate}; bs: {self.batch_size}; YJ: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}; scaler: {self.cfg['APPLY_SCALER_CLASSF']}"

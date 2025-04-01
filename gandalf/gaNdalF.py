@@ -101,6 +101,7 @@ class gaNdalF(object):
         df_gandalf = df_balrog.copy()
 
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected_calib.astype(int)
+        df_gandalf.loc[:, "detected non calibrated"] = arr_gandalf_detected_calib.astype(int)
         df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
 
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")

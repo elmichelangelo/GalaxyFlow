@@ -333,3 +333,7 @@ def compute_weights_from_magnitude(mags, bin_edges):
     data_weights = weights_per_bin[bin_indices]
 
     return data_weights, counts, weights_per_bin
+
+
+def correct_over_prediction():
+    pass

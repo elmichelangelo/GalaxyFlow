@@ -132,8 +132,6 @@ class GalaxyDataset(Dataset):
                 mag_column = "BDF_MAG_DERED_CALIB_I"
                 mag_bins = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
                             32, 33, 34, 35, 36, 37, 38]
-                mags = df_train[mag_column].values
-                print(mags.min(), mags.max())
                 arr_train_weights, counts, weights_per_bin = compute_weights_from_magnitude(
                     df_train[mag_column].values,
                     mag_bins
@@ -256,11 +254,19 @@ class GalaxyDataset(Dataset):
             #
             # )
         else:
-            self.train_dataset = TensorDataset(
-                torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values, dtype=torch.float32),
-                torch.tensor(arr_classf_train_output_cols, dtype=torch.float32),
-                torch.tensor(arr_train_weights, dtype=torch.float32)
-            )
+            if arr_train_weights is not None:
+                self.train_dataset = TensorDataset(
+                    torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values, dtype=torch.float32),
+                    torch.tensor(arr_classf_train_output_cols, dtype=torch.float32),
+                    torch.tensor(arr_train_weights, dtype=torch.float32)
+                )
+            else:
+                self.train_dataset = TensorDataset(
+                    torch.tensor(df_train[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values,
+                                 dtype=torch.float32),
+                    torch.tensor(arr_classf_train_output_cols, dtype=torch.float32),
+                    torch.tensor(np.zeros(len(arr_classf_train_output_cols)), dtype=torch.float32),
+                )
             self.valid_dataset = TensorDataset(
                 torch.tensor(df_valid[cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]].values),
                 torch.tensor(df_valid[cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]].values)
