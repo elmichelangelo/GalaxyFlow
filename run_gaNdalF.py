@@ -63,6 +63,7 @@ def main(cfg):
         print("############################################")
         
         if cfg['CLASSF_GALAXIES']:
+            print("running classifier")
             df_balrog, df_gandalf = gandalf.run_classifier(data_frame=df_balrog)
         else:
             df_gandalf = df_balrog.copy()
@@ -76,6 +77,8 @@ def main(cfg):
         print("############################################")
         print(df_gandalf.isna().sum())
         print("############################################")
+
+        print(cfg["SAVE_CLF_DATA"])
 
         if cfg["SAVE_CLF_DATA"] is True:
             print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl")
@@ -407,15 +410,11 @@ if __name__ == '__main__':
     else:
         now = datetime.now()
         cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+        print("RUN_DATE", cfg['RUN_DATE'])
         if args.spatial is not None:
             cfg['SPATIAL_NUMBER'] = args.spatial - 1
         else:
             cfg['SPATIAL_NUMBER'] = 0
-
-        # for i in range(1, 101):
-        #     with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
-        #         cfg = yaml.safe_load(fp)
-        #
-        #     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-        #     cfg['RUN_NUMBER'] = i
+        print("SPATIAL_NUMBER",cfg['SPATIAL_NUMBER'])
+        print("start main function")
         main(cfg)

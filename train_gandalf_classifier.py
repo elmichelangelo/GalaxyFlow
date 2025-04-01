@@ -12,6 +12,9 @@ from torch.utils.data import DataLoader
 from gandalf_galaxie_dataset import DESGalaxies
 import random
 import logging
+from ray import tune
+from ray.tune.schedulers import ASHAScheduler
+from ray.tune import CLIReporter
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 sys.path.append(os.path.dirname(__file__))
@@ -32,6 +35,30 @@ def main(cfg, galaxies, iteration, performance_logger):
 
     if cfg['SAVE_NN_CLASSF'] is True:
         train_detector.save_model()
+
+
+def train_tune_classifier(config, cfg, galaxies, performance_logger):
+    now = datetime.now()
+    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M-%S')
+    cfg['PATH_OUTPUT'] = os.path.join(cfg['PATH_OUTPUT'], f"raytune_run_{cfg['RUN_DATE']}")
+
+    # Apply hyperparameters from Ray Tune
+    cfg["ACTIVATIONS"] = [lambda: getattr(nn, config["activation"])()]
+    cfg["POSSIBLE_NUM_LAYERS"] = [config["num_layers"]]
+    cfg["POSSIBLE_HIDDEN_SIZES"] = config["hidden_sizes"]
+    cfg["LEARNING_RATE_CLASSF"] = [config["lr"]]
+    cfg["BATCH_SIZE_CLASSF"] = [config["batch_size"]]
+    cfg["YJ_TRANSFORMATION"] = [config["yj_transform"]]
+    cfg["MAXABS_SCALER"] = [config["maxabs_scaler"]]
+    cfg["USE_BATCHNORM_CLASSF"] = [config["batch_norm"]]
+    cfg["DROPOUT_PROB_CLASSF"] = [config["dropout"]]
+
+    model = gaNdalFClassifier(cfg=cfg, galaxies=galaxies, iteration=0, performance_logger=performance_logger)
+    model.run_training()
+
+    # Use any score you want to optimize here
+    acc = model.performance_logger.handlers[0].stream.getvalue().splitlines()[-1]
+    tune.report(calibrated_accuracy=model.best_validation_acc)
 
 
 if __name__ == '__main__':
@@ -119,13 +146,45 @@ if __name__ == '__main__':
     else:
         cfg["DEVICE_CLASSF"] = "cuda"
     start = datetime.now()
-    for iteration in range(cfg["ITERATIONS"]):
-        main(
-            cfg=cfg,
-            galaxies=galaxies,
-            iteration=iteration,
-            performance_logger=performance_logger
-        )
+    search_space = {
+        "lr": tune.loguniform(1e-4, 1e-1),
+        "batch_size": tune.choice([16, 32, 64]),
+        "activation": tune.choice(["ReLU", "LeakyReLU"]),
+        "num_layers": tune.choice([1, 2, 3]),
+        "hidden_sizes": tune.choice([[32, 64], [64, 128], [128, 256]]),
+        "yj_transform": tune.choice([True, False]),
+        "maxabs_scaler": tune.choice([True, False]),
+        "batch_norm": tune.choice([True, False]),
+        "dropout": tune.uniform(0.0, 0.5),
+    }
+
+    scheduler = ASHAScheduler(
+        max_t=cfg["EPOCHS_CLASSF"],
+        grace_period=1,
+        reduction_factor=2
+    )
+
+    reporter = CLIReporter(
+        metric_columns=["calibrated_accuracy", "training_iteration"]
+    )
+
+    tune.run(
+        tune.with_parameters(train_tune_classifier, cfg=cfg, galaxies=galaxies, performance_logger=performance_logger),
+        # resources_per_trial={"cpu": 2, "gpu": 1},
+        resources_per_trial={"cpu": 1},  # , "gpu": 1},
+        config=search_space,
+        num_samples=20,  # increase if you're running on cluster
+        scheduler=scheduler,
+        progress_reporter=reporter,
+        name="tune_gandalf_classifier"
+    )
+    # for iteration in range(cfg["ITERATIONS"]):
+    #     main(
+    #         cfg=cfg,
+    #         galaxies=galaxies,
+    #         iteration=iteration,
+    #         performance_logger=performance_logger
+    #     )
     elapsed_gpu = (datetime.now() - start).total_seconds()
     performance_logger.info(f"GPU-Test beendet: {elapsed_gpu} Seconds")
 
