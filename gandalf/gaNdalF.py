@@ -12,7 +12,7 @@ import joblib
 import pickle
 import torch
 import os
-plt.style.use('seaborn-white')
+# plt.style.use('seaborn-white')
 
 
 class gaNdalF(object):

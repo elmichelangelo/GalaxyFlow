@@ -78,7 +78,7 @@ def main(cfg):
         print("############################################")
 
         if cfg["SAVE_CLF_DATA"] is True:
-            print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample.pkl")
+            print(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl")
             gandalf.save_data(
                 data_frame=df_balrog,
                 file_name=f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl",
