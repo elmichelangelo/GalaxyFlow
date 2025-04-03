@@ -95,7 +95,6 @@ def main(cfg):
                 protocol=5,
                 tmp_samples=False
             )
-        exit()
 
         df_balrog_detected = df_balrog[df_balrog["detected"] == 1].copy()
         df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1].copy()

@@ -70,15 +70,12 @@ class gaNdalF(object):
         with torch.no_grad():
             arr_classf_gandalf_output = self.gandalf_classifier(torch.tensor(data_frame[self.cfg["INPUT_COLS_MAG_RUN"]].values)).squeeze().numpy()
         arr_gandalf_prob_calib = self.predict_calibrated(arr_classf_gandalf_output)
-        arr_gandalf_detected_calib = arr_gandalf_prob_calib > np.random.rand(self.cfg['NUMBER_SAMPLES'])
+        precision, recall, thresholds = precision_recall_curve(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_prob_calib)
+        f1_scores = 2 * (precision * recall) / (precision + recall + 1e-8)
+        best_threshold = thresholds[np.argmax(f1_scores)]
+        arr_gandalf_detected_calib = arr_gandalf_prob_calib > best_threshold  # np.random.rand(self.cfg['NUMBER_SAMPLES'])
         arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.cfg['NUMBER_SAMPLES'])
         validation_accuracy = accuracy_score(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_detected_calib)
-
-        gandalf_detected = np.count_nonzero(arr_gandalf_detected_calib)
-        gandalf_not_detected = arr_gandalf_detected_calib.size - gandalf_detected
-
-        balrog_detected = np.count_nonzero(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values)
-        balrog_not_detected = data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values.size - balrog_detected
 
         df_balrog = data_frame[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
 
@@ -106,11 +103,6 @@ class gaNdalF(object):
         df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
 
         print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
-        # print(f"Number of NOT true_detected galaxies gandalf: {gandalf_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
-        # print(f"Number of true_detected galaxies gandalf: {gandalf_detected} of {self.cfg['NUMBER_SAMPLES']}")
-        # print(f"Number of NOT true_detected galaxies balrog: {balrog_not_detected} of {self.cfg['NUMBER_SAMPLES']}")
-        # print(f"Number of true_detected galaxies balrog: {balrog_detected} of {self.cfg['NUMBER_SAMPLES']}")
-
         return df_balrog, df_gandalf
 
     def run_emulator(self, df_balrog, df_gandalf):

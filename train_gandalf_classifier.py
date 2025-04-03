@@ -159,6 +159,8 @@ if __name__ == '__main__':
     }
 
     scheduler = ASHAScheduler(
+        metric="calibrated_accuracy",
+        mode="max",
         max_t=cfg["EPOCHS_CLASSF"],
         grace_period=1,
         reduction_factor=2

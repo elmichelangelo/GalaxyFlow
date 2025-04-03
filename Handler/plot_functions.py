@@ -943,6 +943,30 @@ def plot_roc_curve_gandalf(df_balrog, df_gandalf, show_plot, save_plot, save_nam
     plt.close(fig_roc_curve)
 
 
+def plot_roc_curve_gandalf_non_calib(df_balrog, df_gandalf, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
+    """"""
+    fpr, tpr, thresholds = roc_curve(
+        df_balrog['detected'].to_numpy(),
+        df_gandalf['detected non calibrated'].to_numpy()
+    )
+    roc_auc = auc(fpr, tpr)
+
+    fig_roc_curve = plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(title)
+    plt.legend(loc="lower right")
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_roc_curve)
+
+
 def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precision-Recall Curve'):
     """"""
     precision, recall, thresholds = precision_recall_curve(
@@ -1524,7 +1548,8 @@ def plot_number_density_fluctuation(
         title,  # Title for the entire figure
         show_plot,  # Bool: display the figure?
         save_plot,  # Bool: save the figure to disk?
-        save_name  # Path/filename for saving the figure
+        save_name,  # Path/filename for saving the figure
+        calibrated=True
 ):
     """
     Plot the number density fluctuations for detected and not detected objects
@@ -1572,10 +1597,14 @@ def plot_number_density_fluctuation(
     # ----------------------------------------------------------------------
     # Create subsets for detected and not detected objects
     # ----------------------------------------------------------------------
+    if calibrated is True:
+        gandalf_detection_flag = "detected"
+    else:
+        gandalf_detection_flag = "detected non calibrated"
     df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
-    df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1]
+    df_gandalf_detected = df_gandalf[df_gandalf[gandalf_detection_flag] == 1]
     df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
-    df_gandalf_not_detected = df_gandalf[df_gandalf["detected"] == 0]
+    df_gandalf_not_detected = df_gandalf[df_gandalf[gandalf_detection_flag] == 0]
 
     # ----------------------------------------------------------------------
     # Define colors/markers for different subsets
