@@ -3083,3 +3083,106 @@ def plot_trans_norm_compare(data_frame, data_frame_yj, data_frame_yj_scaled, col
     plt.clf()
     plt.close()
 
+
+def plot_reliability_diagram(y_true, y_prob, n_bins=10, title="Reliability Diagram", show_hist=True, show_plot=False, save_plot=True, save_name="plot.pdf"):
+    """
+    Plots a reliability diagram (calibration curve) for binary classifier probabilities.
+
+    Parameters:
+    - y_true: array-like, shape (n_samples,) – True binary labels (0 or 1)
+    - y_prob: array-like, shape (n_samples,) – Predicted probabilities (between 0 and 1)
+    - n_bins: Number of bins to divide the probability range into (default: 10)
+    - title: Title of the plot (default: "Reliability Diagram")
+    - show_hist: Whether to show a histogram of predicted probabilities (default: True)
+    """
+    prob_true, prob_pred = calibration_curve(y_true, y_prob, n_bins=n_bins, strategy='uniform')
+
+    plt.figure(figsize=(6, 6))
+    plt.plot(prob_pred, prob_true, marker='o', label='Model')
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfect calibration')
+    plt.xlabel("Predicted probability")
+    plt.ylabel("Fraction of positives")
+    plt.title(title)
+    plt.legend(loc="best")
+    plt.grid(True)
+
+    if show_hist:
+        plt.twinx()
+        plt.hist(y_prob, range=(0, 1), bins=n_bins, alpha=0.3, edgecolor='black')
+        plt.ylabel("Number of predictions")
+
+    plt.tight_layout()
+
+    if show_plot:
+        plt.show()
+    if save_plot and save_name:
+        plt.savefig(save_name, bbox_inches='tight', dpi=300)
+    plt.clf()
+    plt.close()
+
+import matplotlib.pyplot as plt
+from sklearn.calibration import calibration_curve
+
+def plot_combined_reliability_diagram(
+        y_true,
+        y_prob_uncal,
+        y_prob_cal,
+        n_bins=15,
+        title="Reliability Diagram: Calibrated vs. Uncalibrated",
+        show_hist=True,
+        score_uncal="",
+        score_cal="",
+        ece_uncal="",
+        ece_cal="",
+        show_plot=False,
+        save_plot=True,
+        save_name="plot.pdf"
+):
+    """
+    Plots a combined reliability diagram for both calibrated and uncalibrated models.
+
+    Parameters:
+    - y_true: True binary labels (0 or 1)
+    - y_prob_uncal: Uncalibrated model predictions
+    - y_prob_cal: Calibrated model predictions
+    - n_bins: Number of bins (default: 15)
+    - title: Plot title
+    - show_hist: Whether to show histograms (default: True)
+    """
+    # Calibration curves
+    prob_true_uncal, prob_pred_uncal = calibration_curve(y_true, y_prob_uncal, n_bins=n_bins, strategy='uniform')
+    prob_true_cal, prob_pred_cal = calibration_curve(y_true, y_prob_cal, n_bins=n_bins, strategy='uniform')
+
+    fig, ax1 = plt.subplots(figsize=(8, 6))
+
+    # Plot reliability curves
+    ax1.plot(prob_pred_uncal, prob_true_uncal, marker='o', color='C0', label=f'Uncalibrated: brier={score_uncal:.6f}, ece={ece_uncal:.6f}')
+    ax1.plot(prob_pred_cal, prob_true_cal, marker='o', color='C1', label=f'Calibrated: brier={score_cal:.6f}, ece={ece_cal:.6f}')
+    ax1.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfect calibration')
+
+    ax1.set_xlabel("Predicted probability")
+    ax1.set_ylabel("Fraction of positives")
+    ax1.set_xlim(0, 1)
+    ax1.set_ylim(0, 1)
+    ax1.grid(True)
+
+    # Histogram overlay
+    if show_hist:
+        ax2 = ax1.twinx()
+        ax2.hist(y_prob_uncal, range=(0, 1), bins=n_bins, alpha=0.3, color='C0', edgecolor='black', label='Uncalibrated')
+        ax2.hist(y_prob_cal, range=(0, 1), bins=n_bins, alpha=0.3, color='C1', edgecolor='black', label='Calibrated')
+        ax2.set_ylabel("Number of predictions")
+
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels() if show_hist else ([], [])
+    ax1.legend(handles1 + handles2, labels1 + labels2, loc="lower right")
+
+    fig.suptitle(title)
+    fig.tight_layout()
+
+    if show_plot:
+        plt.show()
+    if save_plot and save_name:
+        plt.savefig(save_name, bbox_inches='tight', dpi=300)
+    plt.clf()
+    plt.close()

@@ -142,3 +142,16 @@ def binary_cut(data_frame):
     data_frame = data_frame[~binaries]
     print('len w/ binaries', len(data_frame))
     return data_frame
+
+
+def apply_deep_cuts(path_master_cat, data_frame):
+    """"""
+    data_frame = flag_cuts(data_frame=data_frame)
+    data_frame = mask_cut(
+        data_frame=data_frame,
+        master=path_master_cat
+    )
+    data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_R'] < 37]
+    data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_I'] < 37]
+    data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_Z'] < 37]
+    return data_frame
