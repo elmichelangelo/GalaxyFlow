@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=12:00:00
-#SBATCH --mem=256G
+#SBATCH --mem=512G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF/run_gaNdalF.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF/run_gaNdalF_err.log
