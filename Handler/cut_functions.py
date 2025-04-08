@@ -136,7 +136,7 @@ def binary_cut(data_frame):
     c = 22.5
     m = 3.5
     magT_cut = np.log10(data_frame['unsheared/T']) < (c - flux2mag(data_frame['unsheared/flux_r'])) / m
-    binaries = highe_cut * magT_cut
+    binaries = highe_cut & magT_cut
 
     print("perform binaries cut")
     data_frame = data_frame[~binaries]

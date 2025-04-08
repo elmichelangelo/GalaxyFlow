@@ -146,10 +146,6 @@ def main(cfg):
                 print(f"An error occurred: {e}")
                 raise  # Re-raise the exception if necessary
 
-            
-        df_balrog_cut = df_balrog_detected.copy()
-        df_gandalf_cut = df_gandalf_detected.copy()
-
         # del df_balrog_detected, df_gandalf_detected
         # gc.collect()
 
@@ -157,22 +153,29 @@ def main(cfg):
             print(f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl")
             gandalf.save_data(
                 data_frame=df_balrog_detected,
-                file_name=f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl",
+                file_name=f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample_non_calib.pkl",
                 protocol=5,
                 tmp_samples=False
             )
 
             gandalf.save_data(
                 data_frame=df_gandalf_detected,
-                file_name=f"{cfg['RUN_DATE']}_gandalf_flw_{cfg['DATASET_TYPE']}_sample.pkl",
+                file_name=f"{cfg['RUN_DATE']}_gandalf_flw_{cfg['DATASET_TYPE']}_sample_non_calib.pkl",
                 protocol=5,
                 tmp_samples=False
             )
 
-        df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
-        df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
+        sys.exit()
+
+
 
         if cfg["BOOTSTRAP"] is True:
+            df_balrog_cut = df_balrog_detected.copy()
+            df_gandalf_cut = df_gandalf_detected.copy()
+
+            df_balrog_cut = gandalf.apply_cuts(df_balrog_cut)
+            df_gandalf_cut = gandalf.apply_cuts(df_gandalf_cut)
+
             # gandalf.save_data(
             #     data_frame=df_balrog_cut,
             #     file_name=f"{cfg['RUN_DATE']}_balrog_{cfg['DATASET_TYPE']}_samples_{len(df_balrog_cut)}.h5",
@@ -203,11 +206,11 @@ def main(cfg):
                     mcal=''
                 )
 
-                gandalf.plot_data_flow(
-                    df_gandalf=df_gandalf_cut,
-                    df_balrog=df_balrog_cut,
-                    mcal='mcal_'
-                )
+                # gandalf.plot_data_flow(
+                #     df_gandalf=df_gandalf_cut,
+                #     df_balrog=df_balrog_cut,
+                #     mcal='mcal_'
+                # )
 
             del df_balrog, df_gandalf
             gc.collect()
