@@ -11,7 +11,7 @@
 #SBATCH --partition=inter
 ##SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=8
-#SBATCH --array=1-10%1   # Adjust to the number of bootstrap iterations
+#SBATCH --array=1-90%1   # Adjust to the number of bootstrap iterations
 
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
