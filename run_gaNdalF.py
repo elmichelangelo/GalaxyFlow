@@ -165,7 +165,7 @@ def main(cfg):
                 tmp_samples=False
             )
 
-        sys.exit()
+        # sys.exit()
 
 
 
