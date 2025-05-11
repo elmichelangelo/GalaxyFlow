@@ -3186,3 +3186,53 @@ def plot_combined_reliability_diagram(
         plt.savefig(save_name, bbox_inches='tight', dpi=300)
     plt.clf()
     plt.close()
+
+
+def plot_compare_mean_z_bootstrap(
+        data_frame,
+        n_bins=25,
+        title="Reliability Diagram: Calibrated vs. Uncalibrated",
+        show_plot=False,
+        save_plot=True,
+        save_name="plot.pdf"
+):
+    # Melt the DataFrame
+    df_mean = data_frame[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].melt(
+        var_name='Bins', value_name='Mean'
+    )
+    df_mean['Bins'] = df_mean['Bins'].str.replace('Mean ', '')  # "Bin 1", "Bin 2", ...
+
+    # Erstelle Subplots: 2x2 Layout
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=False, sharey=False)
+    axes = axes.flatten()
+
+    # Plot je Bin
+    for i, bin_label in enumerate(sorted(df_mean['Bins'].unique())):
+        ax = axes[i]
+        subset = df_mean[df_mean['Bins'] == bin_label]
+
+        # Histogram
+        sns.histplot(subset['Mean'], bins=n_bins, ax=ax, kde=False)
+
+        # Mean und Median
+        mean_val = subset['Mean'].mean()
+        median_val = subset['Mean'].median()
+        ax.axvline(mean_val, color='blue', linestyle='--', label=f'Mean: {mean_val:.2f}')
+        ax.axvline(median_val, color='orange', linestyle='--', label=f'Median: {median_val:.2f}')
+
+        ax.set_title(bin_label)
+        ax.legend()
+
+    fig.suptitle(title, fontsize=16)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    # Show or save plot
+    if save_plot:
+        plt.savefig(save_name, dpi=300, bbox_inches='tight')
+    if show_plot:
+        plt.show()
+
+    # Clear the figure
+    plt.clf()
+    plt.close(fig)

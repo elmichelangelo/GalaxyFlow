@@ -547,7 +547,7 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
         )
 
 
-def load_zmean_and_files(path_zmean_folder, path_data_folder, path_gandalf_mean):
+def load_zmean_and_files(cfg, path_zmean_folder, path_data_folder, path_gandalf_mean):
     """
     Load zmean.pkl and all histogram files from the specified folders.
 
@@ -588,8 +588,24 @@ def load_zmean_and_files(path_zmean_folder, path_data_folder, path_gandalf_mean)
 
     # Load gandalf mean redshift
     df_sompz_gandalf = pd.read_csv(path_gandalf_mean)
-    gandalf_means = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].mean())
-    gandalf_stds = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].std())
+    # gandalf_means = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].median())
+    # gandalf_stds = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].std())
+    # median_vals = df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].median()
+    median_vals = df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].median()
+    if cfg['PLT_MEAN_Z_COMPARE']:
+        plot_compare_mean_z_bootstrap(
+            data_frame=df_sompz_gandalf,
+            n_bins=25,
+            title="Compare Boostrap <z>",
+            show_plot=cfg['SHOW_PLOT'],
+            save_plot=cfg['SAVE_PLOT'],
+            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_compare_bootstrap_mean_z.pdf"
+        )
+        exit()
+    lower = df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].quantile(0.16)
+    upper = df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].quantile(0.84)
+    gandalf_means = list(median_vals)
+    gandalf_stds = list((upper - lower) / 2)
 
     # Balrog reference lines
     balrog_means = [0.3255, 0.5086, 0.7470, 0.9320]
@@ -599,7 +615,7 @@ def load_zmean_and_files(path_zmean_folder, path_data_folder, path_gandalf_mean)
 def plot_redshift(cfg, path_data_folder, path_zmean_folder, path_gandalf_mean):
     """"""
     zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means = load_zmean_and_files(
-        path_zmean_folder, path_data_folder, path_gandalf_mean)
+        cfg, path_zmean_folder, path_data_folder, path_gandalf_mean)
 
     if cfg["PLT_FIG_5"] is True:
         plot_tomo_bin_redshift_bootstrap(
@@ -891,6 +907,145 @@ def main(cfg, path_data, path_master_cat, path_gandalf_odet, filename_flw_balrog
             save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_YJ_TRANS_MAXABS_MAGLIM_R.pdf",
         )
 
+def fault_detection(cfg):
+    path_data = '/Volumes/elmichelangelo_external_ssd_1/Data/fault'
+    df_run3 = pd.read_hdf(f'{path_data}/2025-04-09_19-01_run3_gandalf_Test_samples_2337398.h5', key='df')
+    df_run5 = pd.read_hdf(f'{path_data}/2025-04-09_19-11_run5_gandalf_Test_samples_2334009.h5', key='df')
+    df_run15 = pd.read_hdf(f'{path_data}/2025-04-09_20-01_run15_gandalf_Test_samples_2336170.h5', key='df')
+    df_run35 = pd.read_hdf(f'{path_data}/2025-04-09_21-41_run35_gandalf_Test_samples_2337990.h5', key='df')
+    print(df_run3.isna().sum().sum())
+    print(df_run5.isna().sum().sum())
+    print(df_run15.isna().sum().sum())
+    print(df_run35.isna().sum().sum())
+    # Sample & tag
+    df_sampled_run3 = df_run3.sample(n=10000, random_state=42)
+    df_sampled_run3["source"] = "run3 z_mean_1=0.2931"
+    df_sampled_run15 = df_run15.sample(n=10000, random_state=42)
+    df_sampled_run15["source"] = "run15 z_mean_1=0.3572"
+    df_sampled_run5 = df_run5.sample(n=10000, random_state=42)
+    df_sampled_run5["source"] = "run5 z_mean_1=0.4292"
+    df_sampled_run35 = df_run35.sample(n=10000, random_state=42)
+    df_sampled_run35["source"] = "run35 z_mean_1=0.3372"
+
+    # Combine all
+    df_all = pd.concat([df_sampled_run3, df_sampled_run5, df_sampled_run15, df_sampled_run35], ignore_index=True)
+
+    # Set up plot
+    fig, axes = plt.subplots(4, 2, figsize=(14, 12))
+    axes = axes.flatten()
+
+    # Define axis combinations and titles
+    panel_defs = [
+        ("Color BDF MAG U-G", "Color BDF MAG I-Z", "Color U-G vs I-Z", [(-1, 2.5), (-0.25, 1.25)]),
+        ("MAGLIM_R", "MAGLIM_I", "MAGLIM R vs I", [(23.25, 24.5), (22.75, 24)]),
+        ("unsheared/weight", "unsheared/T", "weight vs T", [(0, 80), (0, 2)]),
+        ("unsheared/size_ratio", "unsheared/snr", "size_ratio vs snr", [(-2, 5.5), (-50, 350)]),
+        ("BDF_MAG_DERED_CALIB_R", "BDF_MAG_DERED_CALIB_I", "BDF_MAG_R vs I", [(18, 25), (18, 24.5)]),
+        ("BDF_MAG_DERED_CALIB_I", "BDF_MAG_DERED_CALIB_Z", "BDF_MAG_I vs Z", [(18, 24.5), (17.5, 24.5)]),
+        ("unsheared/mag_r", "unsheared/mag_i", "mag_r vs mag_i", [(18.5, 24.5), (18, 24)]),
+        ("unsheared/mag_i", "unsheared/mag_z", "mag_i vs mag_z", [(18, 24), (18, 24.5)]),
+    ]
+
+    for ax, (x, y, title, limits) in zip(axes, panel_defs):
+        sns.kdeplot(
+            data=df_all,
+            x=x,
+            y=y,
+            hue="source",
+            fill=False,
+            alpha=0.8,
+            levels=3,
+            linewidths=2,
+            ax=ax
+        )
+        ax.set_title(title)
+        if limits is not None:
+            x_lim = limits[0]
+            y_lim = limits[1]
+            ax.set_xlim(x_lim[0], x_lim[1])
+            ax.set_ylim(y_lim[0], y_lim[1])
+        ax.grid(True, linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    save_name = f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_compare_outlier_photometry.pdf"
+    # plt.savefig(save_name, dpi=300)
+    plt.show()
+
+    features = [
+        "Color BDF MAG U-G", "Color BDF MAG I-Z",
+        "MAGLIM_R", "MAGLIM_I",
+        "unsheared/weight", "unsheared/T",
+        "unsheared/size_ratio", "unsheared/snr",
+        "BDF_MAG_DERED_CALIB_R", "BDF_MAG_DERED_CALIB_I",
+        "BDF_MAG_DERED_CALIB_Z",
+        "unsheared/mag_r", "unsheared/mag_i", "unsheared/mag_z"
+    ]
+
+    # Plot-Grid definieren
+    fig, axes = plt.subplots(4, 4, figsize=(16, 12))
+    axes = axes.flatten()
+
+    # Alle Histogramme erzeugen
+    for i, feature in enumerate(features):
+        ax = axes[i]
+        sns.histplot(
+            data=df_all,
+            x=feature,
+            hue="source",
+            element="bars",
+            stat="count",
+            common_norm=True,
+            bins=50,
+            ax=ax
+        )
+        ax.set_title(feature)
+        ax.grid(True, linestyle='--', alpha=0.5)
+
+    # Leere Achsen ausblenden, falls weniger als 16
+    for j in range(len(features), len(axes)):
+        axes[j].set_visible(False)
+
+    plt.tight_layout()
+    plt.show()
+
+    exit()
+
+    # df_gandalf_flw = replace_nan(
+    #     data_frame=df_gandalf_flw,
+    #     cols=[
+    #         "unsheared/mag_r",
+    #         "unsheared/mag_i",
+    #         "unsheared/mag_z",
+    #         "unsheared/snr",
+    #         "unsheared/size_ratio",
+    #         "unsheared/weight",
+    #         "unsheared/T",
+    #     ],
+    #     default_values=[
+    #         df_balrog_flw["unsheared/mag_r"].max(),
+    #         df_balrog_flw["unsheared/mag_i"].max(),
+    #         df_balrog_flw["unsheared/mag_z"].max(),
+    #         df_balrog_flw["unsheared/snr"].max(),
+    #         df_balrog_flw["unsheared/size_ratio"].max(),
+    #         df_balrog_flw["unsheared/weight"].max(),
+    #         df_balrog_flw["unsheared/T"].max(),
+    #     ]
+    # )
+    #
+    # df_gandalf_flw["Color unsheared MAG r-i"] = df_gandalf_flw["unsheared/mag_r"] - df_gandalf_flw["unsheared/mag_i"]
+    # df_gandalf_flw["Color unsheared MAG i-z"] = df_gandalf_flw["unsheared/mag_i"] - df_gandalf_flw["unsheared/mag_z"]
+    #
+    # df_balrog_flw = check_idf_flux(df_balrog_flw)
+    # df_gandalf_flw = check_idf_flux(df_gandalf_flw)
+    #
+    # df_balrog_flw_cut = apply_cuts(df_balrog_flw, path_master_cat)
+    # df_gandalf_flw_cut = apply_cuts(df_gandalf_flw, path_master_cat)
+    #
+    # print(f"Length of Balrog objects: {len(df_balrog_flw)}")
+    # print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
+    # print(f"Length of Balrog objects after mag cut: {len(df_balrog_flw_cut)}")
+    # print(f"Length of gaNdalF objects after mag cut: {len(df_gandalf_flw_cut)}")
+
 if __name__ == '__main__':
     import pandas as pd
     from Handler import *
@@ -933,7 +1088,8 @@ if __name__ == '__main__':
 
     now = datetime.now()
     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-
+    if cfg["PLT_FAULT_DETECTION"] is True:
+        fault_detection(cfg)
     main(
         cfg=cfg,
         path_data=cfg["PATH_DATA"],
