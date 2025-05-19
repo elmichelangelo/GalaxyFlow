@@ -2,14 +2,14 @@ from datetime import datetime
 from Handler import *
 from gandalf import gaNdalF
 import argparse
-from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import sys
 import yaml
 import os
 import gc
-import numpy as np
 import pandas as pd
+import logging
+
 sys.path.append(os.path.dirname(__file__))
 plt.rcParams["figure.figsize"] = (16, 9)
 
@@ -26,31 +26,17 @@ def load_tmp_data(cfg, file_name):
     return data_frame
 
 
-def main(cfg):
+def main():
     """"""
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.max_rows', None)
-        
-    cfg = make_dirs(cfg)
-    total_number_of_samples = -1000
-    run_number = 1
-    nm_emu = ""
-    nm_cls = ""
+    run_gandalf_logger.log_info(f"start main function")
+    run_gandalf_logger.log_stream(f"start main function")
 
-    if cfg["EMULATE_GALAXIES"] is True:
-        nm_emu = "_Emulated"
-    if cfg["CLASSF_GALAXIES"] is True:
-        nm_cls = "Classified_"
+    gandalf = gaNdalF(gandalf_logger=run_gandalf_logger, cfg=cfg)
+    df_balrog = gandalf.galaxies.run_dataset
 
-    # if cfg['NUMBER_SAMPLES'] == -1:
-    #     cfg['NUMBER_SAMPLES'] = len(df_balrog)
-    cfg['FILENAME_GANDALF_CATALOG'] = f"{cfg['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{cfg['NUMBER_SAMPLES']}_{cfg['DATASET_TYPE']}"
+    run_gandalf_logger.log_stream(f"Len of sampled data: {len(df_balrog)}")
 
-    # bootsrap = False
     while total_number_of_samples < cfg['NUMBER_SAMPLES']:
-        # if cfg['NUMBER_SAMPLES'] == -1:
-        #     bootsrap = True
-        print(f"Run {run_number}")
         # cfg['RUN_NUMBER'] = run_number
         gandalf = gaNdalF(cfg=cfg)
 
@@ -217,11 +203,11 @@ def main(cfg):
 
             df_gandalf_samples = load_tmp_data(
                 cfg=cfg,
-                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl"
+                file_name=f"{cfg['FILENAME_GANDALF_RUN']}_gandalf_tmp.pkl"
             )
             df_balrog_samples = load_tmp_data(
                 cfg=cfg,
-                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
+                file_name=f"{cfg['FILENAME_GANDALF_RUN']}_balrog_tmp.pkl"
             )
 
             df_gandalf_samples = pd.concat([df_gandalf_samples, df_gandalf_cut], ignore_index=True)
@@ -234,13 +220,13 @@ def main(cfg):
 
             gandalf.save_data(
                 data_frame=df_gandalf_samples,
-                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl",
+                file_name=f"{cfg['FILENAME_GANDALF_RUN']}_gandalf_tmp.pkl",
                 tmp_samples=True
             )
 
             gandalf.save_data(
                 data_frame=df_balrog_samples,
-                file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl",
+                file_name=f"{cfg['FILENAME_GANDALF_RUN']}_balrog_tmp.pkl",
                 tmp_samples=True
             )
 
@@ -250,15 +236,15 @@ def main(cfg):
             # if bootsrap is True:
             #     cfg['NUMBER_SAMPLES'] = -1
     if cfg["BOOTSTRAP"] is False:
-        cfg['RUN_NUMBER'] = run_number + 1
+        cfg['BOOTSTRAP_NUMBER'] = run_number + 1
 
         df_gandalf_samples = load_tmp_data(
             cfg=cfg,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl"
+            file_name=f"{cfg['FILENAME_GANDALF_RUN']}_gandalf_tmp.pkl"
         )
         df_balrog_samples = load_tmp_data(
             cfg=cfg,
-            file_name=f"{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl"
+            file_name=f"{cfg['FILENAME_GANDALF_RUN']}_balrog_tmp.pkl"
         )
 
         print(f"Total number of samples: {total_number_of_samples}")
@@ -303,9 +289,9 @@ def main(cfg):
             mcal='mcal_'
         )
 
-        file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}.h5"
+        file_name = f"{cfg['FILENAME_GANDALF_RUN']}.h5"
         if cfg["SPATIAL_TEST"] is True:
-            file_name = f"{cfg['FILENAME_GANDALF_CATALOG']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5"
+            file_name = f"{cfg['FILENAME_GANDALF_RUN']}_Spatial_{cfg['SPATIAL_NUMBER']}.h5"
         print("Saving .h5 file...")
         gandalf.save_data(
             data_frame=df_gandalf_samples,
@@ -313,110 +299,170 @@ def main(cfg):
             tmp_samples=False
         )
         print(".h5 file saved.")
-        # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_gandalf_tmp.pkl")
-        # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_CATALOG']}_balrog_tmp.pkl")
+        # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_RUN']}_gandalf_tmp.pkl")
+        # os.remove(f"{cfg['PATH_CATALOGS']}/{cfg['FILENAME_GANDALF_RUN']}_balrog_tmp.pkl")
     return
 
 
-def make_dirs(cfg):
+def make_dirs(config):
     """"""
-    cfg['PATH_PLOTS_FOLDER'] = {}
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/gandalf_run_{cfg['RUN_DATE']}"
-    if cfg["BOOTSTRAP"] is True:
-        cfg['PATH_OUTPUT'] = cfg['PATH_BOOTSTRAP']
-    # if not os.path.exists(cfg['PATH_OUTPUT']):
-    #     os.mkdir(cfg['PATH_OUTPUT'])
-    # cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_NUMBER']}"
-    if cfg["BOOTSTRAP"] is False:
-        cfg['PATH_PLOTS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_PLOTS']}"
-    cfg['PATH_CATALOGS'] = f"{cfg['PATH_OUTPUT']}/{cfg['FOLDER_CATALOGS']}"
-    if cfg["BOOTSTRAP"] is True:
-        cfg['PATH_CATALOGS'] = cfg['PATH_OUTPUT']
-    if not os.path.exists(cfg['PATH_OUTPUT']):
-        os.mkdir(cfg['PATH_OUTPUT'])
-    if cfg["BOOTSTRAP"] is False:
-        if not os.path.exists(cfg['PATH_PLOTS']):
-            os.mkdir(cfg['PATH_PLOTS'])
-    if not os.path.exists(cfg['PATH_CATALOGS']):
-        os.mkdir(cfg['PATH_CATALOGS'])
-    if cfg["BOOTSTRAP"] is False:
-        for plot in cfg['PLOTS_RUN']:
-            cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{cfg['PATH_PLOTS']}/{plot}"
-            if not os.path.exists(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()]):
-                os.mkdir(cfg[f'PATH_PLOTS_FOLDER'][plot.upper()])
-    return cfg
+    config['PATH_PLOTS_FOLDER'] = {}
 
+    if config["BOOTSTRAP"] is False:
+        config['PATH_OUTPUT'] = f"{config['PATH_OUTPUT']}/gandalf_run_{config['RUN_DATE']}"
+        os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
 
-if __name__ == '__main__':
-    path = os.path.abspath(sys.path[-1])
-    if get_os() == "Mac":
-        print("load mac config-file")
-        config_file_name = "MAC.cfg"
-    elif get_os() == "Windows":
-        print("load windows config-file")
-        config_file_name = "windows.cfg"
-    elif get_os() == "Linux":
-        print("load linux config-file")
-        config_file_name = "LMU.cfg"
+        config['PATH_CATALOGS'] = f"{config['PATH_OUTPUT']}/catalogs"
+        os.makedirs(config['PATH_CATALOGS'], exist_ok=True)
+
+        config['PATH_PLOTS'] = f"{config['PATH_OUTPUT']}/{config['FOLDER_PLOTS']}"
+        os.makedirs(config['PATH_PLOTS'], exist_ok=True)
+
+        for plot in config['PLOTS_RUN']:
+            config[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{config['PATH_PLOTS']}/{plot}"
+            os.makedirs(config['PATH_PLOTS_FOLDER'][plot.upper()], exist_ok=True)
     else:
-        print("load default config-file")
-        config_file_name = "default.cfg"
+        if config["BOOTSTRAP_NUMBER"] == 1:
+            config['PATH_OUTPUT'] = f"{config['PATH_OUTPUT']}/gandalf_run_{config['RUN_DATE']}"
+            os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
+
+            config['PATH_BOOTSTRAP'] = os.path.join(config['PATH_OUTPUT'], f"bootstrap_{config['BOOTSTRAP_NUMBER']}")
+            os.makedirs(config['PATH_BOOTSTRAP'], exist_ok=True)
+            config['PATH_CATALOGS'] = config['PATH_OUTPUT']
+
+            save_path = os.path.join(config['PATH_BOOTSTRAP'], "saved_config.yaml")
+            with open(save_path, "w") as f:
+                yaml.dump(config, f)
+
+        if config["BOOTSTRAP_NUMBER"] > 1:
+            saved_cfg_path = os.path.join(config['PATH_OUTPUT'], "bootstrap_1", "saved_config.yaml")
+            if os.path.exists(saved_cfg_path):
+                with open(saved_cfg_path, "r") as f:
+                    first_cfg = yaml.safe_load(f)
+                    config['RUN_DATE'] = first_cfg['RUN_DATE']
+                    config['PATH_OUTPUT'] = first_cfg['PATH_OUTPUT']
+                    config['PATH_BOOTSTRAP'] = first_cfg['PATH_BOOTSTRAP']
+                    config['PATH_CATALOGS'] = first_cfg['PATH_CATALOGS']
+
+    return config
+
+def load_config_and_parser(system_path):
+    if get_os() == "Mac":
+        print("load MAC config-file")
+        config_file_name = "MAC_run_gandalf.cfg"
+    elif get_os() == "Linux":
+        print("load LMU config-file")
+        config_file_name = "LMU_run_gandalf.cfg"
+    else:
+        print("Undefined operating system")
+        sys.exit()
 
     parser = argparse.ArgumentParser(description='Start gaNdalF')
     parser.add_argument(
         '--config_filename',
         "-cf",
         type=str,
-        nargs=1,
         required=False,
         default=config_file_name,
         help='Name of config file. If not given default.cfg will be used'
     )
     parser.add_argument(
-        '--spatial',
-        type=int,
-        required=False,
-        help='Run number'
-    )
-    parser.add_argument(
         '--bootstrap',
+        "-boot",
         action='store_true',
         help='Enable bootstrapping'
     )
     parser.add_argument(
-        '--run_number',
+        '--BOOTSTRAP_NUMBER',
+        "-bootn",
         type=int,
         required=False,
-        help='Run number for bootstrapping'
+        help='Bootstrapping number'
+    )
+    parser.add_argument(
+        '--TOTAL_BOOTSTRAP',
+        "-tboot",
+        type=int,
+        required=False,
+        help='Total Number of Bootstraps'
     )
 
     args = parser.parse_args()
 
-    if isinstance(args.config_filename, list):
-        args.config_filename = args.config_filename[0]
+    path_config_file = f"{system_path}/conf/{args.config_filename}"
+    with open(path_config_file, 'r') as fp:
+        print(f"open {path_config_file}")
+        config = yaml.safe_load(fp)
 
-    with open(f"{path}/conf/{args.config_filename}", 'r') as fp:
-        cfg = yaml.safe_load(fp)
+    now = datetime.now()
+    config['BOOTSTRAP'] = True
+    config['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
 
-    if args.bootstrap:
-        cfg['BOOTSTRAP'] = True
-        cfg['RUN_NUMBER'] = args.run_number
-        now = datetime.now()
-        cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M') + f"_run{cfg['RUN_NUMBER']}"
-        print("RUN_DATE", cfg['RUN_DATE'])
-        print("start main function")
-        main(cfg)
-        print("end main function")
-        print("sys.exit()")
-        sys.exit()
+    # nm_emu = ""
+    # nm_cls = ""
+    #
+    # if config["EMULATE_GALAXIES"] is True:
+    #     nm_emu = "_Emulated"
+    # if config["CLASSF_GALAXIES"] is True:
+    #     nm_cls = "Classified_"
+
+    # config['FILENAME_GANDALF_RUN'] = f"{config['RUN_DATE']}_gandalf{nm_emu}_{nm_cls}{config['NUMBER_SAMPLES']}_{config['DATASET_TYPE']}"
+
+    if isinstance(args.BOOTSTRAP_NUMBER, int):
+        config['BOOTSTRAP_NUMBER'] = args.BOOTSTRAP_NUMBER
     else:
-        now = datetime.now()
-        cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-        print("RUN_DATE", cfg['RUN_DATE'])
-        if args.spatial is not None:
-            cfg['SPATIAL_NUMBER'] = args.spatial - 1
-        else:
-            cfg['SPATIAL_NUMBER'] = 0
-        print("SPATIAL_NUMBER",cfg['SPATIAL_NUMBER'])
-        print("start main function")
-        main(cfg)
+        config['BOOTSTRAP_NUMBER'] = 1
+
+    if isinstance(args.TOTAL_BOOTSTRAP, int):
+        config['TOTAL_BOOTSTRAP'] = args.TOTAL_BOOTSTRAP
+    else:
+        config['TOTAL_BOOTSTRAP'] = 1
+
+    return config, path_config_file
+
+
+if __name__ == '__main__':
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_rows', None)
+
+    cfg, path_cfg_file = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
+    cfg = make_dirs(config=cfg)
+
+    log_lvl = logging.INFO
+    if cfg["LOGGING_LEVEL"] == "DEBUG":
+        log_lvl = logging.DEBUG
+    elif cfg["LOGGING_LEVEL"] == "ERROR":
+        log_lvl = logging.ERROR
+
+    run_gandalf_logger = LoggerHandler(
+        logger_dict={"logger_name": "run gandalf logger",
+                     "info_logger": cfg['INFO_LOGGER'],
+                     "error_logger": cfg['ERROR_LOGGER'],
+                     "debug_logger": cfg['DEBUG_LOGGER'],
+                     "stream_logger": cfg['STREAM_LOGGER'],
+                     "stream_logging_level": log_lvl},
+        log_folder_path=f"{cfg['PATH_OUTPUT']}/"
+    )
+
+    run_gandalf_logger.log_info(f"Start gaNdalF at {cfg['RUN_DATE']}")
+    run_gandalf_logger.log_info(f"Used config file: {path_cfg_file}")
+    run_gandalf_logger.log_info(f"Bootstrapping: {cfg['BOOTSTRAP']}")
+    run_gandalf_logger.log_info(f"Bootstrap Number: {cfg['BOOTSTRAP_NUMBER']}")
+    run_gandalf_logger.log_info(f"Binary Classifier: {cfg['FILENAME_NN_CLASSF']}")
+    run_gandalf_logger.log_info(f"Normalizing Flow: {cfg['FILENAME_NN_FLOW']}")
+
+    run_gandalf_logger.log_stream(f"Start gaNdalF at {cfg['RUN_DATE']}")
+    run_gandalf_logger.log_stream(f"Used config file: {path_cfg_file}")
+    run_gandalf_logger.log_stream(f"Bootstrapping: {cfg['BOOTSTRAP']}")
+    run_gandalf_logger.log_stream(f"Bootstrap Number: {cfg['BOOTSTRAP_NUMBER']}")
+    run_gandalf_logger.log_stream(f"Binary Classifier: {cfg['FILENAME_NN_CLASSF']}")
+    run_gandalf_logger.log_stream(f"Normalizing Flow: {cfg['FILENAME_NN_FLOW']}")
+
+    main()
+
+    run_gandalf_logger.log_info(f"end main function")
+    run_gandalf_logger.log_info(f"Done run gaNdalF!")
+
+    run_gandalf_logger.log_stream(f"end main function")
+    run_gandalf_logger.log_stream(f"Done run gaNdalF!")
+    sys.exit()
