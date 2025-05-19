@@ -368,3 +368,29 @@ def compute_ece(y_true, y_prob, n_bins=10):
             ece += prop_in_bin * abs(accuracy_in_bin - avg_confidence_in_bin)
 
     return ece
+
+
+def assign_loggrid(x, y, xmin, xmax, xsteps, ymin, ymax, ysteps):
+    x = np.maximum(x, xmin)
+    x = np.minimum(x, xmax)
+    y = np.maximum(y, ymin)
+    y = np.minimum(y, ymax)
+    logstepx = np.log10(xmax / xmin) / xsteps
+    logstepy = np.log10(ymax / ymin) / ysteps
+    indexx = (np.log10(x / xmin) / logstepx).astype(int)
+    indexy = (np.log10(y / ymin) / logstepy).astype(int)
+    indexx = np.minimum(indexx, xsteps - 1)
+    indexy = np.minimum(indexy, ysteps - 1)
+    return indexx, indexy
+
+
+def apply_loggrid(x, y, grid, xmin=10, xmax=300, xsteps=20, ymin=0.5, ymax=5, ysteps=20):
+    indexx, indexy = assign_loggrid(x, y, xmin, xmax, xsteps, ymin, ymax, ysteps)
+    res = np.zeros(len(x))
+    res = grid[indexx, indexy]
+    return res
+
+
+def assign_new_weights(x, y, path_grid):
+    w = np.genfromtxt(path_grid)
+    return apply_loggrid(x=x, y=y, grid=w)
