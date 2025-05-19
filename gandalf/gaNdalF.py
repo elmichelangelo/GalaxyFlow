@@ -17,8 +17,11 @@ import os
 
 class gaNdalF(object):
     """"""
-    def __init__(self, cfg):
+    def __init__(self, gandalf_logger, cfg):
         """"""
+        self.gandalf_logger = gandalf_logger
+        self.gandalf_logger.log_info(f"Init gaNdalF")
+        self.gandalf_logger.log_stream(f"Init gaNdalF")
         self.cfg = cfg
         self.lum_type = self.cfg['LUM_TYPE_RUN']
         if "yjt_True" in self.cfg['FILENAME_NN_FLOW']:
@@ -30,13 +33,14 @@ class gaNdalF(object):
         if "scr_True" in self.cfg['FILENAME_NN_CLASSF']:
             self.cfg['APPLY_SCALER_CLASSF_RUN'] = True
 
-        self.galaxies = self.init_dataset()
-        self.gandalf_flow, self.gandalf_classifier, self.calibration_model = self.init_trained_models()
+        self.galaxies = self.init_dataset(gandalf_logger=gandalf_logger)
+        self.gandalf_flow, self.gandalf_classifier = self.init_trained_models()  # , self.calibration_model
 
-    def init_dataset(self):
+    def init_dataset(self, gandalf_logger):
         galaxies = DESGalaxies(
+            logg=gandalf_logger,
             cfg=self.cfg,
-            kind="run_gandalf"
+            kind="run"
         )
 
         if self.cfg['NUMBER_SAMPLES'] == -1:
@@ -50,20 +54,26 @@ class gaNdalF(object):
         """"""
         gandalf_flow = None
         gandalf_classifier = None
-        calibration_model = None
 
+        self.gandalf_logger.log_info(f"Init trained models")
+        self.gandalf_logger.log_stream(f"Init trained models")
+
+        # TODO for security reasons (warning) save model as state dict and load with weights_only=True
         if self.cfg['EMULATE_GALAXIES'] is True:
-            gandalf_flow = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_FLOW']}")
+            self.gandalf_logger.log_info(f"Load flow model {self.cfg['FILENAME_NN_FLOW']}")
+            self.gandalf_logger.log_stream(f"Load flow model {self.cfg['FILENAME_NN_FLOW']}")
+            gandalf_flow = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_FLOW']}", weights_only=False)
 
         if self.cfg['CLASSF_GALAXIES'] is True:
-            gandalf_classifier = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_CLASSF']}")
-            calibration_model = joblib.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_CLASSF_CALIBRATION']}")
+            self.gandalf_logger.log_info(f"Load classifier model {self.cfg['FILENAME_NN_CLASSF']}")
+            self.gandalf_logger.log_stream(f"Load classifier model {self.cfg['FILENAME_NN_CLASSF']}")
+            gandalf_classifier = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_CLASSF']}", weights_only=False)
 
-        return gandalf_flow, gandalf_classifier, calibration_model
+        return gandalf_flow, gandalf_classifier  # , calibration_model
 
-    def predict_calibrated(self, y_pred):
-        calibrated_outputs = self.calibration_model.predict_proba(y_pred.reshape(-1, 1))[:, 1]
-        return calibrated_outputs
+    # def predict_calibrated(self, y_pred):
+    #     calibrated_outputs = self.calibration_model.predict_proba(y_pred.reshape(-1, 1))[:, 1]
+    #     return calibrated_outputs
 
     def run_classifier(self, data_frame):
         """"""
@@ -124,14 +134,14 @@ class gaNdalF(object):
 
             df_gandalf_flow = df_gandalf[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
             if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
-                df_gandalf_flow = self.galaxies.yj_transform_data_on_fly(
+                df_gandalf_flow = self.galaxies.yj_transform_data(
                     data_frame=df_gandalf_flow,
                     columns=df_gandalf_flow.columns,
                     dict_pt=self.galaxies.dict_pt
                 )
 
             if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
-                df_gandalf_flow = self.galaxies.scale_data_on_fly(
+                df_gandalf_flow = self.galaxies.scale_data(
                     data_frame=df_gandalf_flow,
                     scaler=self.galaxies.scaler
                 )
