@@ -491,6 +491,13 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
     df_balrog_flw = check_idf_flux(df_balrog_flw)
     df_gandalf_flw = check_idf_flux(df_gandalf_flw)
 
+    weights = assign_new_weights(
+        x=df_gandalf_flw["unsheared/snr"],
+        y=df_gandalf_flw["unsheared/size_ratio"],
+        path_grid=cfg['PATH_GRID_FILE']
+    )
+    df_gandalf_flw.loc[:, "unsheared/weight"] = weights
+
     df_balrog_flw_cut = apply_cuts(df_balrog_flw, path_master_cat)
     df_gandalf_flw_cut = apply_cuts(df_gandalf_flw, path_master_cat)
 
@@ -512,12 +519,6 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
         )
 
     if cfg["PLT_FIG_4"] is True:
-        weights = assign_new_weights(
-            x=df_gandalf_flw_cut["unsheared/snr"],
-            y=df_gandalf_flw_cut["unsheared/size_ratio"],
-            path_grid=cfg['PATH_GRID_FILE']
-        )
-        df_gandalf_flw_cut.loc[:, "unsheared/weight"] = weights
         plot_balrog_histogram_with_error(
             df_gandalf=df_gandalf_flw_cut,
             df_balrog=df_balrog_flw_cut,

@@ -223,3 +223,8 @@ class LoggerHandler:
     def log_stream(self, msg):
         if hasattr(self, "stream_logger"):
             self.stream_logger.info(msg)
+
+    def log_info_stream(self, msg):
+        if hasattr(self, "info_logger"):
+            self.info_logger.info(msg)
+            self.stream_logger.info(msg)

@@ -406,6 +406,9 @@ class GalaxyDataset(Dataset):
         print(f"Use {self.name_yj_transformer} to inverse transform data")
         for col in columns:
             pt = self.dict_pt[f"{col} pt"]
+            self.logg.log_info_stream(f"Lambda for {col} is {pt.lambdas_[0]} ")
+            self.logg.log_info_stream(f"Mean for {col} is {pt._scaler.mean_[0]} ")
+            self.logg.log_info_stream(f"std for {col} is {pt._scaler.scale_[0]} ")
             data_frame.loc[:, col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
         return data_frame
 
@@ -416,8 +419,7 @@ class GalaxyDataset(Dataset):
                 filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
             )
         self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
-        self.logg.log_info(f"Use {self.name_yj_transformer} to transform data")
-        self.logg.log_stream(f"Use {self.name_yj_transformer} to transform data")
+        self.logg.log_info_stream(f"Use {self.name_yj_transformer} to transform data")
 
         data_frame = data_frame.copy()
         for col in columns:

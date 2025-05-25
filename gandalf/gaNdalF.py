@@ -37,6 +37,7 @@ class gaNdalF(object):
         self.gandalf_flow, self.gandalf_classifier = self.init_trained_models()  # , self.calibration_model
 
     def init_dataset(self, gandalf_logger):
+
         galaxies = DESGalaxies(
             logg=gandalf_logger,
             cfg=self.cfg,
@@ -60,13 +61,11 @@ class gaNdalF(object):
 
         # TODO for security reasons (warning) save model as state dict and load with weights_only=True
         if self.cfg['EMULATE_GALAXIES'] is True:
-            self.gandalf_logger.log_info(f"Load flow model {self.cfg['FILENAME_NN_FLOW']}")
-            self.gandalf_logger.log_stream(f"Load flow model {self.cfg['FILENAME_NN_FLOW']}")
+            self.gandalf_logger.log_info_stream(f"Load flow model {self.cfg['FILENAME_NN_FLOW']}")
             gandalf_flow = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_FLOW']}", weights_only=False)
 
         if self.cfg['CLASSF_GALAXIES'] is True:
-            self.gandalf_logger.log_info(f"Load classifier model {self.cfg['FILENAME_NN_CLASSF']}")
-            self.gandalf_logger.log_stream(f"Load classifier model {self.cfg['FILENAME_NN_CLASSF']}")
+            self.gandalf_logger.log_info_stream(f"Load classifier model {self.cfg['FILENAME_NN_CLASSF']}")
             gandalf_classifier = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_CLASSF']}", weights_only=False)
 
         return gandalf_flow, gandalf_classifier  # , calibration_model
@@ -79,14 +78,17 @@ class gaNdalF(object):
         """"""
         with torch.no_grad():
             arr_classf_gandalf_output = self.gandalf_classifier(torch.tensor(data_frame[self.cfg["INPUT_COLS_MAG_RUN"]].values)).squeeze().numpy()
-        # arr_gandalf_prob_calib = self.predict_calibrated(arr_classf_gandalf_output)
-        # precision, recall, thresholds = precision_recall_curve(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_prob_calib)
-        # f1_scores = 2 * (precision * recall) / (precision + recall + 1e-8)
-        # best_threshold = thresholds[np.argmax(f1_scores)]
-        # arr_gandalf_detected_calib = arr_gandalf_prob_calib > best_threshold  # np.random.rand(self.cfg['NUMBER_SAMPLES'])
-        arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.cfg['NUMBER_SAMPLES'])
-        validation_accuracy = accuracy_score(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_detected)
 
+        if self.cfg["USE_THRESHOLD_FOR_CLF"] is True:
+            precision, recall, thresholds = precision_recall_curve(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_classf_gandalf_output)
+            f1_scores = 2 * (precision * recall) / (precision + recall + 1e-8)
+            best_threshold = thresholds[np.argmax(f1_scores)]
+            self.gandalf_logger.log_info_stream(f"Use best threshold {best_threshold}")
+            arr_gandalf_detected = arr_classf_gandalf_output > best_threshold
+        else:
+            arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.cfg['NUMBER_SAMPLES'])
+        arr_gandalf_detected = arr_gandalf_detected.astype(int)
+        validation_accuracy = accuracy_score(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_detected)
         df_balrog = data_frame[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
 
         if self.cfg['APPLY_SCALER_CLASSF_RUN'] is True:
@@ -109,10 +111,9 @@ class gaNdalF(object):
         df_gandalf = df_balrog.copy()
 
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected.astype(int)
-        # df_gandalf.loc[:, "detected non calibrated"] = arr_gandalf_detected_calib.astype(int)
-        # df_gandalf.loc[:, "probability detected"] = arr_gandalf_prob_calib
+        df_gandalf.loc[:, "probability detected"] = arr_classf_gandalf_output
 
-        print(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
+        self.gandalf_logger.log_info_stream(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
         return df_balrog, df_gandalf
 
     def run_emulator(self, df_balrog, df_gandalf):
@@ -134,14 +135,14 @@ class gaNdalF(object):
 
             df_gandalf_flow = df_gandalf[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
             if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
-                df_gandalf_flow = self.galaxies.yj_transform_data(
+                df_gandalf_flow, _ = self.galaxies.yj_transform_data(
                     data_frame=df_gandalf_flow,
                     columns=df_gandalf_flow.columns,
                     dict_pt=self.galaxies.dict_pt
                 )
 
             if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
-                df_gandalf_flow = self.galaxies.scale_data(
+                df_gandalf_flow, _ = self.galaxies.scale_data(
                     data_frame=df_gandalf_flow,
                     scaler=self.galaxies.scaler
                 )
@@ -171,13 +172,44 @@ class gaNdalF(object):
             len(df_gandalf_flow),
             cond_inputs=torch.from_numpy(df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
         ).detach().numpy()
-
+        # ### TODO Testing
+        # df_gandalf_flow_true = df_gandalf_flow.copy()
         df_gandalf_flow.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = arr_flow_gandalf_output
-        # print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
-        # print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
+        # print(len(df_gandalf_flow_true))
+        # print(len(df_gandalf_flow))
+        # # print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
+        # # print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
         if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
             print("apply scaler on df_gandalf")
             df_gandalf_flow = self.galaxies.inverse_scale_data(df_gandalf_flow)
+            # df_gandalf_flow_true = self.galaxies.inverse_scale_data(df_gandalf_flow_true)
+        #
+        #     fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(14, 20))
+        #     axes = axes.flatten()
+        #
+        #     for i, col in enumerate(self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']):
+        #         ax = axes[i]
+        #
+        #         min_val = min(df_gandalf_flow[col].min(), df_gandalf_flow_true[col].min())
+        #         max_val = max(df_gandalf_flow[col].max(), df_gandalf_flow_true[col].max())
+        #         bins = np.linspace(min_val, max_val, 36)  # 35 bins = 36 edges
+        #
+        #         # Plot histogram of values with and without NaNs in the target column
+        #         sns.histplot(df_gandalf_flow[col].dropna(), bins=bins, stat="density", color="gray", label="True", ax=ax,
+        #                      alpha=0.6)
+        #         sns.histplot(df_gandalf_flow_true[col].dropna(), bins=bins, stat="density", color="skyblue", label="Normalizing Flows",
+        #                      ax=ax, alpha=0.6)
+        #
+        #         ax.set_title(col, fontsize=10)
+        #         ax.set_xlabel(f"{col}", fontsize=9)
+        #         ax.set_ylabel("Density", fontsize=9)
+        #         ax.tick_params(axis='both', labelsize=8)
+        #         ax.legend(fontsize=8)
+        #
+        #     # Final layout adjustment and display
+        #     plt.tight_layout()
+        #     plt.show()
+        # ### TODO Testing
         # print(f"Number of NaNs in df_gandalf after scaler: {df_gandalf_flow.isna().sum().sum()}")
         if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
             if self.cfg['TRANSFORM_COLS_RUN'] is None:
@@ -523,40 +555,40 @@ class gaNdalF(object):
                     "MAGLIM_Z",
                     "EBV_SFD98"
                 ],
-                labels=[
-                    "BDF Mag R",
-                    "BDF Mag I",
-                    "BDF Mag Z",
-                    "BDF T",
-                    "BDF G",
-                    "FWHM R",
-                    "FWHM I",
-                    "FWHM Z",
-                    "AIRMASS R",
-                    "AIRMASS I",
-                    "AIRMASS Z",
-                    "MAGLIM R",
-                    "MAGLIM I",
-                    "MAGLIM Z",
-                    "EBV SFD98"
-                ],
-                ranges=[
-                    [18, 26],
-                    [18, 26],
-                    [18, 26],
-                    [-1, 1.5],
-                    [-0.1, 0.8],
-                    [0.8, 1.2],
-                    [0.7, 1.1],
-                    [0.7, 1.0],
-                    [1, 1.4],
-                    [1, 1.4],
-                    [1, 1.4],
-                    [23.5, 24.5],
-                    [23, 23.75],
-                    [22, 23],
-                    [0, 0.05]
-                ],
+                # labels=[
+                #     "BDF Mag R",
+                #     "BDF Mag I",
+                #     "BDF Mag Z",
+                #     "BDF T",
+                #     "BDF G",
+                #     "FWHM R",
+                #     "FWHM I",
+                #     "FWHM Z",
+                #     "AIRMASS R",
+                #     "AIRMASS I",
+                #     "AIRMASS Z",
+                #     "MAGLIM R",
+                #     "MAGLIM I",
+                #     "MAGLIM Z",
+                #     "EBV SFD98"
+                # ],
+                # ranges=[
+                #     [18, 26],
+                #     [18, 26],
+                #     [18, 26],
+                #     [-1, 1.5],
+                #     [-0.1, 0.8],
+                #     [0.8, 1.2],
+                #     [0.7, 1.1],
+                #     [0.7, 1.0],
+                #     [1, 1.4],
+                #     [1, 1.4],
+                #     [1, 1.4],
+                #     [23.5, 24.5],
+                #     [23, 23.75],
+                #     [22, 23],
+                #     [0, 0.05]
+                # ],
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_MULTIVARIATE_GAUSSIAN']}/classifier_multiv.png",
@@ -586,38 +618,38 @@ class gaNdalF(object):
                     "MAGLIM_Z",
                     "EBV_SFD98"
                 ],
-                labels=[
-                    "BDF Mag R",
-                    "BDF Mag Z",
-                    "BDF T",
-                    "BDF G",
-                    "FWHM R",
-                    "FWHM I",
-                    "FWHM Z",
-                    "AIRMASS R",
-                    "AIRMASS I",
-                    "AIRMASS Z",
-                    "MAGLIM R",
-                    "MAGLIM I",
-                    "MAGLIM Z",
-                    "EBV SFD98"
-                ],
-                ranges=[
-                    [18, 26],
-                    [18, 26],
-                    [-1, 1.5],
-                    [-0.1, 0.8],
-                    [0.8, 1.2],
-                    [0.7, 1.1],
-                    [0.7, 1.0],
-                    [1, 1.4],
-                    [1, 1.4],
-                    [1, 1.4],
-                    [23.5, 24.5],
-                    [23, 23.75],
-                    [22, 23],
-                    [0, 0.05]
-                ],
+                # labels=[
+                #     "BDF Mag R",
+                #     "BDF Mag Z",
+                #     "BDF T",
+                #     "BDF G",
+                #     "FWHM R",
+                #     "FWHM I",
+                #     "FWHM Z",
+                #     "AIRMASS R",
+                #     "AIRMASS I",
+                #     "AIRMASS Z",
+                #     "MAGLIM R",
+                #     "MAGLIM I",
+                #     "MAGLIM Z",
+                #     "EBV SFD98"
+                # ],
+                # ranges=[
+                #     [18, 26],
+                #     [18, 26],
+                #     [-1, 1.5],
+                #     [-0.1, 0.8],
+                #     [0.8, 1.2],
+                #     [0.7, 1.1],
+                #     [0.7, 1.0],
+                #     [1, 1.4],
+                #     [1, 1.4],
+                #     [1, 1.4],
+                #     [23.5, 24.5],
+                #     [23, 23.75],
+                #     [22, 23],
+                #     [0, 0.05]
+                # ],
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_MULTIVARIATE_GAUSSIAN']}/classifier_multiv_cut.png",
