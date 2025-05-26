@@ -23,12 +23,14 @@ class gaNdalFFlow(object):
                  weight_decay,
                  number_hidden,
                  number_blocks,
-                 batch_size
+                 batch_size,
+                 train_flow_logger
                  ):
         super().__init__()
         self.cfg = cfg
         self.device = torch.device(cfg["DEVICE"])
         self.act = cfg["ACTIVATION_FUNCTION"]
+        self.train_flow_logger = train_flow_logger
 
         self.lst_epochs = []
         self.lst_mean_mag_r = []
@@ -92,7 +94,7 @@ class gaNdalFFlow(object):
                     f"number blocks: {self.nb}_"
                     f"batch size: {self.bs}"
         )
-        self.train_loader, self.valid_loader, self.test_loader, self.galaxies = self.init_dataset()
+        self.train_loader, self.valid_loader, self.test_sampled_data, self.galaxies = self.init_dataset()
 
         self.model, self.optimizer = self.init_network(
             num_outputs=len(cfg[f"OUTPUT_COLS_{cfg['LUM_TYPE_FLOW']}_FLOW"]),
@@ -100,8 +102,8 @@ class gaNdalFFlow(object):
         )
         with torch.no_grad():
             for batch_idx, data in enumerate(self.train_loader):
-                input_data = data[0].double()
-                output_data = data[1].double()
+                input_data = data[0]
+                output_data = data[1]
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
                 self.writer.add_graph(self.model, (output_data, input_data))
@@ -109,12 +111,12 @@ class gaNdalFFlow(object):
                 break
 
             total_parameters = count_parameters(self.model)
-            print(f"Total trainable parameters: {total_parameters}")
+            self.train_flow_logger.log_info_stream(f"Total trainable parameters: {total_parameters}")
 
         self.global_step = 0
-        self.best_validation_loss = float('inf')
+        self.best_validation_loss = np.float64('inf')
         self.best_validation_epoch = 1
-        self.best_train_loss = float('inf')
+        self.best_train_loss = np.float64('inf')
         self.best_train_epoch = 1
         self.best_model = self.model
 
@@ -138,15 +140,16 @@ class gaNdalFFlow(object):
     def init_dataset(self):
         """"""
         galaxies = DESGalaxies(
+            logg=self.train_flow_logger,
             cfg=self.cfg,
-            kind="flow_training"
+            kind="FLOW"
         )
 
         # Create DataLoaders for training, validation, and testing
         train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
         valid_loader = DataLoader(galaxies.valid_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
-        test_loader = DataLoader(galaxies.test_dataset, batch_size=len(galaxies.test_dataset), shuffle=False, num_workers=0)
-        return train_loader, valid_loader, test_loader, galaxies
+        test_sampled_data = galaxies.test_dataset.sample(self.cfg["NUMBER_TEST_SAMPLES"], replace=True)
+        return train_loader, valid_loader, test_sampled_data, galaxies
 
     def init_network(self, num_outputs, num_input):
         modules = []
@@ -157,7 +160,7 @@ class gaNdalFFlow(object):
                 fnn.Reverse(num_outputs)
             ]
         model = fnn.FlowSequential(*modules)
-
+        model = model.to(dtype=torch.float64)
         for module in model.modules():
             if isinstance(module, torch.nn.Linear):
                 torch.nn.init.orthogonal_(module.weight)
@@ -169,11 +172,14 @@ class gaNdalFFlow(object):
         return model, optimizer
 
     def run_training(self):
-
         for epoch in range(self.cfg["EPOCHS_FLOW"]):
+            self.train_flow_logger.log_info_stream(f"Epoch: {epoch+1}/{self.cfg['EPOCHS_FLOW']}")
+            self.train_flow_logger.log_info_stream(f"Train")
             train_loss_epoch = self.train(
                 epoch=epoch
             )
+
+            self.train_flow_logger.log_info_stream(f"Validation")
             validation_loss = self.validate(
                 epoch=epoch
             )
@@ -192,22 +198,18 @@ class gaNdalFFlow(object):
                 self.best_train_epoch = epoch
                 self.best_train_loss = train_loss_epoch
 
-            # if epoch - self.best_validation_epoch >= 30:
-            #     break
-
-            print(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
-                  f"best validation loss: {-self.best_validation_loss}\t"
-                  f"learning rate: {self.lr}\t"
-                  f"num_hidden: {self.nh}\t"
-                  f"num_blocks: {self.nb}\t"
-                  f"batch_size: {self.bs}")
-
             if self.cfg['PLOT_TRAINING_FLOW'] is True:
                 self.plot_data(epoch=epoch)
 
             for name, param in self.model.named_parameters():
                 self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
-
+        self.train_flow_logger.log_info_stream(f"End Training")
+        self.train_flow_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
+                                               f"best validation loss: {-self.best_validation_loss}\t"
+                                               f"learning rate: {self.lr}\t"
+                                               f"num_hidden: {self.nh}\t"
+                                               f"num_blocks: {self.nb}\t"
+                                               f"batch_size: {self.bs}")
         self.writer.add_hparams(
             hparam_dict={
                 "learning rate": self.lr,
@@ -225,24 +227,24 @@ class gaNdalFFlow(object):
             run_name=f"final result"
         )
 
-        if self.cfg['PLOT_TRAINING_FLOW'] is False:
+        if self.cfg['PLOT_TEST_FLOW'] is True:
             self.plot_data(epoch=self.cfg["EPOCHS_FLOW"] - 1)
 
-        if self.cfg['PLOT_TEST_FLOW'] is True:
-            if self.cfg['PLOT_TRAINING_FLOW'] is True:
-                lst_gif = []
-                for plot in self.cfg['PLOT_FOLDERS_FLOW']:
-                    if plot != 'Gif':
-                        lst_gif.append((
-                            self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()],
-                            f"{self.cfg[f'PATH_PLOTS_FOLDER']['GIF']}/{plot.lower()}.gif"
-                        ))
-
-                for gif in lst_gif:
-                    try:
-                        make_gif(gif[0], gif[1])
-                    except Exception as e:
-                        print(f"Could not make gif for {gif[0]}. Error message: {e}")
+        # if self.cfg['PLOT_TEST_FLOW'] is True:
+        #     if self.cfg['PLOT_TRAINING_FLOW'] is True:
+        #         lst_gif = []
+        #         for plot in self.cfg['PLOT_FOLDERS_FLOW']:
+        #             if plot != 'Gif':
+        #                 lst_gif.append((
+        #                     self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()],
+        #                     f"{self.cfg[f'PATH_PLOTS_FOLDER']['GIF']}/{plot.lower()}.gif"
+        #                 ))
+        #
+        #         for gif in lst_gif:
+        #             try:
+        #                 make_gif(gif[0], gif[1])
+        #             except Exception as e:
+        #                 print(f"Could not make gif for {gif[0]}. Error message: {e}")
 
         if self.cfg['SAVE_NN_FLOW'] is True:
             torch.save(
@@ -258,10 +260,10 @@ class gaNdalFFlow(object):
     def train(self, epoch):
         self.model.train()
         train_loss = 0.0
-        pbar = tqdm(total=len(self.train_loader.dataset))
+        # pbar = tqdm(total=len(self.train_loader.dataset))
         for batch_idx, data in enumerate(self.train_loader):
-            input_data = data[0].double()
-            output_data = data[1].double()
+            input_data = data[0]
+            output_data = data[1]
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
             self.optimizer.zero_grad()
@@ -270,20 +272,26 @@ class gaNdalFFlow(object):
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
             self.optimizer.step()
             train_loss += loss.data.item() * output_data.size(0)
-            pbar.update(output_data.size(0))
-            pbar.set_description(f"Training,\t"
-                                 f"Epoch: {epoch+1},\t"
-                                 f"learning rate: {self.lr},\t"
-                                 f"number hidden: {self.nh},\t"
-                                 f"number blocks: {self.nb},\t"
-                                 f"batch size: {self.bs},\t"
-                                 f"loss: {train_loss / pbar.n}")
+            # pbar.update(output_data.size(0))
+            # pbar.set_description(f"Training,\t"
+            #                      f"Epoch: {epoch+1},\t"
+            #                      f"learning rate: {self.lr},\t"
+            #                      f"number hidden: {self.nh},\t"
+            #                      f"number blocks: {self.nb},\t"
+            #                      f"batch size: {self.bs},\t"
+            #                      f"loss: {train_loss / pbar.n}")
             self.lst_train_loss_per_batch.append(loss.item())
             self.global_step += 1
-        pbar.close()
+        # pbar.close()
 
         train_loss = train_loss / len(self.train_loader.dataset)
-
+        self.train_flow_logger.log_info_stream(f"Training,\t"
+                                               f"Epoch: {epoch + 1},\t"
+                                               f"learning rate: {self.lr},\t"
+                                               f"number hidden: {self.nh},\t"
+                                               f"number blocks: {self.nb},\t"
+                                               f"batch size: {self.bs},\t"
+                                               f"training loss: {train_loss}")
         self.writer.add_scalar('training loss', train_loss, epoch+1)
 
         for module in self.model.modules():
@@ -292,8 +300,8 @@ class gaNdalFFlow(object):
 
         with torch.no_grad():
             self.model(
-                inputs=self.train_loader.dataset[:][1].to(output_data.device).double(),
-                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device).double()
+                inputs=self.train_loader.dataset[:][1].to(output_data.device),
+                cond_inputs= self.train_loader.dataset[:][0].to(output_data.device)
             )
 
         for module in self.model.modules():
@@ -304,39 +312,46 @@ class gaNdalFFlow(object):
     def validate(self, epoch):
         self.model.eval()
         val_loss = 0
-        pbar = tqdm(total=len(self.valid_loader.dataset))
+        # pbar = tqdm(total=len(self.valid_loader.dataset))
         for batch_idx, data in enumerate(self.valid_loader):
-            input_data = data[0].double()
-            output_data = data[1].double()
+            input_data = data[0]
+            output_data = data[1]
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
             with torch.no_grad():
                 loss = -self.model.log_probs(output_data, input_data).mean()
                 self.lst_valid_loss_per_batch.append(loss.item())
                 val_loss += loss.data.item() * output_data.size(0)
-            pbar.update(output_data.size(0))
-            pbar.set_description(f"Validation,\t"
-                                 f"Epoch: {epoch + 1},\t"
-                                 f"learning rate: {self.lr},\t"
-                                 f"number hidden: {self.nh},\t"
-                                 f"number blocks: {self.nb},\t"
-                                 f"batch size: {self.bs},\t"
-                                 f"loss: {val_loss / pbar.n}")
-        pbar.close()
+            # pbar.update(output_data.size(0))
+            # pbar.set_description(f"Validation,\t"
+            #                      f"Epoch: {epoch + 1},\t"
+            #                      f"learning rate: {self.lr},\t"
+            #                      f"number hidden: {self.nh},\t"
+            #                      f"number blocks: {self.nb},\t"
+            #                      f"batch size: {self.bs},\t"
+            #                      f"loss: {val_loss / pbar.n}")
+        # pbar.close()
         val_loss = val_loss / len(self.valid_loader.dataset)
+        self.train_flow_logger.log_info_stream(f"Validation,\t"
+                                               f"Epoch: {epoch + 1},\t"
+                                               f"learning rate: {self.lr},\t"
+                                               f"number hidden: {self.nh},\t"
+                                               f"number blocks: {self.nb},\t"
+                                               f"batch size: {self.bs},\t"
+                                               f"validation loss: {val_loss}")
         self.writer.add_scalar('validation loss', val_loss, epoch+1)
         return val_loss
 
     def plot_data(self, epoch):
         """"""
+        self.train_flow_logger.log_info_stream("Plot test")
         sns.set_theme()
         self.model.eval()
 
-        for batch_idx, data in enumerate(self.test_loader):
-            tsr_input = data[0].double()
-            arr_true_output = data[1].numpy()
-            tsr_input = tsr_input.to(self.device)
-            print(f"Länge des gezogenen Datensatzes: {len(tsr_input)}")
+        tsr_input = torch.tensor(self.test_sampled_data[self.cfg[f"INPUT_COLS_{self.cfg['LUM_TYPE_FLOW']}_FLOW"]].values, dtype=torch.float64)
+        tsr_input = tsr_input.to(self.device)
+
+        arr_true_output = self.test_sampled_data[self.cfg[f"OUTPUT_COLS_{self.cfg['LUM_TYPE_FLOW']}_FLOW"]].values
 
         with torch.no_grad():
             arr_gandalf_output = self.model.sample(len(tsr_input), cond_inputs=tsr_input).detach().cpu().numpy()
@@ -346,23 +361,17 @@ class gaNdalFFlow(object):
                 (tsr_input.cpu().numpy(), arr_gandalf_output),
                 axis=1
             ),
-            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[
-                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW'] + self.cfg[
+                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW']
         )
         df_balrog = pd.DataFrame(
             np.concatenate(
                 (tsr_input.cpu().numpy(), arr_true_output),
                 axis=1
             ),
-            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN'] + self.cfg[
-                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_RUN']
+            columns=self.cfg[f'INPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW'] + self.cfg[
+                f'OUTPUT_COLS_{self.cfg["LUM_TYPE_FLOW"]}_FLOW']
         )
-        df_gandalf = df_gandalf.astype('float64')
-        df_balrog = df_balrog.astype('float64')
-
-        if self.cfg['APPLY_SCALER_FLOW'] is True:
-            df_gandalf = self.galaxies.inverse_scale_data(data_frame=df_gandalf)
-            df_balrog = self.galaxies.inverse_scale_data(data_frame=df_balrog)
 
         if self.cfg['APPLY_YJ_TRANSFORM_FLOW'] is True:
             if self.cfg['TRANSFORM_COLS_FLOW'] is None:
@@ -377,6 +386,11 @@ class gaNdalFFlow(object):
                 data_frame=df_gandalf,
                 columns=trans_col
             )
+
+        self.train_flow_logger.log_info_stream(f"gaNdalF NaNs: {df_gandalf.isna().sum()}")
+
+        self.train_flow_logger.log_info_stream(f"Balrog NaNs: {df_balrog.isna().sum()}")
+        exit()
 
         df_gandalf[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
         df_balrog[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
