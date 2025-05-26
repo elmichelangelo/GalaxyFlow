@@ -387,9 +387,9 @@ class GalaxyDataset(Dataset):
         self.logg.log_info_stream(f"Use {self.name_yj_transformer} to inverse transform data")
         for col in columns:
             pt = self.dict_pt[f"{col} pt"]
-            self.logg.log_info_stream(f"Lambda for {col} is {pt.lambdas_[0]} ")
-            self.logg.log_info_stream(f"Mean for {col} is {pt._scaler.mean_[0]} ")
-            self.logg.log_info_stream(f"std for {col} is {pt._scaler.scale_[0]} ")
+            self.logg.log_debug(f"Lambda for {col} is {pt.lambdas_[0]} ")
+            self.logg.log_debug(f"Mean for {col} is {pt._scaler.mean_[0]} ")
+            self.logg.log_debug(f"std for {col} is {pt._scaler.scale_[0]} ")
             # value = data_frame[col].values.astype(np.float64)
             # inverse_transformed = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
             data_frame.loc[:, col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel() # inverse_transformed  .astype(np.float32)

@@ -378,10 +378,10 @@ class gaNdalFFlow(object):
                 trans_col = df_balrog.keys()
             else:
                 trans_col = self.cfg['TRANSFORM_COLS_FLOW']
-            df_balrog = self.galaxies.yj_inverse_transform_data(
-                data_frame=df_balrog,
-                columns=trans_col
-            )
+            # df_balrog = self.galaxies.yj_inverse_transform_data(
+            #     data_frame=df_balrog,
+            #     columns=trans_col
+            # )
             df_gandalf = self.galaxies.yj_inverse_transform_data(
                 data_frame=df_gandalf,
                 columns=trans_col
@@ -389,8 +389,7 @@ class gaNdalFFlow(object):
 
         self.train_flow_logger.log_info_stream(f"gaNdalF NaNs: {df_gandalf.isna().sum()}")
 
-        self.train_flow_logger.log_info_stream(f"Balrog NaNs: {df_balrog.isna().sum()}")
-        exit()
+        return
 
         df_gandalf[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
         df_balrog[self.cfg['CUT_COLS_FLOW']] = self.galaxies.df_test_cut_cols.to_numpy()
