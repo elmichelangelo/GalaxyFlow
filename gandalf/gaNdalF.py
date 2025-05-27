@@ -62,11 +62,11 @@ class gaNdalF(object):
         # TODO for security reasons (warning) save model as state dict and load with weights_only=True
         if self.cfg['EMULATE_GALAXIES'] is True:
             self.gandalf_logger.log_info_stream(f"Load flow model {self.cfg['FILENAME_NN_FLOW']}")
-            gandalf_flow = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_FLOW']}", weights_only=False)
+            gandalf_flow = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_FLOW']}", weights_only=False, map_location=torch.device('cpu'))
 
         if self.cfg['CLASSF_GALAXIES'] is True:
             self.gandalf_logger.log_info_stream(f"Load classifier model {self.cfg['FILENAME_NN_CLASSF']}")
-            gandalf_classifier = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_CLASSF']}", weights_only=False)
+            gandalf_classifier = torch.load(f"{self.cfg['PATH_TRAINED_NN']}/{self.cfg['FILENAME_NN_CLASSF']}", weights_only=False, map_location=torch.device('cpu'))
 
         return gandalf_flow, gandalf_classifier  # , calibration_model
 

@@ -15,7 +15,7 @@ class GalaxyDataset(Dataset):
         self.logg = logg
         self.logg.log_info_stream(f"Init GalaxyDataset")
         self.name_yj_transformer = ""
-        # self.name_scaler = ""
+        self.name_scaler = ""
         self.cfg = cfg
         self.applied_yj_transform = ""
         self.postfix = f"_{kind.upper()}"
@@ -53,11 +53,10 @@ class GalaxyDataset(Dataset):
         if self.postfix == "_RUN":
             file_key = f'FILENAME_{cfg["DATASET_TYPE"].upper()}_DATA_{self.data_set_type}'
             filename = f"{cfg['PATH_DATA']}/{cfg[file_key]}"
-            self.logg.log_info_stream(f"Load {filename}  data set")
+            self.logg.log_info_stream(f"Load {filename} data set")
             with open(filename, 'rb') as file_run:
                 df_data = pd.read_pickle(file_run)
             self.logg.log_info_stream(f"shape run dataset: {df_data.shape}")
-            fraction_detected = len(df_data[df_data["detected"]==1])/len(df_data[df_data["detected"]==0])
             self.logg.log_info_stream(f"Sample {cfg['NUMBER_SAMPLES']} random data from run data set")
             df_run = df_data.sample(n=cfg['NUMBER_SAMPLES'], replace=True).reset_index(drop=True)
             del df_data
@@ -175,6 +174,11 @@ class GalaxyDataset(Dataset):
                         columns=self.cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
+            if self.cfg.get(f"APPLY_SCALER_CLASSF{self.postfix}", False) is True:
+                self.logg.log_info(f"Apply MaxAbs scaler on classifier data")
+                self.logg.log_stream(f"Apply MaxAbs scaler on classifier data")
+                df_run, self.scaler = self.scale_data(data_frame=df_run)
+                self.applied_scaler = True
             # Return all relevant for _build_datasets
             return dict(
                 df_run=df_run,
@@ -220,6 +224,12 @@ class GalaxyDataset(Dataset):
                         columns=self.cfg[f"TRANSFORM_COLS{self.postfix}"]
                     )
                 self.applied_yj_transform = "_YJ"
+            # Scaling
+            if self.cfg.get(f"APPLY_SCALER{self.postfix}", False) is True:
+                df_train, self.scaler = self.scale_data(data_frame=df_train)
+                df_valid, self.scaler = self.scale_data(data_frame=df_valid)
+                df_test, self.scaler = self.scale_data(data_frame=df_test)
+                self.applied_scaler = True
             # Only keep input columns for training if CLASSF
             if self.postfix == "_CLASSF":
                 df_train = df_train[self.cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]]
@@ -352,26 +362,26 @@ class GalaxyDataset(Dataset):
     #
     #     return train_dataset, val_dataset, test_dataset, dict_indices
 
-    # def scale_data(self, data_frame, scaler=None):
-    #     """"""
-    #     if scaler is None:
-    #         self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
-    #         scaler = joblib.load(
-    #             filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
-    #         )
-    #     self.logg.log_info(f"Use {self.name_scaler} to scale data")
-    #     self.logg.log_stream(f"Use {self.name_scaler} to scale data")
-    #     data_frame_scaled = None
-    #     if scaler is not None:
-    #         scaled = scaler.transform(data_frame)
-    #         data_frame_scaled = pd.DataFrame(scaled, columns=data_frame.columns)
-    #     return data_frame_scaled, scaler
-    #
-    # def inverse_scale_data(self, data_frame):
-    #     """"""
-    #     print(f"Use {self.name_scaler} to inverse scale data")
-    #     data_frame = pd.DataFrame(self.scaler.inverse_transform(data_frame), columns=data_frame.keys())
-    #     return data_frame
+    def scale_data(self, data_frame, scaler=None):
+        """"""
+        if scaler is None:
+            self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
+            scaler = joblib.load(
+                filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
+            )
+        self.logg.log_info(f"Use {self.name_scaler} to scale data")
+        self.logg.log_stream(f"Use {self.name_scaler} to scale data")
+        data_frame_scaled = None
+        if scaler is not None:
+            scaled = scaler.transform(data_frame)
+            data_frame_scaled = pd.DataFrame(scaled, columns=data_frame.columns)
+        return data_frame_scaled, scaler
+
+    def inverse_scale_data(self, data_frame):
+        """"""
+        print(f"Use {self.name_scaler} to inverse scale data")
+        data_frame = pd.DataFrame(self.scaler.inverse_transform(data_frame), columns=data_frame.keys())
+        return data_frame
 
     # def scale_data_on_fly(self, data_frame, scaler):
     #     """"""
