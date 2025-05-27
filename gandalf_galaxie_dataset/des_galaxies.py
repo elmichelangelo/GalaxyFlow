@@ -400,9 +400,9 @@ class GalaxyDataset(Dataset):
             self.logg.log_debug(f"Lambda for {col} is {pt.lambdas_[0]} ")
             self.logg.log_debug(f"Mean for {col} is {pt._scaler.mean_[0]} ")
             self.logg.log_debug(f"std for {col} is {pt._scaler.scale_[0]} ")
-            # value = data_frame[col].values.astype(np.float64)
-            # inverse_transformed = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
-            data_frame.loc[:, col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel() # inverse_transformed  .astype(np.float32)
+            value = data_frame[col].values
+            # clipped_value = np.clip(value, a_min=None, a_max=abs(1 / pt.lambdas_[0]))
+            data_frame.loc[:, col] = pt.inverse_transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
         return data_frame
 
     def yj_transform_data(self, data_frame, columns, dict_pt=None):

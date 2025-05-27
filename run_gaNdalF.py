@@ -119,30 +119,6 @@ def main():
         run_gandalf_logger.log_info_stream(f"{k} gandalf NaN: mean={mean_nan}; std={std_nan}; min={min_nan}; max={max_nan}")
         run_gandalf_logger.log_info_stream(f"{k} Balrog: mean={mean_balrog}; std={std_balrog}; min={min_balrog}; max={max_balrog}")
 
-    for k in cfg["INPUT_COLS_MAG_RUN"]:
-        mean_train = df_balrog_detected[k].mean()
-        std_train = df_balrog_detected[k].std()
-
-        values = df_nan[k]  # enthält gültige Werte, keine NaNs
-        z_scores = np.abs((values - mean_train) / std_train)
-
-        total = len(z_scores)
-        within_1sigma = (z_scores <= 1).sum()
-        within_2sigma = (z_scores <= 2).sum()
-        within_3sigma = (z_scores <= 3).sum()
-
-        run_gandalf_logger.log_info_stream(
-            f"{k}: {within_1sigma}/{total} innerhalb 1σ, "
-            f"{within_2sigma}/{total} innerhalb 2σ, "
-            f"{within_3sigma}/{total} innerhalb 3σ"
-        )
-
-    df_nonan = df_gandalf_detected_out.dropna()
-    mean_nan = df_nan[cfg["INPUT_COLS_MAG_RUN"]].mean()
-    mean_nonan = df_nonan[cfg["INPUT_COLS_MAG_RUN"]].mean()
-
-    run_gandalf_logger.log_info_stream(f"Differenz: {(mean_nan - mean_nonan).sort_values()}")
-
     if "unsheared/flux_r" not in df_gandalf_detected.keys():
         try:
             df_gandalf_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_detected["unsheared/mag_r"])
@@ -249,8 +225,6 @@ def main():
     # ax.set_zlabel("UMAP 3")
     # ax.legend()
     # plt.show()
-
-    sys.exit()
 
     if "unsheared/flux_r" not in df_gandalf.keys():
         try:

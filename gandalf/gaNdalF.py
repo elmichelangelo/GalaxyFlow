@@ -172,45 +172,10 @@ class gaNdalF(object):
             len(df_gandalf_flow),
             cond_inputs=torch.from_numpy(df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
         ).detach().numpy()
-        # ### TODO Testing
-        # df_gandalf_flow_true = df_gandalf_flow.copy()
         df_gandalf_flow.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = arr_flow_gandalf_output
-        # print(len(df_gandalf_flow_true))
-        # print(len(df_gandalf_flow))
-        # # print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
-        # # print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
-        if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
-            print("apply scaler on df_gandalf")
-            df_gandalf_flow = self.galaxies.inverse_scale_data(df_gandalf_flow)
-            # df_gandalf_flow_true = self.galaxies.inverse_scale_data(df_gandalf_flow_true)
-        #
-        #     fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(14, 20))
-        #     axes = axes.flatten()
-        #
-        #     for i, col in enumerate(self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']):
-        #         ax = axes[i]
-        #
-        #         min_val = min(df_gandalf_flow[col].min(), df_gandalf_flow_true[col].min())
-        #         max_val = max(df_gandalf_flow[col].max(), df_gandalf_flow_true[col].max())
-        #         bins = np.linspace(min_val, max_val, 36)  # 35 bins = 36 edges
-        #
-        #         # Plot histogram of values with and without NaNs in the target column
-        #         sns.histplot(df_gandalf_flow[col].dropna(), bins=bins, stat="density", color="gray", label="True", ax=ax,
-        #                      alpha=0.6)
-        #         sns.histplot(df_gandalf_flow_true[col].dropna(), bins=bins, stat="density", color="skyblue", label="Normalizing Flows",
-        #                      ax=ax, alpha=0.6)
-        #
-        #         ax.set_title(col, fontsize=10)
-        #         ax.set_xlabel(f"{col}", fontsize=9)
-        #         ax.set_ylabel("Density", fontsize=9)
-        #         ax.tick_params(axis='both', labelsize=8)
-        #         ax.legend(fontsize=8)
-        #
-        #     # Final layout adjustment and display
-        #     plt.tight_layout()
-        #     plt.show()
-        # ### TODO Testing
-        # print(f"Number of NaNs in df_gandalf after scaler: {df_gandalf_flow.isna().sum().sum()}")
+        print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
+        print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
+
         if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
             if self.cfg['TRANSFORM_COLS_RUN'] is None:
                 trans_col = df_gandalf_flow.keys()
@@ -221,7 +186,6 @@ class gaNdalF(object):
                 data_frame=df_gandalf_flow,
                 columns=trans_col
             )
-        # print(f"Number of NaNs in df_gandalf after yj inverse transformation: {df_gandalf_flow.isna().sum().sum()}")
 
         try:
             df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
