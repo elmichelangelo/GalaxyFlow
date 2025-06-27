@@ -13,9 +13,9 @@ from torch.utils.data import DataLoader
 from gandalf_galaxie_dataset import DESGalaxies
 import random
 import logging
-from ray import tune
-from ray.tune.schedulers import ASHAScheduler
-from ray.tune import CLIReporter
+# from ray import tune
+# from ray.tune.schedulers import ASHAScheduler
+# from ray.tune import CLIReporter
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 sys.path.append(os.path.dirname(__file__))
@@ -43,26 +43,26 @@ def main(cfg, galaxies, iteration, lgr):
         train_detector.save_model()
 
 
-def train_tune_classifier(config, cfg, galaxies, performance_logger):
-    now = datetime.now()
-    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M-%S')
-    cfg['PATH_OUTPUT'] = os.path.join(cfg['PATH_OUTPUT'], f"raytune_run_{cfg['RUN_DATE']}")
-
-    # Apply hyperparameters from Ray Tune
-    cfg["ACTIVATIONS"] = [lambda: getattr(nn, config["activation"])()]
-    cfg["POSSIBLE_NUM_LAYERS"] = [config["num_layers"]]
-    cfg["POSSIBLE_HIDDEN_SIZES"] = config["hidden_sizes"]
-    cfg["LEARNING_RATE_CLASSF"] = [config["lr"]]
-    cfg["BATCH_SIZE_CLASSF"] = [config["batch_size"]]
-    cfg["USE_BATCHNORM_CLASSF"] = [config["batch_norm"]]
-    cfg["DROPOUT_PROB_CLASSF"] = [config["dropout"]]
-
-    model = gaNdalFClassifier(cfg=cfg, galaxies=galaxies, iteration=0, classifier_logger=performance_logger)
-    model.run_training()
-
-    # Use any score you want to optimize here
-    acc = model.classifier_logger.handlers[0].stream.getvalue().splitlines()[-1]
-    tune.report(calibrated_accuracy=model.best_validation_acc)
+# def train_tune_classifier(config, cfg, galaxies, performance_logger):
+#     now = datetime.now()
+#     cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M-%S')
+#     cfg['PATH_OUTPUT'] = os.path.join(cfg['PATH_OUTPUT'], f"raytune_run_{cfg['RUN_DATE']}")
+#
+#     # Apply hyperparameters from Ray Tune
+#     cfg["ACTIVATIONS"] = [lambda: getattr(nn, config["activation"])()]
+#     cfg["POSSIBLE_NUM_LAYERS"] = [config["num_layers"]]
+#     cfg["POSSIBLE_HIDDEN_SIZES"] = config["hidden_sizes"]
+#     cfg["LEARNING_RATE_CLASSF"] = [config["lr"]]
+#     cfg["BATCH_SIZE_CLASSF"] = [config["batch_size"]]
+#     cfg["USE_BATCHNORM_CLASSF"] = [config["batch_norm"]]
+#     cfg["DROPOUT_PROB_CLASSF"] = [config["dropout"]]
+#
+#     model = gaNdalFClassifier(cfg=cfg, galaxies=galaxies, iteration=0, classifier_logger=performance_logger)
+#     model.run_training()
+#
+#     # Use any score you want to optimize here
+#     acc = model.classifier_logger.handlers[0].stream.getvalue().splitlines()[-1]
+#     tune.report(calibrated_accuracy=model.best_validation_acc)
 
 
 if __name__ == '__main__':
