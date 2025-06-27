@@ -79,6 +79,11 @@
 #
 #     return kl_detected, kl_not_detected, percent_diff_detected, percent_diff_not_detected
 
+def set_nan_2_default(data_frame, dict_default):
+    for col, default_value in dict_default.items():
+        if col in data_frame.columns:
+            data_frame[col] = data_frame[col].fillna(default_value)
+
 
 def get_scaler(data_frame):
     """"""
@@ -460,30 +465,49 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
 
 def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_master_cat, path_save_plots, columns):
     """"""
-    df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
     df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
+    df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
 
-    df_gandalf_flw = replace_nan(
+    df_gandalf_flw_wo_nan = replace_nan(
         data_frame=df_gandalf_flw,
         cols=[
             "unsheared/mag_r",
             "unsheared/mag_i",
             "unsheared/mag_z",
+            "unsheared/mag_err_r",
+            "unsheared/mag_err_i",
+            "unsheared/mag_err_z",
             "unsheared/snr",
             "unsheared/size_ratio",
             "unsheared/weight",
             "unsheared/T",
         ],
         default_values=[
-            df_balrog_flw["unsheared/mag_r"].max(),
-            df_balrog_flw["unsheared/mag_i"].max(),
-            df_balrog_flw["unsheared/mag_z"].max(),
-            df_balrog_flw["unsheared/snr"].max(),
-            df_balrog_flw["unsheared/size_ratio"].max(),
-            df_balrog_flw["unsheared/weight"].max(),
-            df_balrog_flw["unsheared/T"].max(),
+            37.5,
+            37.5,
+            37.5,
+            -9999,
+            -9999,
+            -9999,
+            -7070.360705084288,
+            -9999,
+            -9999,
+            -9999,
         ]
     )
+    # df_gandalf_flw_wo_nan["Color unsheared MAG r-i"] = df_gandalf_flw_wo_nan["unsheared/mag_r"] - df_gandalf_flw_wo_nan["unsheared/mag_i"]
+    # df_gandalf_flw_wo_nan["Color unsheared MAG i-z"] = df_gandalf_flw_wo_nan["unsheared/mag_i"] - df_gandalf_flw_wo_nan["unsheared/mag_z"]
+    # df_gandalf_flw_wo_nan = check_idf_flux(df_gandalf_flw_wo_nan)
+    # weights_nan = assign_new_weights(
+    #     x=df_gandalf_flw_wo_nan["unsheared/snr"],
+    #     y=df_gandalf_flw_wo_nan["unsheared/size_ratio"],
+    #     path_grid=cfg['PATH_GRID_FILE']
+    # )
+    # df_gandalf_flw_wo_nan.loc[:, "unsheared/weight"] = weights_nan
+    # print("gandalf w/ nans before cuts", df_gandalf_flw_wo_nan["unsheared/mag_err_i"].min(), df_gandalf_flw_wo_nan["unsheared/mag_err_i"].max())
+    # df_gandalf_flw_wo_nan = apply_cuts(df_gandalf_flw_wo_nan, path_master_cat)
+    # print("gandalf w/ nans after cuts", df_gandalf_flw_wo_nan["unsheared/mag_err_i"].min(), df_gandalf_flw_wo_nan["unsheared/mag_err_i"].max())
+
 
     df_gandalf_flw["Color unsheared MAG r-i"] = df_gandalf_flw["unsheared/mag_r"] - df_gandalf_flw["unsheared/mag_i"]
     df_gandalf_flw["Color unsheared MAG i-z"] = df_gandalf_flw["unsheared/mag_i"] - df_gandalf_flw["unsheared/mag_z"]
@@ -497,9 +521,12 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
         path_grid=cfg['PATH_GRID_FILE']
     )
     df_gandalf_flw.loc[:, "unsheared/weight"] = weights
-
+    # print("gandalf w nans before cuts", df_gandalf_flw["unsheared/mag_err_i"].min(), df_gandalf_flw["unsheared/mag_err_i"].max())
     df_balrog_flw_cut = apply_cuts(df_balrog_flw, path_master_cat)
     df_gandalf_flw_cut = apply_cuts(df_gandalf_flw, path_master_cat)
+    # print("gandalf w nans after cuts", df_gandalf_flw_cut["unsheared/mag_err_i"].min(), df_gandalf_flw_cut["unsheared/mag_err_i"].max())
+
+    exit()
 
     print(f"Length of Balrog objects: {len(df_balrog_flw)}")
     print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")

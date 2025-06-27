@@ -5,6 +5,16 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 
+def plot_cuts(data_frame):
+    """"""
+    print("Apply plot cuts")
+    print('Length of catalog before applying plot cuts: {}'.format(len(data_frame)))
+    cuts = (data_frame["unsheared/extended_class_sof"] >= 0) & (data_frame["unsheared/flags_gold"] < 2) & (data_frame["unsheared/extended_class_sof"] > 1) & (data_frame["match_flag_1.5_asec"] < 2)
+    data_frame = data_frame[cuts]
+    print('Length of catalog after applying plot cuts: {}'.format(len(data_frame)))
+    return data_frame
+
+
 def unsheared_object_cuts(data_frame):
     """"""
     print("Apply unsheared object cuts")

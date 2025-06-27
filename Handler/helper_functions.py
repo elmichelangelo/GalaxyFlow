@@ -251,6 +251,9 @@ def flux2mag(flux, zero_pt=30, clip=0.001):
         return zero_pt - 2.5 * np.log10(flux)
     return zero_pt - 2.5 * np.log10(flux.clip(clip))
 
+def flux_err_to_mag_err(flux, flux_err):
+    return 1.0857 * (flux_err / flux)
+
 
 def replace_values(data_frame, replace_value):
     for col in replace_value.keys():
