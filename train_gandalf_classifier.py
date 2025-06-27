@@ -107,9 +107,6 @@ if __name__ == '__main__':
         log_folder_path=f"{cfg['PATH_OUTPUT']}/Logs/"
     )
 
-    # cfg['RUN_DATE'] = now.strftime('%Y%m%d_%H%M')
-    # cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_DATE']}_classifier_training/"
-    # os.makedirs(cfg['PATH_OUTPUT'], exist_ok=True)
 
     # Write status to logger
     train_classifier_logger.log_info_stream("Start train classifier")
@@ -124,7 +121,8 @@ if __name__ == '__main__':
     if get_os() == "Mac":
         cfg["DEVICE_CLASSF"] = "mps"
     else:
-        cfg["DEVICE_CLASSF"] = "cuda"
+        # cfg["DEVICE_CLASSF"] = "cuda"
+        cfg["DEVICE_CLASSF"] = "cpu"
     start = datetime.now()
     base_path = cfg['PATH_OUTPUT']
     for i in range(cfg["ITERATIONS"]):
