@@ -8,7 +8,7 @@
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_new_data.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_classifer/gandalf_train_classifer_new_data_err.log
 #SBATCH --partition=inter
-#SBATCH --gres=gpu:a40:0
+#SBATCH --gres=gpu:a40:1
 #SBATCH --cpus-per-task=8
 
 ##module load python/3.11-2024.06
