@@ -122,7 +122,7 @@ if __name__ == '__main__':
         cfg["DEVICE_CLASSF"] = "mps"
     else:
         # cfg["DEVICE_CLASSF"] = "cuda"
-        cfg["DEVICE_CLASSF"] = "cuda"
+        cfg["DEVICE_CLASSF"] = "cpu"
     start = datetime.now()
     base_path = cfg['PATH_OUTPUT']
     for i in range(cfg["ITERATIONS"]):
