@@ -289,7 +289,7 @@ class gaNdalFClassifier(nn.Module):
         # save  model
         torch.save(
             self.model,
-            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS_CLASSF']}_lr_{self.learning_rate}_bs_{self.batch_size}_scr_{self.cfg['APPLY_SCALER_CLASSF']}_yjt_{self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}_run_{self.cfg['RUN_DATE']}.pt")
+            f"{self.cfg['PATH_SAVE_NN']}/gaNdalF_classifier_e_{self.cfg['EPOCHS']}_lr_{self.learning_rate}_bs_{self.batch_size}_run_{self.cfg['RUN_DATE']}.pt")
 
     # def calibrate(self):
     #     self.model.eval()

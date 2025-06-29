@@ -23,7 +23,7 @@ def get_mask(in_features, out_features, in_flow_features, mask_type=None):
     else:
         out_degrees = torch.arange(out_features) % (in_flow_features - 1)
 
-    return (out_degrees.unsqueeze(-1) >= in_degrees.unsqueeze(0)).double()
+    return (out_degrees.unsqueeze(-1) >= in_degrees.unsqueeze(0)).to(torch.float64)
 
 
 class MaskedLinear(nn.Module):
@@ -233,9 +233,10 @@ class FlowSequential(nn.Sequential):
                 logdets += logdet
         else:
             for module in reversed(self._modules.values()):
-                module.double()
-                inputs = inputs.double()
-                cond_inputs = cond_inputs.double()
+                module = module.to(torch.float64)
+                inputs = inputs.to(torch.float64)
+                if cond_inputs is not None:
+                    cond_inputs = cond_inputs.to(torch.float64)
                 inputs, logdet = module(inputs, cond_inputs, mode)
                 logdets += logdet
 

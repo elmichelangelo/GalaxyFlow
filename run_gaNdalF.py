@@ -26,7 +26,7 @@ def load_tmp_data(cfg, file_name):
     return data_frame
 
 
-def main():
+def main(cfg):
     """"""
     run_gandalf_logger.log_info_stream(f"start main function")
 
@@ -41,7 +41,7 @@ def main():
 
     if cfg['CLASSF_GALAXIES']:
         run_gandalf_logger.log_info_stream("running classifier")
-        df_balrog, df_gandalf = gandalf.run_classifier(data_frame=df_balrog)
+        df_gandalf = gandalf.run_classifier(data_frame=df_balrog)
     else:
         df_gandalf = df_balrog.copy()
 
@@ -54,22 +54,20 @@ def main():
     run_gandalf_logger.log_info_stream(cfg["SAVE_CLF_DATA"])
 
     if cfg["SAVE_CLF_DATA"] is True:
-        run_gandalf_logger.log_info_stream(f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl")
+        run_gandalf_logger.log_info_stream(f"{cfg['RUN_DATE']}_balrog_clf_sample.pkl")
         gandalf.save_data(
             data_frame=df_balrog,
-            file_name=f"{cfg['RUN_DATE']}_balrog_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl",
+            file_name=f"{cfg['RUN_DATE']}_balrog_clf_sample.pkl",
             protocol=5,
             tmp_samples=False
         )
 
         gandalf.save_data(
             data_frame=df_gandalf,
-            file_name=f"{cfg['RUN_DATE']}_gandalf_clf_{cfg['DATASET_TYPE']}_sample_w_non_calib.pkl",
+            file_name=f"{cfg['RUN_DATE']}_gandalf_clf_sample.pkl",
             protocol=5,
             tmp_samples=False
         )
-
-    df_gandalf["true detected"] = df_balrog["detected"]
 
     df_balrog_detected = df_balrog[df_balrog["detected"] == 1].copy()
     df_gandalf_detected = df_gandalf[df_gandalf["detected"] == 1].copy()
@@ -84,9 +82,8 @@ def main():
         )
 
     if cfg['EMULATE_GALAXIES']:
-        df_balrog_detected, df_gandalf_detected = gandalf.run_emulator(
-            df_balrog_detected,
-            df_gandalf_detected
+        df_gandalf_detected = gandalf.run_emulator(
+            data_frame=df_gandalf_detected,
         )
     else:
         df_gandalf = df_gandalf_detected
@@ -97,160 +94,18 @@ def main():
     run_gandalf_logger.log_info_stream("gaNdalF after normalizing flow")
     run_gandalf_logger.log_info_stream(df_gandalf_detected.isna().sum())
 
-    df_gandalf_detected_out = df_gandalf_detected[cfg["INPUT_COLS_MAG_RUN"]+cfg["OUTPUT_COLS_MAG_RUN"]+["true detected"]].copy()
-    run_gandalf_logger.log_info_stream(f"number of rows with NaNs: {df_gandalf_detected_out.isna().any(axis=1).sum()}")
-
-    run_gandalf_logger.log_info_stream(f"length of normalizing flow balrog: {len(df_balrog_detected)}")
-    run_gandalf_logger.log_info_stream(f"length of normalizing flow gandalf: {len(df_gandalf_detected)}")
-
-    df_nan = df_gandalf_detected_out[df_gandalf_detected_out.isna().any(axis=1)]
-
-    run_gandalf_logger.log_info_stream(f"True detected: {df_nan['true detected'].value_counts()}")
-
-    for k in cfg["INPUT_COLS_MAG_RUN"]:
-        mean_nan = df_nan[k].mean()
-        std_nan = df_nan[k].std()
-        min_nan = df_nan[k].min()
-        max_nan = df_nan[k].max()
-        mean_balrog = df_balrog_detected[k].mean()
-        std_balrog = df_balrog_detected[k].std()
-        min_balrog = df_balrog_detected[k].min()
-        max_balrog = df_balrog_detected[k].max()
-        run_gandalf_logger.log_info_stream(f"{k} gandalf NaN: mean={mean_nan}; std={std_nan}; min={min_nan}; max={max_nan}")
-        run_gandalf_logger.log_info_stream(f"{k} Balrog: mean={mean_balrog}; std={std_balrog}; min={min_balrog}; max={max_balrog}")
-
-    if "unsheared/flux_r" not in df_gandalf_detected.keys():
-        try:
-            df_gandalf_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_detected["unsheared/mag_r"])
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise  # Re-raise the exception if necessary
-    if "unsheared/flux_r" not in df_balrog_detected.keys():
-        try:
-            df_balrog_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_detected["unsheared/mag_r"])
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise  # Re-raise the exception if necessary
-
-    df_gandalf_detected_cut = gandalf.apply_cuts(df_gandalf_detected)
-    df_gandalf_detected_cut_out = df_gandalf_detected_cut[cfg["INPUT_COLS_MAG_RUN"]+cfg["OUTPUT_COLS_MAG_RUN"]+["true detected"]].copy()
-
-    run_gandalf_logger.log_info_stream("gaNdalF after metacalibration cuts")
-    run_gandalf_logger.log_info_stream(df_gandalf_detected_cut_out.isna().sum())
-    run_gandalf_logger.log_info_stream(f"number of rows with NaNs with metacalibration cuts: {df_gandalf_detected_cut_out.isna().any(axis=1).sum()}")
-    run_gandalf_logger.log_info_stream(f"len of cutted gaNdalF {len(df_gandalf_detected_cut_out)}")
-
-    # from sklearn.cluster import KMeans
-    # import matplotlib.pyplot as plt
-    # from sklearn.decomposition import PCA
-    #
-    # # Nur Input-Spalten der NaN-Zeilen
-    # X_nan = df_nan[cfg["INPUT_COLS_MAG_RUN"]]
-    #
-    # # Clustere die Daten in z. B. 3 Gruppen
-    # kmeans = KMeans(n_clusters=3, random_state=42)
-    # cluster_labels = kmeans.fit_predict(X_nan)
-    #
-    # # Optional: PCA zum Plotten
-    # pca = PCA(n_components=2)
-    # X_pca = pca.fit_transform(X_nan)
-    #
-    # # Plot
-    # plt.figure(figsize=(8, 6))
-    # for cluster_id in range(3):
-    #     plt.scatter(
-    #         X_pca[cluster_labels == cluster_id, 0],
-    #         X_pca[cluster_labels == cluster_id, 1],
-    #         label=f"Cluster {cluster_id}",
-    #         s=3,
-    #         alpha=0.6
-    #     )
-    #
-    # plt.title("KMeans-Clustering der NaN-Zeilen (PCA-Projektion)")
-    # plt.xlabel("PCA 1")
-    # plt.ylabel("PCA 2")
-    # plt.legend()
-    # plt.grid(True)
-    # plt.show()
-    #
-    # df_clustered = df_nan.copy()
-    # df_clustered["cluster"] = cluster_labels
-    #
-    # # Mittelwerte pro Cluster
-    # cluster_means = df_clustered.groupby("cluster")[cfg["INPUT_COLS_MAG_RUN"]].mean()
-    # run_gandalf_logger.log_info_stream(cluster_means.T)
-    #
-    # import umap
-    # from mpl_toolkits.mplot3d import Axes3D
-    # import plotly.express as px
-    #
-    # # Gesamte Eingabematrix (alle Zeilen, nicht nur NaNs)
-    # df_gandalf_detected_out_sample = df_gandalf_detected_out.sample(50000)
-    # X_all = df_gandalf_detected_out_sample[cfg["INPUT_COLS_MAG_RUN"]]
-    # nan_mask = df_gandalf_detected_out_sample.isna().any(axis=1)
-    #
-    # # UMAP-Projektion (2D)
-    # reducer = umap.UMAP(n_components=3, random_state=42)
-    # X_umap = reducer.fit_transform(X_all)
-    #
-    # df_plot = pd.DataFrame(X_umap, columns=["UMAP1", "UMAP2", "UMAP3"])
-    # df_plot["has_nan"] = nan_mask.values
-    #
-    # fig = px.scatter_3d(
-    #     df_plot,
-    #     x="UMAP1", y="UMAP2", z="UMAP3",
-    #     color="has_nan",
-    #     title="3D-UMAP: NaNs im Output hervorgehoben",
-    #     opacity=0.6,
-    #     size_max=4
-    # )
-    # fig.show()
-
-    # Plot mit NaN-Markierung
-    # fig = plt.figure(figsize=(10, 8))
-    # ax = fig.add_subplot(111, projection='3d')
-    #
-    # ax.scatter(
-    #     X_umap[~nan_mask, 0], X_umap[~nan_mask, 1], X_umap[~nan_mask, 2],
-    #     s=2, alpha=0.3, label="kein NaN"
-    # )
-    # ax.scatter(
-    #     X_umap[nan_mask, 0], X_umap[nan_mask, 1], X_umap[nan_mask, 2],
-    #     s=6, color="red", alpha=0.8, label="NaN im Output"
-    # )
-    #
-    # ax.set_title("UMAP-Projektion aller Inputdaten (3D)")
-    # ax.set_xlabel("UMAP 1")
-    # ax.set_ylabel("UMAP 2")
-    # ax.set_zlabel("UMAP 3")
-    # ax.legend()
-    # plt.show()
-
-    if "unsheared/flux_r" not in df_gandalf.keys():
-        try:
-            df_gandalf_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf_detected["unsheared/mag_r"])
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise  # Re-raise the exception if necessary
-    if "unsheared/flux_r" not in df_balrog.keys():
-        try:
-            df_balrog_detected.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog_detected["unsheared/mag_r"])
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise  # Re-raise the exception if necessary
-
     if cfg["SAVE_FLW_DATA"] is True:
-        print(f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample.pkl")
+        print(f"{cfg['RUN_DATE']}_balrog_flw_sample.pkl")
         gandalf.save_data(
             data_frame=df_balrog_detected,
-            file_name=f"{cfg['RUN_DATE']}_balrog_flw_{cfg['DATASET_TYPE']}_sample_non_calib.pkl",
+            file_name=f"{cfg['RUN_DATE']}_balrog_flw_sample.pkl",
             protocol=5,
             tmp_samples=False
         )
 
         gandalf.save_data(
             data_frame=df_gandalf_detected,
-            file_name=f"{cfg['RUN_DATE']}_gandalf_flw_{cfg['DATASET_TYPE']}_sample_non_calib.pkl",
+            file_name=f"{cfg['RUN_DATE']}_gandalf_flw_sample.pkl",
             protocol=5,
             tmp_samples=False
         )
@@ -750,7 +605,7 @@ if __name__ == '__main__':
     run_gandalf_logger.log_info_stream(f"Binary Classifier: {cfg['FILENAME_NN_CLASSF']}")
     run_gandalf_logger.log_info_stream(f"Normalizing Flow: {cfg['FILENAME_NN_FLOW']}")
 
-    main()
+    main(cfg=cfg)
 
     run_gandalf_logger.log_info_stream(f"end main function")
     run_gandalf_logger.log_info_stream(f"Done run gaNdalF!")

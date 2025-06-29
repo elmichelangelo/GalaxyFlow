@@ -1137,7 +1137,7 @@ def plot_radar_chart(df_balrog, df_gandalf, columns):
 
 
 def plot_box(df_balrog, df_gandalf, columns, labels, show_plot, save_plot, save_name, title):
-    fig, axs = plt.subplots(5, 3, figsize=(12, 24))  # Adjust subplots as needed
+    fig, axs = plt.subplots(6, 3, figsize=(12, 24))  # Adjust subplots as needed
     axs = axs.ravel()
 
     for i, col in enumerate(columns):

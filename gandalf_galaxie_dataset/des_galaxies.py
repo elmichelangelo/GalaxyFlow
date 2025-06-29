@@ -18,8 +18,6 @@ class GalaxyDataset(Dataset):
 
         data_frames = self._load_data_frames()
 
-        # cut_result = self._split_special_columns(data_frames)
-
         self._build_datasets(data_frames)
 
         gc.collect()
@@ -125,9 +123,9 @@ class GalaxyDataset(Dataset):
             df_valid = data_frames[1]
             df_test = data_frames[2]
             if self.cfg["TRAINING_TYPE"] == "classifier":
-                self.train_dataset = df_train
-                self.valid_dataset = df_valid
-                self.test_dataset = df_test
+                self.train_dataset = df_train.copy()
+                self.valid_dataset = df_valid.copy()
+                self.test_dataset = df_test.copy()
                 # self.train_dataset = TensorDataset(
                 #     torch.tensor(df_train[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
                 #     torch.tensor(df_train[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
@@ -140,19 +138,22 @@ class GalaxyDataset(Dataset):
                 #     torch.tensor(df_test[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
                 #     torch.tensor(df_test[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
                 # )
-            else:
-                self.train_dataset = TensorDataset(
-                    torch.tensor(df_train[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
-                    torch.tensor(df_train[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
-                )
-                self.valid_dataset = TensorDataset(
-                    torch.tensor(df_valid[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
-                    torch.tensor(df_valid[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
-                )
-                self.test_dataset = TensorDataset(
-                    torch.tensor(df_test[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
-                    torch.tensor(df_test[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
-                )
+            elif self.cfg["TRAINING_TYPE"] == "flow":
+                self.train_dataset = df_train[df_train["detected"]==1].copy()
+                self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
+                self.test_dataset = df_test[df_test["detected"]==1].copy()
+                # self.train_dataset = TensorDataset(
+                #     torch.tensor(df_train[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
+                #     torch.tensor(df_train[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
+                # )
+                # self.valid_dataset = TensorDataset(
+                #     torch.tensor(df_valid[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
+                #     torch.tensor(df_valid[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
+                # )
+                # self.test_dataset = TensorDataset(
+                #     torch.tensor(df_test[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
+                #     torch.tensor(df_test[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
+                # )
                 # self.test_dataset = df_test[
                 #     self.cfg[f"INPUT_COLS_{self.lum_type}{self.postfix}"]+self.cfg[f"OUTPUT_COLS_{self.lum_type}{self.postfix}"]
                 # ]
@@ -164,7 +165,7 @@ class GalaxyDataset(Dataset):
             del df_valid
             del df_test
         else:
-            self.test_dataset = data_frames
+            self.run_dataset = data_frames
 
     def __len__(self):
         return len(self.train_dataset + self.valid_dataset + self.test_dataset)

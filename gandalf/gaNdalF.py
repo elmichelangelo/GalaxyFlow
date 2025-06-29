@@ -20,18 +20,10 @@ class gaNdalF(object):
     def __init__(self, gandalf_logger, cfg):
         """"""
         self.gandalf_logger = gandalf_logger
-        self.gandalf_logger.log_info(f"Init gaNdalF")
-        self.gandalf_logger.log_stream(f"Init gaNdalF")
+        self.gandalf_logger.log_info_stream(f"Init gaNdalF")
+        self.scalers_classifier = joblib.load(f"{cfg['PATH_TRANSFORMERS']}/{cfg['FILENAME_SCALER_CLASSIFIER']}")
+        self.scalers_nf = joblib.load(f"{cfg['PATH_TRANSFORMERS']}/{cfg['FILENAME_SCALER_NF']}")
         self.cfg = cfg
-        self.lum_type = self.cfg['LUM_TYPE_RUN']
-        if "yjt_True" in self.cfg['FILENAME_NN_FLOW']:
-            self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] = True
-        if "scr_True" in self.cfg['FILENAME_NN_FLOW']:
-            self.cfg['APPLY_SCALER_FLOW_RUN'] = True
-        if "yjt_True" in self.cfg['FILENAME_NN_CLASSF']:
-            self.cfg['APPLY_YJ_TRANSFORM_CLASSF_RUN'] = True
-        if "scr_True" in self.cfg['FILENAME_NN_CLASSF']:
-            self.cfg['APPLY_SCALER_CLASSF_RUN'] = True
 
         self.galaxies = self.init_dataset(gandalf_logger=gandalf_logger)
         self.gandalf_flow, self.gandalf_classifier = self.init_trained_models()  # , self.calibration_model
@@ -39,9 +31,8 @@ class gaNdalF(object):
     def init_dataset(self, gandalf_logger):
 
         galaxies = DESGalaxies(
-            logg=gandalf_logger,
+            dataset_logger=gandalf_logger,
             cfg=self.cfg,
-            kind="run"
         )
 
         if self.cfg['NUMBER_SAMPLES'] == -1:
@@ -70,162 +61,86 @@ class gaNdalF(object):
 
         return gandalf_flow, gandalf_classifier  # , calibration_model
 
-    # def predict_calibrated(self, y_pred):
-    #     calibrated_outputs = self.calibration_model.predict_proba(y_pred.reshape(-1, 1))[:, 1]
-    #     return calibrated_outputs
-
     def run_classifier(self, data_frame):
         """"""
         with torch.no_grad():
-            arr_classf_gandalf_output = self.gandalf_classifier(torch.tensor(data_frame[self.cfg["INPUT_COLS_MAG_RUN"]].values)).squeeze().numpy()
+            input_data = torch.tensor(data_frame[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
 
-        if self.cfg["USE_THRESHOLD_FOR_CLF"] is True:
-            precision, recall, thresholds = precision_recall_curve(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_classf_gandalf_output)
-            f1_scores = 2 * (precision * recall) / (precision + recall + 1e-8)
-            best_threshold = thresholds[np.argmax(f1_scores)]
-            self.gandalf_logger.log_info_stream(f"Use best threshold {best_threshold}")
-            arr_gandalf_detected = arr_classf_gandalf_output > best_threshold
-        else:
-            arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.cfg['NUMBER_SAMPLES'])
+            for j, col in enumerate(self.cfg["INPUT_COLS"]):
+                if col in self.cfg.get("COLUMNS_LOG1P", []):
+                    input_data[:, j] = torch.log1p(input_data[:, j])
+                scale = self.scalers_classifier[col].scale_[0]
+                min_ = self.scalers_classifier[col].min_[0]
+                input_data[:, j] = input_data[:, j] * scale + min_
+
+            arr_classf_gandalf_output = self.gandalf_classifier(input_data).squeeze().numpy()
+
+        arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.cfg['NUMBER_SAMPLES'])
         arr_gandalf_detected = arr_gandalf_detected.astype(int)
-        validation_accuracy = accuracy_score(data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values, arr_gandalf_detected)
-        df_balrog = data_frame[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
 
-        if self.cfg['APPLY_SCALER_CLASSF_RUN'] is True:
-            df_balrog = self.galaxies.inverse_scale_data(df_balrog)
+        validation_accuracy = accuracy_score(data_frame[self.cfg["OUTPUT_COLS_CLASSIFIER"]].values, arr_gandalf_detected)
 
-        if self.cfg['APPLY_YJ_TRANSFORM_CLASSF_RUN'] is True:
-            if self.cfg['TRANSFORM_COLS_RUN'] is None:
-                trans_col =df_balrog.columns
-            else:
-                trans_col = self.cfg['TRANSFORM_COLS_RUN']
-
-            df_balrog = self.galaxies.yj_inverse_transform_data(
-                data_frame=df_balrog,
-                columns=trans_col
-            )
-
-        df_balrog.loc[:, self.cfg["OUTPUT_COLS_CLASSF_RUN"]] = data_frame[self.cfg["OUTPUT_COLS_CLASSF_RUN"]].values
-        df_balrog.loc[:, self.cfg["CUT_COLS_RUN"]] = data_frame[self.cfg["CUT_COLS_RUN"]].values
-
-        df_gandalf = df_balrog.copy()
-
+        df_gandalf = data_frame.copy()
+        df_gandalf.rename(columns={"detected": "true_detected"}, inplace=True)
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected.astype(int)
         df_gandalf.loc[:, "probability detected"] = arr_classf_gandalf_output
 
         self.gandalf_logger.log_info_stream(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
-        return df_balrog, df_gandalf
+        return df_gandalf
 
-    def run_emulator(self, df_balrog, df_gandalf):
+    def run_emulator(self, data_frame):
         """"""
-        if self.cfg['CLASSF_GALAXIES'] is True:
-            if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
-                self.galaxies.applied_yj_transform = "_YJ"
+        with torch.no_grad():
+            input_data = torch.tensor(data_frame[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
+            output_data = torch.tensor(data_frame[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
+            for j, col in enumerate(self.cfg["INPUT_COLS"]):
+                if col in self.cfg.get("COLUMNS_LOG1P", []):
+                    input_data[:, j] = torch.log1p(input_data[:, j])
+                scale = self.scalers_nf[col].scale_[0]
+                min_ = self.scalers_nf[col].min_[0]
+                input_data[:, j] = input_data[:, j] * scale + min_
+
+            for j, col in enumerate(self.cfg["OUTPUT_COLS_NF"]):
+                if col in self.cfg.get("COLUMNS_LOG1P", []):
+                    output_data[:, j] = torch.log1p(output_data[:, j])
+                scale = self.scalers_nf[col].scale_[0]
+                min_ = self.scalers_nf[col].min_[0]
+                output_data[:, j] = output_data[:, j] * scale + min_
+
+        arr_flow_gandalf_output = self.gandalf_flow.sample(len(data_frame), cond_inputs=input_data).detach().numpy()
+
+        if self.cfg["PLOT_FLOW_TRANSFORM_OUTPUT"] is True:
+            arr_flow = arr_flow_gandalf_output
+            arr_true = output_data.detach().numpy()
+
+            for j, col in enumerate(self.cfg["OUTPUT_COLS_NF"]):
+                plt.figure(figsize=(6, 3))
+                sns.histplot(arr_flow[:, j], bins=100, color="red", label="gandalf", stat="density", kde=False,
+                             element="step")
+                sns.histplot(arr_true[:, j], bins=100, color="green", label="balrog", stat="density", kde=False,
+                             element="step")
+                plt.legend()
+                plt.title(f"Feature: {col}")
+                plt.tight_layout()
+                plt.show()
+
+        # Invers transformieren
+        for j, col in enumerate(self.cfg["OUTPUT_COLS_NF"]):
+            scale = self.scalers_nf[col].scale_[0]
+            min_ = self.scalers_nf[col].min_[0]
+
+            if col in self.cfg.get("COLUMNS_LOG1P", []):
+                # log1p und Skalierung rückgängig machen
+                arr_flow_gandalf_output[:, j] = np.expm1((arr_flow_gandalf_output[:, j] - min_) / scale)
             else:
-                self.galaxies.applied_yj_transform = ""
-            filename = self.cfg[f'FILENAME_SCALER_ODET_{self.lum_type}{self.galaxies.applied_yj_transform}']
-            self.galaxies.scaler = joblib.load(
-                f"{self.cfg['PATH_TRANSFORMERS']}/{filename}"
-            )
-            self.galaxies.name_scaler = filename
-            self.galaxies.dict_pt = joblib.load(
-                f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_YJ_TRANSFORMER_ODET']}"
-            )
-            self.galaxies.name_yj_transformer = self.cfg['FILENAME_YJ_TRANSFORMER_ODET']
+                arr_flow_gandalf_output[:, j] = (arr_flow_gandalf_output[:, j] - min_) / scale
 
-            df_gandalf_flow = df_gandalf[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']]
-            if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
-                df_gandalf_flow, _ = self.galaxies.yj_transform_data(
-                    data_frame=df_gandalf_flow,
-                    columns=df_gandalf_flow.columns,
-                    dict_pt=self.galaxies.dict_pt
-                )
+        print(f"Number of NaNs before inverse transformation in df_gandalf: {data_frame.isna().sum().sum()}")
+        data_frame.loc[:, self.cfg[f'OUTPUT_COLS_NF']] = arr_flow_gandalf_output
+        print(f"Length gandalf catalog: {len(data_frame)}")
+        print(f"Number of NaNs after inverse transformation in df_gandalf: {data_frame.isna().sum().sum()}")
 
-            if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
-                df_gandalf_flow, _ = self.galaxies.scale_data(
-                    data_frame=df_gandalf_flow,
-                    scaler=self.galaxies.scaler
-                )
-
-        else:
-            df_gandalf_flow = df_gandalf[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].copy()
-            df_balrog_flow = df_balrog[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN'] + self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].copy()
-            print(f"Number of NaNs in df_balrog: {df_balrog_flow.isna().sum().sum()}")
-            if self.cfg['APPLY_SCALER_FLOW_RUN'] is True:
-                print("apply inverse scaler on balrog")
-                df_balrog_flow = self.galaxies.inverse_scale_data(df_balrog_flow)
-            print(f"Number of NaNs in df_balrog after scaler: {df_balrog_flow.isna().sum().sum()}")
-            if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
-                if self.cfg['TRANSFORM_COLS_RUN'] is None:
-                    trans_col = df_balrog_flow.keys()
-                else:
-                    trans_col = self.cfg['TRANSFORM_COLS_RUN']
-                print("apply inverse yj transform on balrog")
-                df_balrog_flow = self.galaxies.yj_inverse_transform_data(
-                    data_frame=df_balrog_flow,
-                    columns=trans_col
-                )
-            print(f"Number of NaNs in df_balrog after yj inverse transformation: {df_balrog_flow.isna().sum().sum()}")
-            df_balrog.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_balrog_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
-            df_balrog.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_balrog_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
-        arr_flow_gandalf_output = self.gandalf_flow.sample(
-            len(df_gandalf_flow),
-            cond_inputs=torch.from_numpy(df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values).double()
-        ).detach().numpy()
-        df_gandalf_flow.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = arr_flow_gandalf_output
-        print(f"Length gandalf catalog: {len(df_gandalf_flow)}")
-        print(f"Number of NaNs in df_gandalf: {df_gandalf_flow.isna().sum().sum()}")
-
-        if self.cfg['APPLY_YJ_TRANSFORM_FLOW_RUN'] is True:
-            if self.cfg['TRANSFORM_COLS_RUN'] is None:
-                trans_col = df_gandalf_flow.keys()
-            else:
-                trans_col = self.cfg['TRANSFORM_COLS_RUN']
-            print("apply yj transform on df_gandalf")
-            df_gandalf_flow = self.galaxies.yj_inverse_transform_data(
-                data_frame=df_gandalf_flow,
-                columns=trans_col
-            )
-
-        try:
-            df_gandalf.loc[:, self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'OUTPUT_COLS_{self.lum_type}_RUN']].values
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise  # Re-raise the exception if necessary
-        try:
-            df_gandalf.loc[:, self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']] = df_gandalf_flow[self.cfg[f'INPUT_COLS_{self.lum_type}_RUN']].values
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise  # Re-raise the exception if necessary
-
-        # print(f"Length gandalf catalog: {len(df_gandalf)}")
-        # print(f"Length balrog catalog: {len(df_balrog)}")
-        # if df_gandalf.isna().sum().sum() > 0:
-        #     print("Warning: NaNs in df_gandalf_rescaled")
-        #     print(f"Number of NaNs in df_gandalf: {df_gandalf.isna().sum().sum()}")
-        #     # df_gandalf.dropna(inplace=True)
-        #
-        # if df_balrog.isna().sum().sum() > 0:
-        #     print("Warning: NaNs in df_gandalf_rescaled")
-        #     print(f"Number of NaNs in df_gandalf: {df_balrog.isna().sum().sum()}")
-        #     # df_balrog.dropna(inplace=True)
-        #
-        # print(f"Length gandalf catalog: {len(df_gandalf)}")
-        # print(f"Length balrog catalog: {len(df_balrog)}")
-        #
-        # for col in df_gandalf.keys():
-        #     if "unsheared" in col:
-        #         print(f"{col}: {df_gandalf[col].min()}/{df_balrog[col].min()}\t{df_gandalf[col].max()}/{df_balrog[col].max()}")
-
-        # if "unsheared/flux_r" not in df_gandalf.keys():
-        #     df_gandalf.loc[:, "unsheared/flux_r"] = mag2flux(df_gandalf["unsheared/mag_r"])
-        #
-        # if "unsheared/flux_r" not in df_balrog.keys():
-        #     df_balrog.loc[:, "unsheared/flux_r"] = mag2flux(df_balrog["unsheared/mag_r"])
-        # print(f"Length gandalf catalog: {len(df_gandalf)}")
-        # print(f"Length balrog catalog: {len(df_balrog)}")
-
-        return df_balrog, df_gandalf
+        return data_frame
 
     def save_data(self, data_frame, file_name, protocol=2, tmp_samples=False):
         """"""
@@ -338,9 +253,12 @@ class gaNdalF(object):
                 df_balrog=df_balrog,
                 df_gandalf=df_gandalf,
                 columns=[
-                    "BDF_MAG_DERED_CALIB_R",
-                    "BDF_MAG_DERED_CALIB_I",
-                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_LUPT_DERED_CALIB_R",
+                    "BDF_LUPT_DERED_CALIB_I",
+                    "BDF_LUPT_DERED_CALIB_Z",
+                    "BDF_LUPT_ERR_DERED_CALIB_R",
+                    "BDF_LUPT_ERR_DERED_CALIB_I",
+                    "BDF_LUPT_ERR_DERED_CALIB_Z",
                     "BDF_T",
                     "BDF_G",
                     "FWHM_WMEAN_R",
@@ -355,9 +273,12 @@ class gaNdalF(object):
                     "EBV_SFD98"
                 ],
                 labels=[
-                    "BDF Mag R",
-                    "BDF Mag I",
-                    "BDF Mag Z",
+                    "BDF Lupt R",
+                    "BDF Lupt I",
+                    "BDF Lupt Z",
+                    "BDF Lupt Err R",
+                    "BDF Lupt Err I",
+                    "BDF Lupt Err Z",
                     "BDF T",
                     "BDF G",
                     "FWHM R",
@@ -381,9 +302,9 @@ class gaNdalF(object):
                 df_balrog=df_balrog,
                 df_gandalf=df_gandalf,
                 columns=[
-                    "BDF_MAG_DERED_CALIB_R",
-                    "BDF_MAG_DERED_CALIB_I",
-                    "BDF_MAG_DERED_CALIB_Z",
+                    "BDF_LUPT_DERED_CALIB_R",
+                    "BDF_LUPT_DERED_CALIB_I",
+                    "BDF_LUPT_DERED_CALIB_Z",
                     "BDF_T",
                     "BDF_G",
                     "FWHM_WMEAN_R",
@@ -398,9 +319,9 @@ class gaNdalF(object):
                     "EBV_SFD98"
                 ],
                 labels=[
-                    "BDF Mag R",
-                    "BDF Mag I",
-                    "BDF Mag Z",
+                    "BDF Lupt R",
+                    "BDF Lupt I",
+                    "BDF Lupt Z",
                     "BDF T",
                     "BDF G",
                     "FWHM R",
@@ -434,67 +355,6 @@ class gaNdalF(object):
                 show_plot=self.cfg['SHOW_PLOT_RUN'],
                 save_plot=self.cfg['SAVE_PLOT_RUN'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_NUMBER_DENSITY']}/number_density_fluctuation.png",
-                title=f"Comparison Between Gandalf and Balrog"
-            )
-            df_balrog_deep_cut = self.apply_deep_cuts(df_balrog)
-            df_gandalf_deep_cut = self.apply_deep_cuts(df_gandalf)
-            plot_number_density_fluctuation(
-                df_balrog=df_balrog_deep_cut,
-                df_gandalf=df_gandalf_deep_cut,
-                columns=[
-                    "BDF_MAG_DERED_CALIB_R",
-                    "BDF_MAG_DERED_CALIB_I",
-                    "BDF_MAG_DERED_CALIB_Z",
-                    "BDF_T",
-                    "BDF_G",
-                    "FWHM_WMEAN_R",
-                    "FWHM_WMEAN_I",
-                    "FWHM_WMEAN_Z",
-                    "AIRMASS_WMEAN_R",
-                    "AIRMASS_WMEAN_I",
-                    "AIRMASS_WMEAN_Z",
-                    "MAGLIM_R",
-                    "MAGLIM_I",
-                    "MAGLIM_Z",
-                    "EBV_SFD98"
-                ],
-                labels=[
-                    "BDF Mag R",
-                    "BDF Mag I",
-                    "BDF Mag Z",
-                    "BDF T",
-                    "BDF G",
-                    "FWHM R",
-                    "FWHM I",
-                    "FWHM Z",
-                    "AIRMASS R",
-                    "AIRMASS I",
-                    "AIRMASS Z",
-                    "MAGLIM R",
-                    "MAGLIM I",
-                    "MAGLIM Z",
-                    "EBV SFD98"
-                ],
-                ranges=[
-                    [18, 26],
-                    [18, 26],
-                    [18, 26],
-                    [-1, 1.5],
-                    [-0.1, 0.8],
-                    [0.8, 1.2],
-                    [0.7, 1.1],
-                    [0.7, 1.0],
-                    [1, 1.4],
-                    [1, 1.4],
-                    [1, 1.4],
-                    [23.5, 24.5],
-                    [23, 23.75],
-                    [22, 23],
-                    [0, 0.05]
-                ],
-                show_plot=self.cfg['SHOW_PLOT_RUN'],
-                save_plot=self.cfg['SAVE_PLOT_RUN'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'CLASSF_NUMBER_DENSITY']}/number_density_fluctuation_cut.png",
                 title=f"Comparison Between Gandalf and Balrog"
             )
         # Multivariate classifier
