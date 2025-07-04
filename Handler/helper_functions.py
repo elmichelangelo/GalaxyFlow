@@ -397,3 +397,11 @@ def apply_loggrid(x, y, grid, xmin=10, xmax=300, xsteps=20, ymin=0.5, ymax=5, ys
 def assign_new_weights(x, y, path_grid):
     w = np.genfromtxt(path_grid)
     return apply_loggrid(x=x, y=y, grid=w)
+
+
+def inverse_transform_df(ct, df):
+    for name, trans, cols in ct.transformers_:
+        if trans == 'passthrough':
+            continue
+        df[cols] = trans.inverse_transform(df[cols])
+    return df

@@ -7,6 +7,8 @@ import sys
 import torch
 import gc
 import joblib
+
+from Handler import apply_quality_cuts
 from Handler.helper_functions import compute_weights_from_magnitude
 
 
@@ -139,9 +141,14 @@ class GalaxyDataset(Dataset):
                 #     torch.tensor(df_test[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
                 # )
             elif self.cfg["TRAINING_TYPE"] == "flow":
-                self.train_dataset = df_train[df_train["detected"]==1].copy()
-                self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
-                self.test_dataset = df_test[df_test["detected"]==1].copy()
+                if self.cfg["QUALITY_CUTS"] is True:
+                    self.train_dataset = apply_quality_cuts(self.cfg, df_train)
+                    self.valid_dataset = apply_quality_cuts(self.cfg, df_valid)
+                    self.test_dataset = apply_quality_cuts(self.cfg, df_test)
+                else:
+                    self.train_dataset = df_train[df_train["detected"]==1].copy()
+                    self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
+                    self.test_dataset = df_test[df_test["detected"]==1].copy()
                 # self.train_dataset = TensorDataset(
                 #     torch.tensor(df_train[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
                 #     torch.tensor(df_train[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)

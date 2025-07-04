@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+import pickle
 
 
 def plot_cuts(data_frame):
@@ -165,3 +166,24 @@ def apply_deep_cuts(path_master_cat, data_frame):
     data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_I'] < 37]
     data_frame = data_frame[data_frame['BDF_MAG_DERED_CALIB_Z'] < 37]
     return data_frame
+
+def apply_quality_cuts(cfg, data_frame):
+    df_balrog_flag = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FLAG_CATALOG']}")
+    df_merged = pd.merge(data_frame, df_balrog_flag, on='bal_id', how='left')
+    df_merged = df_merged[df_merged["detected"] == 1]
+    df_merged = df_merged[
+        (df_merged["flags_foreground"] == 0) &
+        (df_merged["flags_badregions"] < 2) &
+        (df_merged["flags_footprint"] == 1) &
+        (df_merged["unsheared/flags_gold"] < 2) &
+        (df_merged["unsheared/extended_class_sof"] >= 0) &
+        (df_merged["match_flag_1.5_asec"] < 2)
+    ]
+    df_merged = df_merged[(df_merged['unsheared/lupt_err_i'] <= np.percentile(df_merged['unsheared/lupt_err_i'], 99.5))]
+    df_merged = df_merged[(df_merged['unsheared/lupt_err_r'] <= np.percentile(df_merged['unsheared/lupt_err_r'], 99.5))]
+    df_merged = df_merged[(df_merged['unsheared/lupt_err_z'] <= np.percentile(df_merged['unsheared/lupt_err_z'], 99.5))]
+    df_merged = df_merged[df_merged['unsheared/lupt_err_i'] >= 0]
+    df_merged = df_merged[df_merged['unsheared/lupt_err_r'] >= 0]
+    df_merged = df_merged[df_merged['unsheared/lupt_err_z'] >= 0]
+    df_merged = df_merged[data_frame.keys()]
+    return df_merged

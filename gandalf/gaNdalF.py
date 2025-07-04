@@ -120,9 +120,11 @@ class gaNdalF(object):
                 sns.histplot(arr_true[:, j], bins=100, color="green", label="balrog", stat="density", kde=False,
                              element="step")
                 plt.legend()
+                plt.yscale("log")
                 plt.title(f"Feature: {col}")
                 plt.tight_layout()
                 plt.show()
+            exit()
 
         # Invers transformieren
         for j, col in enumerate(self.cfg["OUTPUT_COLS_NF"]):

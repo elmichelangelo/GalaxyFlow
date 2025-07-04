@@ -3236,3 +3236,50 @@ def plot_compare_mean_z_bootstrap(
     # Clear the figure
     plt.clf()
     plt.close(fig)
+
+
+def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, epoch, today):
+    n_features = len(columns)
+    ncols = min(n_features, 3)
+    nrows = int(np.ceil(n_features / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    axes = axes.flatten()
+    for i, k in enumerate(columns):
+        plot_log.log_info_stream(f"{k}: gandalf NaNs={df_gandalf[k].isna().sum()}, balrog NaNs={df_balrog[k].isna().sum()}")
+        plot_log.log_info_stream(f"{k}: gandalf infs={np.isinf(df_gandalf[k]).sum()}, balrog infs={np.isinf(df_balrog[k]).sum()}")
+        plot_log.log_info_stream(f"{k}: gandalf unique={df_gandalf[k].nunique()}, balrog unique={df_balrog[k].nunique()}")
+
+        x1 = df_gandalf[k].replace([np.inf, -np.inf], np.nan).dropna()
+        x2 = df_balrog[k].replace([np.inf, -np.inf], np.nan).dropna()
+        plot_log.log_info_stream(f"{k}: min={x1.min()}, max={x1.max()}, finite={np.isfinite(x1).all()}, len={len(x1)}")
+
+        V_MIN, V_MAX = -1e5, 1e5
+
+        # Clippen pro Feature, du kannst das für jede Variable auch individuell machen!
+        x1_clip = x1[np.isfinite(x1)]
+        x2_clip = x2[np.isfinite(x2)]
+        x1_clip = x1_clip[(x1_clip >= V_MIN) & (x1_clip <= V_MAX)]
+        x2_clip = x2_clip[(x2_clip >= V_MIN) & (x2_clip <= V_MAX)]
+
+        if len(x1_clip) == 0 or len(x2_clip) == 0:
+            plot_log.log_info_stream(f"Skip plotting {k}: no data after clipping")
+            continue
+
+        if np.isclose(x1_clip.max(), x1_clip.min()) or not np.isfinite([x1_clip.min(), x1_clip.max()]).all():
+            plot_log.log_info_stream(f"Skip plotting {k}: invalid range in gandalf ({x1_clip.min()}..{x1_clip.max()})")
+            continue
+        if np.isclose(x2_clip.max(), x2_clip.min()) or not np.isfinite([x2_clip.min(), x2_clip.max()]).all():
+            plot_log.log_info_stream(f"Skip plotting {k}: invalid range in balrog ({x2_clip.min()}..{x2_clip.max()})")
+            continue
+
+        sns.histplot(x=x1_clip, bins=100, ax=axes[i], label="gandalf")
+        sns.histplot(x=x2_clip, bins=100, ax=axes[i], label="balrog")
+        axes[i].set_yscale("log")
+        axes[i].set_title(f"{epoch} {title_prefix} {k}")
+        axes[i].set_xlabel(k)
+
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+    fig.tight_layout()
+    plt.legend()
+    plt.savefig(f"{cfg['PATH_OUTPUT_PLOTS']}/{today}_{epoch}_output_plots.pdf", bbox_inches='tight', dpi=300)
