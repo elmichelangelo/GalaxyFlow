@@ -146,9 +146,13 @@ class GalaxyDataset(Dataset):
                     self.valid_dataset = apply_quality_cuts(self.cfg, df_valid)
                     self.test_dataset = apply_quality_cuts(self.cfg, df_test)
                 else:
+                    df_train = df_train[self.cfg["COLUMNS"]]
+                    df_valid = df_valid[self.cfg["COLUMNS"]]
+                    df_test = df_test[self.cfg["COLUMNS"]]
                     self.train_dataset = df_train[df_train["detected"]==1].copy()
                     self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
                     self.test_dataset = df_test[df_test["detected"]==1].copy()
+
                 # self.train_dataset = TensorDataset(
                 #     torch.tensor(df_train[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
                 #     torch.tensor(df_train[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)

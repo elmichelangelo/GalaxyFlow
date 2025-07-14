@@ -150,62 +150,62 @@ class BatchNormFlow(nn.Module):
         self.register_buffer('running_mean', torch.zeros(num_inputs, dtype=torch.float64))
         self.register_buffer('running_var', torch.ones(num_inputs, dtype=torch.float64))
 
-    # def forward(self, inputs, cond_inputs=None, mode='direct'):
-    #     if mode == 'direct':
-    #         if self.training:
-    #             self.batch_mean = inputs.mean(0)
-    #             self.batch_var = (inputs - self.batch_mean).pow(2).mean(0) + self.eps
-    #
-    #             self.running_mean.mul_(self.momentum)
-    #             self.running_var.mul_(self.momentum)
-    #
-    #             self.running_mean.add_(self.batch_mean.data *
-    #                                    (1 - self.momentum))
-    #             self.running_var.add_(self.batch_var.data *
-    #                                   (1 - self.momentum))
-    #
-    #             mean = self.batch_mean
-    #             var = self.batch_var
-    #         else:
-    #             mean = self.running_mean
-    #             var = self.running_var
-    #
-    #         x_hat = (inputs - mean) / var.sqrt()
-    #         y = torch.exp(self.log_gamma) * x_hat + self.beta
-    #         return y, (self.log_gamma - 0.5 * torch.log(var)).sum(
-    #             -1, keepdim=True)
-    #     else:
-    #         if self.training:
-    #             mean = self.batch_mean
-    #             var = self.batch_var
-    #         else:
-    #             mean = self.running_mean
-    #             var = self.running_var
-    #
-    #         x_hat = (inputs - self.beta) / torch.exp(self.log_gamma)
-    #
-    #         y = x_hat * var.sqrt() + mean
-    #
-    #         return y, (-self.log_gamma + 0.5 * torch.log(var)).sum(
-    #             -1, keepdim=True)
-
-    class BatchNormFlow(nn.Module):
-        """BatchNorm für Flows: immer aktuelle Batch-Stats, NIE running stats."""
-
     def forward(self, inputs, cond_inputs=None, mode='direct'):
-        mean = inputs.mean(0)
-        var = (inputs - mean).pow(2).mean(0) + self.eps
-
         if mode == 'direct':
+            if self.training:
+                self.batch_mean = inputs.mean(0)
+                self.batch_var = (inputs - self.batch_mean).pow(2).mean(0) + self.eps
+
+                self.running_mean.mul_(self.momentum)
+                self.running_var.mul_(self.momentum)
+
+                self.running_mean.add_(self.batch_mean.data *
+                                       (1 - self.momentum))
+                self.running_var.add_(self.batch_var.data *
+                                      (1 - self.momentum))
+
+                mean = self.batch_mean
+                var = self.batch_var
+            else:
+                mean = self.running_mean
+                var = self.running_var
+
             x_hat = (inputs - mean) / var.sqrt()
             y = torch.exp(self.log_gamma) * x_hat + self.beta
-            log_det = (self.log_gamma - 0.5 * torch.log(var)).sum(-1, keepdim=True)
-            return y, log_det
+            return y, (self.log_gamma - 0.5 * torch.log(var)).sum(
+                -1, keepdim=True)
         else:
+            if self.training:
+                mean = self.batch_mean
+                var = self.batch_var
+            else:
+                mean = self.running_mean
+                var = self.running_var
+
             x_hat = (inputs - self.beta) / torch.exp(self.log_gamma)
+
             y = x_hat * var.sqrt() + mean
-            log_det = (-self.log_gamma + 0.5 * torch.log(var)).sum(-1, keepdim=True)
-            return y, log_det
+
+            return y, (-self.log_gamma + 0.5 * torch.log(var)).sum(
+                -1, keepdim=True)
+
+    # class BatchNormFlow(nn.Module):
+    #     """BatchNorm für Flows: immer aktuelle Batch-Stats, NIE running stats."""
+    #
+    # def forward(self, inputs, cond_inputs=None, mode='direct'):
+    #     mean = inputs.mean(0)
+    #     var = (inputs - mean).pow(2).mean(0) + self.eps
+    #
+    #     if mode == 'direct':
+    #         x_hat = (inputs - mean) / var.sqrt()
+    #         y = torch.exp(self.log_gamma) * x_hat + self.beta
+    #         log_det = (self.log_gamma - 0.5 * torch.log(var)).sum(-1, keepdim=True)
+    #         return y, log_det
+    #     else:
+    #         x_hat = (inputs - self.beta) / torch.exp(self.log_gamma)
+    #         y = x_hat * var.sqrt() + mean
+    #         log_det = (-self.log_gamma + 0.5 * torch.log(var)).sum(-1, keepdim=True)
+    #         return y, log_det
 
 
 class Reverse(nn.Module):

@@ -3283,3 +3283,30 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
     fig.tight_layout()
     plt.legend()
     plt.savefig(f"{cfg['PATH_OUTPUT_PLOTS']}/{today}_{epoch}_output_plots.pdf", bbox_inches='tight', dpi=300)
+
+
+
+def plot_single_feature_dist(df, columns, title_prefix, path, epoch=None):
+    n_features = len(columns)
+    ncols = min(n_features, 3)
+    nrows = int(np.ceil(n_features / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    axes = axes.flatten()
+    for i, k in enumerate(columns):
+        x = df[k].replace([np.inf, -np.inf], np.nan).dropna()
+        x_clip = x[np.isfinite(x)]
+        V_MIN, V_MAX = -1e5, 1e5
+        x_clip = x_clip[(x_clip >= V_MIN) & (x_clip <= V_MAX)]
+        if len(x_clip) == 0:
+            continue
+        if np.isclose(x_clip.max(), x_clip.min()) or not np.isfinite([x_clip.min(), x_clip.max()]).all():
+            continue
+        sns.histplot(x=x_clip, bins=100, ax=axes[i])
+        axes[i].set_yscale("log")
+        axes[i].set_title(f"{epoch if epoch is not None else ''} {title_prefix} {k}")
+        axes[i].set_xlabel(k)
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+    fig.tight_layout()
+    plt.savefig(f"{path}/{title_prefix}_{epoch if epoch is not None else ''}_feature_dist.pdf", bbox_inches='tight', dpi=300)
+    plt.close(fig)
