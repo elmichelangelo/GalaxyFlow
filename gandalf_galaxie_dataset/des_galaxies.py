@@ -17,6 +17,8 @@ class GalaxyDataset(Dataset):
         self.dataset_logger = dataset_logger
         self.dataset_logger.log_info_stream(f"Init GalaxyDataset")
         self.cfg = cfg
+        self.name_scaler = None
+        self.name_yj_transformer = None
 
         data_frames = self._load_data_frames()
 
@@ -26,9 +28,14 @@ class GalaxyDataset(Dataset):
 
     def _load_data_frames(self):
         if self.cfg["TRAINING"] is True:
-            df_train = self._load_data(filename=self.cfg["FILENAME_TRAIN_DATA"])
-            df_valid = self._load_data(filename=self.cfg["FILENAME_VALIDATION_DATA"])
-            df_test = self._load_data(filename=self.cfg["FILENAME_TEST_DATA"])
+            if self.cfg["SCALER_TYPE"].lower() == "old":
+                df_train = self._load_data(filename=self.cfg["FILENAME_OLD_TRAIN_DATA"])
+                df_valid = self._load_data(filename=self.cfg["FILENAME_OLD_VAL_DATA"])
+                df_test = self._load_data(filename=self.cfg["FILENAME_OLD_TEST_DATA"])
+            else:
+                df_train = self._load_data(filename=self.cfg["FILENAME_TRAIN_DATA"])
+                df_valid = self._load_data(filename=self.cfg["FILENAME_VALIDATION_DATA"])
+                df_test = self._load_data(filename=self.cfg["FILENAME_TEST_DATA"])
             return (df_train, df_valid, df_test)
         else:
             df_data = self._load_data(filename=self.cfg["FILENAME_TEST_DATA"])
@@ -140,18 +147,38 @@ class GalaxyDataset(Dataset):
                 #     torch.tensor(df_test[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
                 #     torch.tensor(df_test[self.cfg[f"OUTPUT_COLS"]].values, dtype=torch.float32)
                 # )
-            elif self.cfg["TRAINING_TYPE"] == "flow":
-                if self.cfg["QUALITY_CUTS"] is True:
-                    self.train_dataset = apply_quality_cuts(self.cfg, df_train)
-                    self.valid_dataset = apply_quality_cuts(self.cfg, df_valid)
-                    self.test_dataset = apply_quality_cuts(self.cfg, df_test)
+            elif self.cfg["TRAINING_TYPE"].lower() == "flow":
+                df_train_inf = df_train[self.cfg["INFORM_COLUMNS"]]
+                df_val_inf = df_valid[self.cfg["INFORM_COLUMNS"]]
+                df_test_inf = df_test[self.cfg["INFORM_COLUMNS"]]
+                if self.cfg["SCALER_TYPE"].lower() == "old":
+                    df_train, self.dict_pt = self.yj_transform_data(
+                        data_frame=df_train[list(self.cfg["OLD_INPUT_COLS"])+list(self.cfg["OLD_OUTPUT_COLS"])],
+                        columns=list(self.cfg["OLD_INPUT_COLS"])+list(self.cfg["OLD_OUTPUT_COLS"])
+                    )
+                    df_valid, self.dict_pt = self.yj_transform_data(
+                        data_frame=df_valid[list(self.cfg["OLD_INPUT_COLS"])+list(self.cfg["OLD_OUTPUT_COLS"])],
+                        columns=list(self.cfg["OLD_INPUT_COLS"])+list(self.cfg["OLD_OUTPUT_COLS"])
+                    )
+                    df_test, self.dict_pt = self.yj_transform_data(
+                        data_frame=df_test[list(self.cfg["OLD_INPUT_COLS"])+list(self.cfg["OLD_OUTPUT_COLS"])],
+                        columns=list(self.cfg["OLD_INPUT_COLS"])+list(self.cfg["OLD_OUTPUT_COLS"])
+                    )
+                    df_train, self.scaler = self.scale_data(data_frame=df_train)
+                    df_valid, self.scaler = self.scale_data(data_frame=df_valid)
+                    df_test, self.scaler = self.scale_data(data_frame=df_test)
+
+                    for col in self.cfg["INFORM_COLUMNS"]:
+                        df_train[col] = df_train_inf[col]
+                        df_valid[col] = df_val_inf[col]
+                        df_test[col] = df_test_inf[col]
                 else:
                     df_train = df_train[self.cfg["COLUMNS"]]
                     df_valid = df_valid[self.cfg["COLUMNS"]]
                     df_test = df_test[self.cfg["COLUMNS"]]
-                    self.train_dataset = df_train[df_train["detected"]==1].copy()
-                    self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
-                    self.test_dataset = df_test[df_test["detected"]==1].copy()
+                self.train_dataset = df_train[df_train["detected"]==1].copy()
+                self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
+                self.test_dataset = df_test[df_test["detected"]==1].copy()
 
                 # self.train_dataset = TensorDataset(
                 #     torch.tensor(df_train[self.cfg[f"INPUT_COLS"]].values, dtype=torch.float32),
@@ -234,20 +261,21 @@ class GalaxyDataset(Dataset):
     #
     #     return train_dataset, val_dataset, test_dataset, dict_indices
 
-    # def scale_data(self, data_frame, scaler=None):
-    #     """"""
-    #     if scaler is None:
-    #         self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
-    #         scaler = joblib.load(
-    #             filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
-    #         )
-    #     self.dataset_logger.log_info(f"Use {self.name_scaler} to scale data")
-    #     self.dataset_logger.log_stream(f"Use {self.name_scaler} to scale data")
-    #     data_frame_scaled = None
-    #     if scaler is not None:
-    #         scaled = scaler.transform(data_frame)
-    #         data_frame_scaled = pd.DataFrame(scaled, columns=data_frame.columns)
-    #     return data_frame_scaled, scaler
+    def scale_data(self, data_frame, scaler=None):
+        """"""
+        if scaler is None:
+            # self.name_scaler = self.cfg[f'FILENAME_SCALER_{self.data_set_type}_{self.lum_type}{self.applied_yj_transform}']
+            self.name_scaler = self.cfg[f'FILENAME_OLD_SCALER']
+            scaler = joblib.load(
+                filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_scaler}"
+            )
+        self.dataset_logger.log_info(f"Use {self.name_scaler} to scale data")
+        self.dataset_logger.log_stream(f"Use {self.name_scaler} to scale data")
+        data_frame_scaled = None
+        if scaler is not None:
+            scaled = scaler.transform(data_frame)
+            data_frame_scaled = pd.DataFrame(scaled, columns=data_frame.columns)
+        return data_frame_scaled, scaler
     #
     # def inverse_scale_data(self, data_frame):
     #     """"""
@@ -277,22 +305,22 @@ class GalaxyDataset(Dataset):
     #         data_frame.loc[:, col] = pt.inverse_transform(np.array(value).reshape(-1, 1)).ravel()
     #     return data_frame
     #
-    # def yj_transform_data(self, data_frame, columns, dict_pt=None):
-    #     """"""
-    #     if dict_pt is None:
-    #         dict_pt = joblib.load(
-    #             filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']}"
-    #         )
-    #     self.name_yj_transformer = self.cfg[f'FILENAME_YJ_TRANSFORMER_{self.data_set_type}']
-    #     self.dataset_logger.log_info_stream(f"Use {self.name_yj_transformer} to transform data")
-    #
-    #     data_frame = data_frame.copy()
-    #     for col in columns:
-    #         pt = dict_pt[f"{col} pt"]
-    #         # value = data_frame[col].values.astype(np.float64)
-    #         # transformed = pt.transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
-    #         data_frame.loc[:, col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
-    #     return data_frame, dict_pt
+    def yj_transform_data(self, data_frame, columns, dict_pt=None):
+        """"""
+        self.name_yj_transformer = self.cfg[f'FILENAME_OLD_YJ']
+        if dict_pt is None:
+            dict_pt = joblib.load(
+                filename=f"{self.cfg['PATH_TRANSFORMERS']}/{self.name_yj_transformer}"
+            )
+        self.dataset_logger.log_info_stream(f"Use {self.name_yj_transformer} to transform data")
+
+        data_frame = data_frame.copy()
+        for col in columns:
+            pt = dict_pt[f"{col} pt"]
+            # value = data_frame[col].values.astype(np.float64)
+            # transformed = pt.transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
+            data_frame.loc[:, col] = pt.transform(np.array(data_frame[col]).reshape(-1, 1)).ravel()
+        return data_frame, dict_pt
 
     # def yj_transform_data_on_fly(self, data_frame, columns, dict_pt):
     #     """"""

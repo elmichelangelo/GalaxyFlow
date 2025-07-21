@@ -451,19 +451,20 @@ def plot_compare_seaborn(data_frame_generated, data_frame_true, columns, labels,
 
 def loss_plot(
         epoch,
+        title,
         lst_train_loss_per_batch,
         lst_train_loss_per_epoch,
         lst_valid_loss_per_batch,
         lst_valid_loss_per_epoch,
         show_plot,
         save_plot,
-        save_name
+        save_name,
+        log_scale=False
 ):
     statistical_figure, (stat_ax1, stat_ax2, stat_ax3) = plt.subplots(nrows=3, ncols=1)
     statistical_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.25, hspace=0.25)
-    statistical_figure.suptitle(f"Epoch: {epoch+1}", fontsize=16)
+    statistical_figure.suptitle(f"{title} (Epoch: {epoch+1})", fontsize=18)
 
-    # Create dataframe of progress list
     df_training_loss_per_batch = pd.DataFrame({
         "training loss": lst_train_loss_per_batch
     })
@@ -489,6 +490,8 @@ def loss_plot(
     stat_ax1.set_xlabel("batch", fontsize=10, loc='right')
     stat_ax1.set_ylabel("loss", fontsize=12, loc='top')
     stat_ax1.set_title(f"Loss per batch")
+    if log_scale is True:
+        stat_ax1.set_yscale("log")
 
     df_valid_loss_per_batch.plot(
         figsize=(16, 9),
@@ -501,6 +504,8 @@ def loss_plot(
     stat_ax2.set_xlabel("batch", fontsize=10, loc='right')
     stat_ax2.set_ylabel("loss", fontsize=12, loc='top')
     stat_ax2.set_title(f"Loss per batch")
+    if log_scale is True:
+        stat_ax2.set_yscale("log")
 
     df_training_loss_per_epoch.plot(
         figsize=(16, 9),
@@ -513,6 +518,8 @@ def loss_plot(
     stat_ax3.set_xlabel("epoch", fontsize=10, loc='right')
     stat_ax3.set_ylabel("loss", fontsize=12, loc='top')
     stat_ax3.set_title(f"Loss per epoch")
+    if log_scale is True:
+        stat_ax3.set_yscale("log")
 
     df_valid_loss_per_epoch.plot(
         figsize=(16, 9),
@@ -529,7 +536,7 @@ def loss_plot(
     if show_plot is True:
         statistical_figure.show()
     if save_plot is True:
-        statistical_figure.savefig(f"{save_name}", dpi=200)
+        statistical_figure.savefig(f"{save_name}", bbox_inches='tight', dpi=300)
 
     # Clear and close open figure to avoid memory overload
     img_tensor = plot_to_tensor()
@@ -3238,7 +3245,7 @@ def plot_compare_mean_z_bootstrap(
     plt.close(fig)
 
 
-def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, epoch, today):
+def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, epoch, today, savename):
     n_features = len(columns)
     ncols = min(n_features, 3)
     nrows = int(np.ceil(n_features / ncols))
@@ -3282,11 +3289,11 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
         fig.delaxes(axes[j])
     fig.tight_layout()
     plt.legend()
-    plt.savefig(f"{cfg['PATH_OUTPUT_PLOTS']}/{today}_{epoch}_output_plots.pdf", bbox_inches='tight', dpi=300)
+    plt.savefig(savename, bbox_inches='tight', dpi=300)
 
 
 
-def plot_single_feature_dist(df, columns, title_prefix, path, epoch=None):
+def plot_single_feature_dist(df, columns, title_prefix, save_name, epoch=None):
     n_features = len(columns)
     ncols = min(n_features, 3)
     nrows = int(np.ceil(n_features / ncols))
@@ -3308,5 +3315,5 @@ def plot_single_feature_dist(df, columns, title_prefix, path, epoch=None):
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
     fig.tight_layout()
-    plt.savefig(f"{path}/{title_prefix}_{epoch if epoch is not None else ''}_feature_dist.pdf", bbox_inches='tight', dpi=300)
+    plt.savefig(save_name, bbox_inches='tight', dpi=300)
     plt.close(fig)

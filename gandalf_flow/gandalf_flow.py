@@ -76,17 +76,7 @@ class gaNdalFFlow(object):
         self.dict_delta_color_diff = {}
         self.dict_delta_color_diff_mcal = {}
 
-        if cfg["SCALER_TYPE"].lower() == "minmax":
-            print('FILENAME_MINMAX_SCALER')
-            self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_MINMAX_SCALER']}")
-        elif cfg["SCALER_TYPE"].lower() == "standard":
-            self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_STANDARD_SCALER']}")
-            print('FILENAME_STANDARD_SCALER')
-        elif cfg["SCALER_TYPE"].lower() == "yj":
-            self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_YJ_MINMAX_SCALER']}")
-            print('FILENAME_YJ_MINMAX_SCALER')
-
-        self.yj_transformer = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_YJ_TRANSFORMER']}")
+        self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_STANDARD_SCALER']}")
 
         self.bs = batch_size
         self.lr = learning_rate
@@ -197,12 +187,14 @@ class gaNdalFFlow(object):
             self.train_flow_logger.log_info_stream(f"Epoch: {epoch+1}/{self.cfg['EPOCHS_FLOW']}")
             self.train_flow_logger.log_info_stream(f"Train")
             train_loss_epoch = self.train(
-                epoch=epoch
+                epoch=epoch,
+                date=today
             )
 
             self.train_flow_logger.log_info_stream(f"Validation")
             validation_loss = self.validate(
-                epoch=epoch
+                epoch=epoch,
+                date=today
             )
 
             self.lst_epochs.append(epoch)
@@ -307,7 +299,7 @@ class gaNdalFFlow(object):
         plt.tight_layout()
         plt.savefig(f"/Users/P.Gebhardt/Development/PhD/output/gaNdalF_flow_training/{epoch}_{counter}-training_output.png", bbox_inches='tight', dpi=600)
 
-    def train(self, epoch):
+    def train(self, epoch, date):
         self.model.train()
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -317,55 +309,32 @@ class gaNdalFFlow(object):
         total_samples = 0
         df_train = self.galaxies.train_dataset
 
-        if self.cfg["SCALER_TYPE"].lower() == "yj":
-            COLS = df_train.columns
-            df_train = self.yj_transformer.transform(df_train)
-            df_train = pd.DataFrame(df_train, columns=COLS)
-            df_train = self.scalers.transform(df_train)
-            df_train = pd.DataFrame(df_train, columns=COLS)
+        if epoch == 0:
+            for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+                scaler = self.scalers[col]
+                mean = scaler.mean_[0]
+                scale = scaler.scale_[0]
+                df_train[col] = (df_train[col] - mean) / scale
+
+        if self.cfg["PLOT_TRAINING"] is True:
+            os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/", exist_ok=True)
+            plot_single_feature_dist(
+                df=df_train,
+                columns=self.cfg["INPUT_COLS"],
+                title_prefix=f"Train_Scaled_Input",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Train_Scaled_Input.pdf",
+                epoch=epoch + 1
+            )
+            plot_single_feature_dist(
+                df=df_train,
+                columns=self.cfg["OUTPUT_COLS"],
+                title_prefix=f"Train_Scaled_Output",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Train_Scaled_Output.pdf",
+                epoch=epoch + 1
+            )
 
         input_data = torch.tensor(df_train[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_train[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
-
-        if self.cfg["SCALER_TYPE"].lower() != "yj":
-            for j, col in enumerate(self.cfg["INPUT_COLS"]):
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    input_data[:, j] = torch.log1p(input_data[:, j])
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    input_data[:, j] = input_data[:, j] * scale + min_
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    input_data[:, j] = (input_data[:, j] - mean) / scale
-
-            for j, col in enumerate(self.cfg["OUTPUT_COLS"]):
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    output_data[:, j] = torch.log1p(output_data[:, j])
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    output_data[:, j] = output_data[:, j] * scale + min_
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    output_data[:, j] = (output_data[:, j] - mean) / scale
-
-        input_data_np = input_data.cpu().numpy()
-        output_data_np = output_data.cpu().numpy()
-        df_input_trans = pd.DataFrame(input_data_np, columns=self.cfg["INPUT_COLS"])
-        df_output_trans = pd.DataFrame(output_data_np, columns=self.cfg["OUTPUT_COLS"])
-        plot_single_feature_dist(
-            df_input_trans, self.cfg["INPUT_COLS"], "TrainTransformedInput", self.cfg["PATH_OUTPUT_PLOTS"], epoch+1
-        )
-        plot_single_feature_dist(
-            df_output_trans, self.cfg["OUTPUT_COLS"], "TrainTransformedOutput", self.cfg["PATH_OUTPUT_PLOTS"], epoch+1
-        )
 
         train_dataset = TensorDataset(input_data, output_data)
         train_loader = DataLoader(train_dataset, batch_size=self.bs, shuffle=True)
@@ -392,6 +361,7 @@ class gaNdalFFlow(object):
         pbar.close()
 
         train_loss = train_loss / len(self.galaxies.train_dataset)
+        self.lst_train_loss_per_epoch.append(train_loss)
         self.train_flow_logger.log_info_stream(f"Training,\t"
                                                f"Epoch: {epoch + 1},\t"
                                                f"learning rate: {self.lr},\t"
@@ -407,8 +377,8 @@ class gaNdalFFlow(object):
                 module.momentum = 0
         with torch.no_grad():
             self.model(
-                torch.tensor(self.galaxies.train_dataset[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64),
-                cond_inputs=torch.tensor(self.galaxies.train_dataset[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
+                torch.tensor(self.galaxies.train_dataset[self.cfg["OUTPUT_COLS"]].values,dtype=torch.float64),
+                cond_inputs=torch.tensor(df_train[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
             )
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -417,62 +387,38 @@ class gaNdalFFlow(object):
 
         return train_loss
 
-    def validate(self, epoch):
+    def validate(self, epoch, date):
         self.model.eval()
         val_loss = 0
         total_samples = 0
 
         df_valid = self.galaxies.valid_dataset
 
-        if self.cfg["SCALER_TYPE"].lower() == "yj":
-            COLS = df_valid.columns
-            df_valid = self.yj_transformer.transform(df_valid)
-            df_valid = pd.DataFrame(df_valid, columns=COLS)
-            df_valid = self.scalers.transform(df_valid)
-            df_valid = pd.DataFrame(df_valid, columns=COLS)
+        if epoch == 0:
+            for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+                scaler = self.scalers[col]
+                mean = scaler.mean_[0]
+                scale = scaler.scale_[0]
+                df_valid[col] = (df_valid[col] - mean) / scale
+
+        if self.cfg["PLOT_TRAINING"] is True:
+            plot_single_feature_dist(
+                df=df_valid,
+                columns=self.cfg["INPUT_COLS"],
+                title_prefix=f"Valid_Scaled_Input",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Valid_Scaled_Input.pdf",
+                epoch=epoch + 1
+            )
+            plot_single_feature_dist(
+                df=df_valid,
+                columns=self.cfg["OUTPUT_COLS"],
+                title_prefix=f"Valid_Scaled_Output",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Valid_Scaled_Output.pdf",
+                epoch=epoch + 1
+            )
 
         input_data = torch.tensor(df_valid[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_valid[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
-
-        if self.cfg["SCALER_TYPE"].lower() != "yj":
-            for j, col in enumerate(self.cfg["INPUT_COLS"]):
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    input_data[:, j] = torch.log1p(input_data[:, j])
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    input_data[:, j] = input_data[:, j] * scale + min_
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    input_data[:, j] = (input_data[:, j] - mean) / scale
-
-            for j, col in enumerate(self.cfg["OUTPUT_COLS"]):
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    output_data[:, j] = torch.log1p(output_data[:, j])
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    output_data[:, j] = output_data[:, j] * scale + min_
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    output_data[:, j] = (output_data[:, j] - mean) / scale
-
-        input_data_np = input_data.cpu().numpy()
-        output_data_np = output_data.cpu().numpy()
-        df_input_trans = pd.DataFrame(input_data_np, columns=self.cfg["INPUT_COLS"])
-        df_output_trans = pd.DataFrame(output_data_np, columns=self.cfg["OUTPUT_COLS"])
-        plot_single_feature_dist(
-            df_input_trans, self.cfg["INPUT_COLS"], "ValTransformedInput", self.cfg["PATH_OUTPUT_PLOTS"], epoch+1
-        )
-        plot_single_feature_dist(
-            df_output_trans, self.cfg["OUTPUT_COLS"], "ValTransformedOutput", self.cfg["PATH_OUTPUT_PLOTS"], epoch+1
-        )
 
         valid_dataset = TensorDataset(input_data, output_data)
         valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=True)
@@ -495,6 +441,7 @@ class gaNdalFFlow(object):
             pbar.set_postfix(loss=val_loss / total_samples)
         pbar.close()
         val_loss = val_loss / len(self.galaxies.valid_dataset)
+        self.lst_valid_loss_per_epoch.append(val_loss)
         self.train_flow_logger.log_info_stream(f"Validation,\t"
                                                f"Epoch: {epoch + 1},\t"
                                                f"learning rate: {self.lr},\t"
@@ -509,105 +456,116 @@ class gaNdalFFlow(object):
         """"""
         self.train_flow_logger.log_info_stream("Plot test")
         self.model.eval()
+        os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/", exist_ok=True)
+        os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/", exist_ok=True)
+        img_grid = loss_plot(
+            epoch=epoch,
+            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+            show_plot=False,
+            save_plot=True,
+            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/{today}_loss_{epoch + 1}.pdf",
+            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
+        )
+        img_grid = loss_plot(
+            epoch=epoch,
+            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+            show_plot=False,
+            save_plot=True,
+            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss.pdf",
+            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
+        )
+
+        img_grid = loss_plot(
+            epoch=epoch,
+            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+            show_plot=False,
+            save_plot=True,
+            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/{today}_loss_{epoch + 1}_logscale.pdf",
+            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
+            log_scale=True
+        )
+        img_grid = loss_plot(
+            epoch=epoch,
+            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+            show_plot=False,
+            save_plot=True,
+            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_logscale.pdf",
+            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
+            log_scale=True
+        )
 
         df_balrog = self.galaxies.test_dataset
 
-        if self.cfg["SCALER_TYPE"].lower() == "yj":
-            COLS = df_balrog.columns
-            df_balrog = self.yj_transformer.transform(df_balrog)
-            df_balrog = pd.DataFrame(df_balrog, columns=COLS)
-            df_balrog = self.scalers.transform(df_balrog)
-            df_balrog = pd.DataFrame(df_balrog, columns=COLS)
+        if epoch == 0:
+            for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+                scaler = self.scalers[col]
+                mean = scaler.mean_[0]
+                scale = scaler.scale_[0]
+                df_balrog[col] = (df_balrog[col] - mean) / scale
 
-        df_gandalf = df_balrog.copy()
+        if self.cfg["PLOT_TRAINING"] is True:
+            plot_single_feature_dist(
+                df=df_balrog,
+                columns=self.cfg["INPUT_COLS"],
+                title_prefix=f"Test_Scaled_Input",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch}_Test_Scaled_Input.pdf",
+                epoch=epoch + 1
+            )
+            plot_single_feature_dist(
+                df=df_balrog,
+                columns=self.cfg["OUTPUT_COLS"],
+                title_prefix=f"Test_Scaled_Output",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch}_Test_Scaled_Output.pdf",
+                epoch=epoch + 1
+            )
 
         input_data = torch.tensor(df_balrog[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_balrog[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
 
-        if self.cfg["SCALER_TYPE"].lower() != "yj":
-            for j, col in enumerate(self.cfg["INPUT_COLS"]):
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    input_data[:, j] = torch.log1p(input_data[:, j])
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    input_data[:, j] = input_data[:, j] * scale + min_
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    input_data[:, j] = (input_data[:, j] - mean) / scale
-
-            for j, col in enumerate(self.cfg["OUTPUT_COLS"]):
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    output_data[:, j] = torch.log1p(output_data[:, j])
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    output_data[:, j] = output_data[:, j] * scale + min_
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    output_data[:, j] = (output_data[:, j] - mean) / scale
-
-        input_data_np = input_data.cpu().numpy()
-        df_input_trans = pd.DataFrame(input_data_np, columns=self.cfg["INPUT_COLS"])
-        plot_single_feature_dist(
-            df_input_trans, self.cfg["INPUT_COLS"], "TestTransformedInput", self.cfg["PATH_OUTPUT_PLOTS"], epoch+1
-        )
+        df_gandalf = df_balrog.copy()
 
         input_data = input_data.to(self.device)
 
         with torch.no_grad():
             arr_gandalf_output = self.model.sample(len(input_data), cond_inputs=input_data).detach()
 
-        if self.cfg["SCALER_TYPE"].lower() != "yj":
-            for j, col in enumerate(self.cfg["OUTPUT_COLS"]):
-                scaler = self.scalers[col]
-                if hasattr(scaler, "min_"):
-                    scale = scaler.scale_[0]
-                    min_ = scaler.min_[0]
-                    arr_gandalf_output[:, j] = (arr_gandalf_output[:, j] - min_) / scale
-                else:
-                    mean = scaler.mean_[0]
-                    scale = scaler.scale_[0]
-                    arr_gandalf_output[:, j] = arr_gandalf_output[:, j] * scale + mean
-                if col in self.cfg.get("COLUMNS_LOG1P", []):
-                    self.train_flow_logger.log_info_stream(f"LOG1P {col}")
-                    arr_gandalf_output[:, j] = torch.expm1(arr_gandalf_output[:, j])
-
         output_data_np = arr_gandalf_output.cpu().numpy()
-        df_output_trans = pd.DataFrame(output_data_np, columns=self.cfg["OUTPUT_COLS"])
-        plot_single_feature_dist(
-            df_output_trans, self.cfg["OUTPUT_COLS"], "TestTransformedOutput", self.cfg["PATH_OUTPUT_PLOTS"], epoch+1
+
+        input_data_np_true = input_data.cpu().numpy()
+        output_data_np_true = output_data.cpu().numpy()
+        arr_all_true = np.concatenate([input_data_np_true, output_data_np_true], axis=1)
+        arr_all = np.concatenate([input_data_np_true, output_data_np], axis=1)
+
+
+        df_output_true = pd.DataFrame(arr_all_true, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
+        df_output_true = df_output_true[self.cfg["NF_COLUMNS_OF_INTEREST"]]
+
+        df_output_gandalf = pd.DataFrame(arr_all, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
+        df_output_gandalf = df_output_gandalf[self.cfg["NF_COLUMNS_OF_INTEREST"]]
+
+        plot_features(
+            cfg=self.cfg,
+            plot_log=self.train_flow_logger,
+            df_gandalf=df_output_gandalf,
+            df_balrog=df_output_true,
+            columns=self.cfg["OUTPUT_COLS"],
+            title_prefix=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb} - ",
+            epoch=epoch,
+            today=today,
+            savename=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch+1}_compare_output.pdf"
         )
-
-        output_data_np = output_data.cpu().numpy()
-        df_output_true_trans = pd.DataFrame(output_data_np, columns=self.cfg["OUTPUT_COLS"])
-        plot_single_feature_dist(
-            df_output_true_trans, self.cfg["OUTPUT_COLS"], "TestTransformedOutputTrue", self.cfg["PATH_OUTPUT_PLOTS"], epoch + 1
-        )
-
-        df_gandalf[self.cfg["OUTPUT_COLS"]] = arr_gandalf_output.cpu().numpy()
-
-        plot_features(cfg=self.cfg, plot_log=self.train_flow_logger, df_gandalf=df_output_trans, df_balrog=df_output_true_trans, columns=self.cfg["OUTPUT_COLS"], title_prefix="compare", epoch=epoch, today=today)
-        # df_balrog = inverse_transform_df(self.scalers, df_balrog)
-        # df_gandalf = inverse_transform_df(self.scalers, df_gandalf)
-        # df_balrog = inverse_transform_df(self.yj_transformer, df_balrog)
-        # df_gandalf = inverse_transform_df(self.yj_transformer, df_gandalf)
-
-        # df_balrog = self.scalers.inverse_transform(df_balrog)
-        # df_balrog = pd.DataFrame(df_balrog, columns=COLS)
-        # df_balrog = self.yj_transformer.inverse_transform(df_balrog)
-        # df_balrog = pd.DataFrame(df_balrog, columns=COLS)
-        #
-        # df_gandalf = self.scalers.inverse_transform(df_gandalf)
-        # df_gandalf = pd.DataFrame(df_gandalf, columns=COLS)
-        # df_gandalf = self.yj_transformer.inverse_transform(df_gandalf)
-        # df_gandalf = pd.DataFrame(df_gandalf, columns=COLS)
 
         self.train_flow_logger.log_info_stream(f"gaNdalF NaNs: {df_gandalf.isna().sum()}")
 
