@@ -322,14 +322,14 @@ class gaNdalFFlow(object):
                 df=df_train,
                 columns=self.cfg["INPUT_COLS"],
                 title_prefix=f"Train_Scaled_Input",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Train_Scaled_Input.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch + 1}_Train_Scaled_Input.pdf",
                 epoch=epoch + 1
             )
             plot_single_feature_dist(
                 df=df_train,
                 columns=self.cfg["OUTPUT_COLS"],
                 title_prefix=f"Train_Scaled_Output",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Train_Scaled_Output.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch + 1}_Train_Scaled_Output.pdf",
                 epoch=epoch + 1
             )
 
@@ -406,14 +406,14 @@ class gaNdalFFlow(object):
                 df=df_valid,
                 columns=self.cfg["INPUT_COLS"],
                 title_prefix=f"Valid_Scaled_Input",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Valid_Scaled_Input.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch + 1}_Valid_Scaled_Input.pdf",
                 epoch=epoch + 1
             )
             plot_single_feature_dist(
                 df=df_valid,
                 columns=self.cfg["OUTPUT_COLS"],
                 title_prefix=f"Valid_Scaled_Output",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch}_Valid_Scaled_Output.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch + 1}_Valid_Scaled_Output.pdf",
                 epoch=epoch + 1
             )
 
@@ -520,14 +520,14 @@ class gaNdalFFlow(object):
                 df=df_balrog,
                 columns=self.cfg["INPUT_COLS"],
                 title_prefix=f"Test_Scaled_Input",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch}_Test_Scaled_Input.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch + 1}_Test_Scaled_Input.pdf",
                 epoch=epoch + 1
             )
             plot_single_feature_dist(
                 df=df_balrog,
                 columns=self.cfg["OUTPUT_COLS"],
                 title_prefix=f"Test_Scaled_Output",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch}_Test_Scaled_Output.pdf",
+                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch + 1}_Test_Scaled_Output.pdf",
                 epoch=epoch + 1
             )
 
