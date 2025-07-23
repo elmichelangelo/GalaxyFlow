@@ -6,7 +6,7 @@ import torch.utils.data
 import torch.nn
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from Handler import count_parameters, fnn, calc_color, make_gif, loss_plot, plot_compare_corner, residual_plot, plot_mean_or_std, plot_features, plot_single_feature_dist
+from Handler import count_parameters, fnn, calc_color, loss_plot, plot_compare_corner, residual_plot, plot_mean_or_std, plot_features, plot_single_feature_dist
 from gandalf_galaxie_dataset import DESGalaxies
 import pandas as pd
 import numpy as np
@@ -14,10 +14,10 @@ import seaborn as sns
 import os
 import joblib
 from torch.utils.data import DataLoader, TensorDataset
-from Handler.helper_functions import inverse_transform_df
 import matplotlib.pyplot as plt
 import math
 from datetime import datetime
+from ray import tune
 
 torch.set_default_dtype(torch.float64)
 
@@ -27,7 +27,6 @@ class gaNdalFFlow(object):
     def __init__(self,
                  cfg,
                  learning_rate,
-                 weight_decay,
                  number_hidden,
                  number_blocks,
                  batch_size,
@@ -80,13 +79,12 @@ class gaNdalFFlow(object):
 
         self.bs = batch_size
         self.lr = learning_rate
-        self.wd = weight_decay
         self.nh = number_hidden
         self.nb = number_blocks
 
         self.cfg['PATH_PLOTS_FOLDER'] = {}
-        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{self.cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_wd_{self.wd}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{self.cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
         self.cfg['PATH_WRITER'] = (f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_WRITER']}/"
                                    f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
         self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_PLOTS']}"
@@ -137,7 +135,7 @@ class gaNdalFFlow(object):
             os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER'])
         if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS']):
             os.mkdir(self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'])
-        if self.cfg['PLOT_TEST_FLOW'] is True:
+        if self.cfg['PLOT_TRAINING'] is True:
             if not os.path.exists(self.cfg['PATH_PLOTS']):
                 os.mkdir(self.cfg['PATH_PLOTS'])
             for path_plot in self.cfg['PATH_PLOTS_FOLDER'].values():
@@ -154,12 +152,7 @@ class gaNdalFFlow(object):
             dataset_logger=self.train_flow_logger,
             cfg=self.cfg
         )
-
-        # Create DataLoaders for training, validation, and testing
-        # train_loader = DataLoader(galaxies.train_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
-        # valid_loader = DataLoader(galaxies.valid_dataset, batch_size=self.bs, shuffle=False, num_workers=0)
-        # test_sampled_data = galaxies.test_dataset.sample(self.cfg["NUMBER_TEST_SAMPLES"], replace=True)
-        return galaxies  # train_loader, valid_loader, test_sampled_data, galaxies
+        return galaxies
 
     def init_network(self, num_outputs, num_input):
         modules = []
@@ -178,7 +171,7 @@ class gaNdalFFlow(object):
                     module.bias.data.fill_(0)
 
         model.to(self.device)
-        optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.wd)
+        optimizer = optim.AdamW(model.parameters(), lr=self.lr, )
         return model, optimizer
 
     def run_training(self):
@@ -212,11 +205,12 @@ class gaNdalFFlow(object):
                 self.best_train_epoch = epoch
                 self.best_train_loss = train_loss_epoch
 
-            if self.cfg['PLOT_TRAINING_FLOW'] is True:
+            if self.cfg['PLOT_TRAINING'] is True:
                 self.plot_data(epoch=epoch, today=today)
 
             for name, param in self.model.named_parameters():
                 self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
+            # tune.report(loss=validation_loss, epoch=epoch+1)
         self.train_flow_logger.log_info_stream(f"End Training")
         self.train_flow_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
                                                f"best validation loss: {-self.best_validation_loss}\t"
@@ -241,9 +235,6 @@ class gaNdalFFlow(object):
             run_name=f"final result"
         )
 
-        if self.cfg['PLOT_TEST_FLOW'] is True:
-            self.plot_data(epoch=self.cfg["EPOCHS_FLOW"] - 1, today=today)
-
         if self.cfg['SAVE_NN_FLOW'] is True:
             torch.save(
                 self.best_model,
@@ -254,50 +245,7 @@ class gaNdalFFlow(object):
 
         self.writer.flush()
         self.writer.close()
-
-    def plot_feature_histograms(self, df, columns, title_prefix="Feature", n_cols=3):
-        n_features = len(columns)
-        n_rows = math.ceil(n_features / n_cols)
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
-        axes = axes.flatten()
-
-        for i, col in enumerate(columns):
-            sns.histplot(df[col], bins=30, ax=axes[i])
-            axes[i].set_title(f"{title_prefix}: {col}")
-            axes[i].set_yscale("log")
-
-        # Leere Subplots ausschalten
-        for j in range(i + 1, len(axes)):
-            fig.delaxes(axes[j])
-
-        plt.tight_layout()
-        plt.show()
-
-    def plot_output_comparison_histograms(self, true_df, generated_df, columns, n_cols=3, epoch=1, counter=1):
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        import math
-
-        n_features = len(columns)
-        n_rows = math.ceil(n_features / n_cols)
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
-        axes = axes.flatten()
-
-        for i, col in enumerate(columns):
-            ax = axes[i]
-            sns.histplot(true_df[col], bins=30, label='true', ax=ax, stat="density", color='blue', alpha=0.5)
-            sns.histplot(generated_df[col], bins=30, label='generated', ax=ax, stat="density", color='orange',
-                         alpha=0.5)
-            ax.set_title(f"Output: {col}, Epoch: {epoch}, Counter: {counter}")
-            ax.set_yscale("log")
-            ax.legend()
-
-        # Entferne ungenutzte Subplots
-        for j in range(i + 1, len(axes)):
-            fig.delaxes(axes[j])
-
-        plt.tight_layout()
-        plt.savefig(f"/Users/P.Gebhardt/Development/PhD/output/gaNdalF_flow_training/{epoch}_{counter}-training_output.png", bbox_inches='tight', dpi=600)
+        return self.best_validation_loss, epoch
 
     def train(self, epoch, date):
         self.model.train()
@@ -316,7 +264,7 @@ class gaNdalFFlow(object):
                 scale = scaler.scale_[0]
                 df_train[col] = (df_train[col] - mean) / scale
 
-        if self.cfg["PLOT_TRAINING"] is True:
+        if self.cfg["PLOT_TRAINING_INPUT_OUTPUT"] is True:
             os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/", exist_ok=True)
             plot_single_feature_dist(
                 df=df_train,
@@ -401,7 +349,7 @@ class gaNdalFFlow(object):
                 scale = scaler.scale_[0]
                 df_valid[col] = (df_valid[col] - mean) / scale
 
-        if self.cfg["PLOT_TRAINING"] is True:
+        if self.cfg["PLOT_TRAINING_INPUT_OUTPUT"] is True:
             plot_single_feature_dist(
                 df=df_valid,
                 columns=self.cfg["INPUT_COLS"],
@@ -458,53 +406,56 @@ class gaNdalFFlow(object):
         self.model.eval()
         os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/", exist_ok=True)
         os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/", exist_ok=True)
-        img_grid = loss_plot(
-            epoch=epoch,
-            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
-            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
-            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
-            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
-            show_plot=False,
-            save_plot=True,
-            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/{today}_loss_{epoch + 1}.pdf",
-            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
-        )
-        img_grid = loss_plot(
-            epoch=epoch,
-            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
-            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
-            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
-            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
-            show_plot=False,
-            save_plot=True,
-            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss.pdf",
-            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
-        )
-
-        img_grid = loss_plot(
-            epoch=epoch,
-            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
-            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
-            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
-            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
-            show_plot=False,
-            save_plot=True,
-            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/{today}_loss_{epoch + 1}_logscale.pdf",
-            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
-            log_scale=True
-        )
-        img_grid = loss_plot(
-            epoch=epoch,
-            lst_train_loss_per_batch=self.lst_train_loss_per_batch,
-            lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
-            lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
-            lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
-            show_plot=False,
-            save_plot=True,
-            save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_logscale.pdf",
-            title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
-            log_scale=True
-        )
+        if self.cfg["PLOT_TRAINING_LOSS"] is True:
+            loss_plot(
+                epoch=epoch,
+                lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+                lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+                lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+                lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+                show_plot=False,
+                save_plot=True,
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['LOSS_PLOT']}/{today}_loss_{epoch + 1}.pdf",
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
+            )
+            img_grid_loss = loss_plot(
+                epoch=epoch,
+                lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+                lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+                lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+                lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+                show_plot=False,
+                save_plot=True,
+                save_name=f"{self.cfg['PATH_PLOTS']}/{today}_loss.pdf",
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
+            )
+            self.writer.add_image("loss plot", img_grid_loss, epoch + 1)
+        if self.cfg["PLOT_TRAINING_LOG_LOSS"] is True:
+            loss_plot(
+                epoch=epoch,
+                lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+                lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+                lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+                lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+                show_plot=False,
+                save_plot=True,
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['LOSS_PLOT']}/{today}_loss_{epoch + 1}_logscale.pdf",
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
+                log_scale=True
+            )
+            img_grid_log_loss = loss_plot(
+                epoch=epoch,
+                lst_train_loss_per_batch=self.lst_train_loss_per_batch,
+                lst_train_loss_per_epoch=self.lst_train_loss_per_epoch,
+                lst_valid_loss_per_batch=self.lst_valid_loss_per_batch,
+                lst_valid_loss_per_epoch=self.lst_valid_loss_per_epoch,
+                show_plot=False,
+                save_plot=True,
+                save_name=f"{self.cfg['PATH_PLOTS']}/{today}_loss_logscale.pdf",
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
+                log_scale=True
+            )
+            self.writer.add_image("log loss plot", img_grid_log_loss, epoch + 1)
 
         df_balrog = self.galaxies.test_dataset
 
@@ -515,21 +466,23 @@ class gaNdalFFlow(object):
                 scale = scaler.scale_[0]
                 df_balrog[col] = (df_balrog[col] - mean) / scale
 
-        if self.cfg["PLOT_TRAINING"] is True:
-            plot_single_feature_dist(
+        if self.cfg["PLOT_TRAINING_INPUT_OUTPUT"] is True:
+            img_grid_input = plot_single_feature_dist(
                 df=df_balrog,
                 columns=self.cfg["INPUT_COLS"],
                 title_prefix=f"Test_Scaled_Input",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch + 1}_Test_Scaled_Input.pdf",
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['INPUT_OUTPUT_PLOT']}/{today}_{epoch + 1}_Test_Scaled_Input.pdf",
                 epoch=epoch + 1
             )
-            plot_single_feature_dist(
+            self.writer.add_image("scaled input plot", img_grid_input, epoch + 1)
+            img_grid_output = plot_single_feature_dist(
                 df=df_balrog,
                 columns=self.cfg["OUTPUT_COLS"],
                 title_prefix=f"Test_Scaled_Output",
-                save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch + 1}_Test_Scaled_Output.pdf",
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['INPUT_OUTPUT_PLOT']}/{today}_{epoch + 1}_Test_Scaled_Output.pdf",
                 epoch=epoch + 1
             )
+            self.writer.add_image("scaled output plot", img_grid_output, epoch + 1)
 
         input_data = torch.tensor(df_balrog[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_balrog[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
@@ -555,17 +508,19 @@ class gaNdalFFlow(object):
         df_output_gandalf = pd.DataFrame(arr_all, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
         df_output_gandalf = df_output_gandalf[self.cfg["NF_COLUMNS_OF_INTEREST"]]
 
-        plot_features(
-            cfg=self.cfg,
-            plot_log=self.train_flow_logger,
-            df_gandalf=df_output_gandalf,
-            df_balrog=df_output_true,
-            columns=self.cfg["OUTPUT_COLS"],
-            title_prefix=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb} - ",
-            epoch=epoch,
-            today=today,
-            savename=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/{today}_{epoch+1}_compare_output.pdf"
-        )
+        if self.cfg['PLOT_TRAINING_FEATURES'] is True:
+            img_grid_feature_hist = plot_features(
+                cfg=self.cfg,
+                plot_log=self.train_flow_logger,
+                df_gandalf=df_output_gandalf,
+                df_balrog=df_output_true,
+                columns=self.cfg["OUTPUT_COLS"],
+                title_prefix=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb} - ",
+                epoch=epoch,
+                today=today,
+                savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch+1}_compare_output.pdf"
+            )
+            self.writer.add_image("Feature Histogram", img_grid_feature_hist, epoch + 1)
 
         self.train_flow_logger.log_info_stream(f"gaNdalF NaNs: {df_gandalf.isna().sum()}")
 

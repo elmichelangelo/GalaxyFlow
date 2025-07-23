@@ -3290,6 +3290,10 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
     fig.tight_layout()
     plt.legend()
     plt.savefig(savename, bbox_inches='tight', dpi=300)
+    img_tensor = plot_to_tensor()
+    plt.clf()
+    plt.close(fig)
+    return img_tensor
 
 
 
@@ -3316,4 +3320,7 @@ def plot_single_feature_dist(df, columns, title_prefix, save_name, epoch=None):
         fig.delaxes(axes[j])
     fig.tight_layout()
     plt.savefig(save_name, bbox_inches='tight', dpi=300)
+    img_tensor = plot_to_tensor()
+    plt.clf()
     plt.close(fig)
+    return img_tensor
