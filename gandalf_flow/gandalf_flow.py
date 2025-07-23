@@ -210,7 +210,7 @@ class gaNdalFFlow(object):
 
             for name, param in self.model.named_parameters():
                 self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
-            # tune.report(loss=validation_loss, epoch=epoch+1)
+            yield epoch, validation_loss
         self.train_flow_logger.log_info_stream(f"End Training")
         self.train_flow_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
                                                f"best validation loss: {-self.best_validation_loss}\t"
@@ -245,7 +245,7 @@ class gaNdalFFlow(object):
 
         self.writer.flush()
         self.writer.close()
-        return self.best_validation_loss, epoch
+        return self.best_validation_loss
 
     def train(self, epoch, date):
         self.model.train()
@@ -304,12 +304,12 @@ class gaNdalFFlow(object):
             total_samples += output_data.size(0)
             train_loss += loss.item() * output_data.size(0)
             pbar.set_postfix(loss=train_loss / total_samples)
-            self.lst_train_loss_per_batch.append(loss.item())
+            self.lst_train_loss_per_batch.append(train_loss / total_samples)
             self.global_step += 1
         pbar.close()
 
         train_loss = train_loss / len(self.galaxies.train_dataset)
-        self.lst_train_loss_per_epoch.append(train_loss)
+        # self.lst_train_loss_per_epoch.append(train_loss)
         self.train_flow_logger.log_info_stream(f"Training,\t"
                                                f"Epoch: {epoch + 1},\t"
                                                f"learning rate: {self.lr},\t"
@@ -383,13 +383,13 @@ class gaNdalFFlow(object):
 
             with torch.no_grad():
                 loss = -self.model.log_probs(output_data, input_data).mean()
-                self.lst_valid_loss_per_batch.append(loss.item())
                 val_loss += loss.data.item() * output_data.size(0)
             total_samples += output_data.size(0)
+            self.lst_valid_loss_per_batch.append(val_loss)
             pbar.set_postfix(loss=val_loss / total_samples)
         pbar.close()
         val_loss = val_loss / len(self.galaxies.valid_dataset)
-        self.lst_valid_loss_per_epoch.append(val_loss)
+        # self.lst_valid_loss_per_epoch.append(val_loss)
         self.train_flow_logger.log_info_stream(f"Validation,\t"
                                                f"Epoch: {epoch + 1},\t"
                                                f"learning rate: {self.lr},\t"

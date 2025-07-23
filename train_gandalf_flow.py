@@ -15,6 +15,7 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.stopper import TrialPlateauStopper
 from functools import partial
+from ray.air import session
 
 plt.rcParams["figure.figsize"] = (16, 9)
 
@@ -76,7 +77,7 @@ def train_tune(tune_config, base_config):
         train_flow_logger=logger
     )
     for epoch, validation_loss in train_flow.run_training():
-        tune.report(loss=validation_loss, epoch=epoch+1)
+        session.report({"loss": validation_loss, "epoch": epoch+1})
     # final_loss = train_flow.run_training()
     # # Melde Ergebnis an Ray Tune
     # tune.report(loss=final_loss)
@@ -170,16 +171,16 @@ if __name__ == '__main__':
         "number_hidden": tune.grid_search(number_hidden),
         "number_blocks": tune.grid_search(number_blocks),
         "batch_size": tune.grid_search(batch_size),
-        # "INFO_LOGGER": cfg["INFO_LOGGER"],
-        # "ERROR_LOGGER": cfg["ERROR_LOGGER"],
-        # "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
-        # "STREAM_LOGGER": cfg["STREAM_LOGGER"],
-        # "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
-        # "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
-        # "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
-        # "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
-        # "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
-        # "RUN_DATE": cfg['RUN_DATE']
+        "INFO_LOGGER": cfg["INFO_LOGGER"],
+        "ERROR_LOGGER": cfg["ERROR_LOGGER"],
+        "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
+        "STREAM_LOGGER": cfg["STREAM_LOGGER"],
+        "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
+        "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
+        "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
+        "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
+        "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
+        "RUN_DATE": cfg['RUN_DATE']
     }
 
     reporter = CLIReporter(
@@ -187,7 +188,7 @@ if __name__ == '__main__':
         metric_columns=["loss"]
     )
 
-    resources = {"cpu": 4, "gpu": 1}
+    resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
 
     stopper = TrialPlateauStopper(
         metric="loss",
