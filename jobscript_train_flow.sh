@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
-#SBATCH --mem=128G
+#SBATCH --mem=256G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gandalf_train_flow_%A_%a.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gaNdalF_train_flow_err_%A_%a.log

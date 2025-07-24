@@ -206,6 +206,7 @@ if __name__ == '__main__':
         resources_per_trial=resources,
         progress_reporter=reporter,
         stop=stopper,
+        max_concurrent_trials=3,
         metric="loss",
         mode="min",
         storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
