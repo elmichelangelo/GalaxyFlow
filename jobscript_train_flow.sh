@@ -8,8 +8,8 @@
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gandalf_train_flow_%A_%a.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gaNdalF_train_flow_err_%A_%a.log
 #SBATCH --partition=inter
-#SBATCH --gres=gpu:a40:3
-#SBATCH --cpus-per-task=3
+#SBATCH --gres=gpu:a40:0
+#SBATCH --cpus-per-task=12
 
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
