@@ -16,8 +16,63 @@ from ray.tune import CLIReporter
 from ray.tune.stopper import TrialPlateauStopper
 from functools import partial
 from ray.air import session
+import csv
+from filelock import FileLock
 
 plt.rcParams["figure.figsize"] = (16, 9)
+
+def _read_trained_combinations_no_lock(csv_file):
+    runs = []
+    if not os.path.exists(csv_file):
+        return runs
+    with open(csv_file, newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            runs.append(row)
+    return runs
+
+def _write_all_runs_no_lock(csv_file, runs):
+    header = ["trial number", "batch size", "learning rate", "number hidden", "number blocks", "status"]
+    with open(csv_file, "w", newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        writer.writeheader()
+        for row in runs:
+            writer.writerow(row)
+
+def add_or_update_run(csv_file, bs, lr, nh, nb, status):
+    lr_str = str(lr).replace('.', ',')
+    combo = (str(bs), lr_str, str(nh), str(nb))
+    lock = FileLock(csv_file + ".lock")
+    with lock:
+        runs = _read_trained_combinations_no_lock(csv_file)
+        updated = False
+        for row in runs:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"]) == combo:
+                row["status"] = status
+                updated = True
+                break
+        if not updated:
+            trial_number = str(len(runs) + 1)  # Laufende Nummer ab 1
+            runs.append({
+                "trial number": trial_number,
+                "batch size": str(bs),
+                "learning rate": lr_str,
+                "number hidden": str(nh),
+                "number blocks": str(nb),
+                "status": status
+            })
+        _write_all_runs_no_lock(csv_file, runs)
+
+def check_if_run_exists(csv_file, bs, lr, nh, nb):
+    lr_str = str(lr).replace('.', ',')
+    combo = (str(bs), lr_str, str(nh), str(nb))
+    lock = FileLock(csv_file + ".lock")
+    with lock:
+        runs = _read_trained_combinations_no_lock(csv_file)
+        for row in runs:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"]) == combo:
+                return row["status"]
+    return None
 
 
 def main(
@@ -44,6 +99,25 @@ def main(
 def train_tune(tune_config, base_config):
     config = dict(base_config)  # vollständige Kopie
     config.update(tune_config)  # überschreibe mit Tunables
+    csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
+
+    bs = int(config['batch_size'])
+    lr = float(config['learning_rate'])
+    nh = int(config['number_hidden'])
+    nb = int(config['number_blocks'])
+    combo = (bs, lr, nh, nb)
+
+    existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb)
+    if existing_status == "started":
+        print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already started!", flush=True)
+        session.report({"loss": 1e10, "epoch": 0, "skipped": True})
+        return
+    if existing_status == "finished":
+        print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already finished!", flush=True)
+        session.report({"loss": 1e10, "epoch": 0, "skipped": True})
+        return
+
+    add_or_update_run(csv_file, bs, lr, nh, nb, "started")
 
     config['PATH_OUTPUT'] = os.path.join(
         config['PATH_OUTPUT_BASE'],
@@ -76,11 +150,11 @@ def train_tune(tune_config, base_config):
         batch_size=config["batch_size"],
         train_flow_logger=logger
     )
+
     for epoch, validation_loss in train_flow.run_training():
         session.report({"loss": validation_loss, "epoch": epoch+1})
-    # final_loss = train_flow.run_training()
-    # # Melde Ergebnis an Ray Tune
-    # tune.report(loss=final_loss)
+
+    add_or_update_run(csv_file, bs, lr, nh, nb, "finished")
 
 def load_config_and_parser(system_path):
     if get_os() == "Mac":
