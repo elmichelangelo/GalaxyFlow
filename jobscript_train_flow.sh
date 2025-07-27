@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=gpu_train_flow
+#SBATCH --job-name=cpu_train_flow
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
