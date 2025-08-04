@@ -18,6 +18,8 @@ from functools import partial
 from ray.air import session
 import csv
 from filelock import FileLock
+from ray.tune.search.optuna import OptunaSearch
+from ray.tune.schedulers import ASHAScheduler
 
 plt.rcParams["figure.figsize"] = (16, 9)
 
@@ -230,21 +232,19 @@ if __name__ == '__main__':
     learning_rate = cfg["LEARNING_RATE_FLOW"]
 
     if not isinstance(batch_size, list):
-        batch_size = [batch_size]
+        batch_size = [batch_size, batch_size, batch_size]
     if not isinstance(number_hidden, list):
         number_hidden = [number_hidden]
     if not isinstance(number_blocks, list):
         number_blocks = [number_blocks]
     if not isinstance(learning_rate, list):
-        learning_rate = [learning_rate]
+        learning_rate = [learning_rate, learning_rate]
 
-    # ------ RAY TUNE BLOCK: MODERNES TUNING ------
-    # Suchraum für Ray Tune
     search_space = {
-        "learning_rate": tune.grid_search(learning_rate),
-        "number_hidden": tune.grid_search(number_hidden),
-        "number_blocks": tune.grid_search(number_blocks),
-        "batch_size": tune.grid_search(batch_size),
+        "batch_size": tune.qloguniform(batch_size[0], batch_size[1], batch_size[2]),
+        "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
+        "number_hidden": tune.choice(number_hidden),
+        "number_blocks": tune.choice(number_blocks),
         "INFO_LOGGER": cfg["INFO_LOGGER"],
         "ERROR_LOGGER": cfg["ERROR_LOGGER"],
         "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
@@ -264,28 +264,50 @@ if __name__ == '__main__':
 
     resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
 
-    stopper = TrialPlateauStopper(
+    optuna_search = OptunaSearch()
+    asha = ASHAScheduler(
         metric="loss",
         mode="min",
-        std=0.0,
-        num_results=10,
-        grace_period=15,
-        metric_threshold=1e-4
+        max_t=cfg["EPOCHS_FLOW"],
+        grace_period=10
     )
 
-    # Ray Tune-Run!
+    # stopper = TrialPlateauStopper(
+    #     metric="loss",
+    #     mode="min",
+    #     std=0.0,
+    #     num_results=10,
+    #     grace_period=15,
+    #     metric_threshold=1e-4
+    # )
+
     analysis = tune.run(
         partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
         config=search_space,
+        search_alg=optuna_search,
+        scheduler=asha,
+        num_samples=60,
+        max_concurrent_trials=3,
         resources_per_trial=resources,
         progress_reporter=reporter,
-        stop=stopper,
-        max_concurrent_trials=3,
+        storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
+        name="gandalf_tune_optuna",
         metric="loss",
         mode="min",
-        storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
-        name="gandalf_tune",
     )
+
+    # analysis = tune.run(
+    #     partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
+    #     config=search_space,
+    #     resources_per_trial=resources,
+    #     progress_reporter=reporter,
+    #     stop=stopper,
+    #     max_concurrent_trials=3,
+    #     metric="loss",
+    #     mode="min",
+    #     storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
+    #     name="gandalf_tune",
+    # )
 
     print("Best config found:")
     print(analysis.get_best_config(metric="loss", mode="min"))
