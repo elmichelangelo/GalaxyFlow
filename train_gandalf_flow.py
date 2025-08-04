@@ -264,7 +264,11 @@ if __name__ == '__main__':
 
     resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
 
-    optuna_search = OptunaSearch()
+    optuna_search = OptunaSearch(
+        metric="loss",
+        mode="min"
+    )
+
     asha = ASHAScheduler(
         metric="loss",
         mode="min",
