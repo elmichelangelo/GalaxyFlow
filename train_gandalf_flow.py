@@ -291,9 +291,7 @@ if __name__ == '__main__':
         resources_per_trial=resources,
         progress_reporter=reporter,
         storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
-        name="gandalf_tune_optuna",
-        metric="loss",
-        mode="min",
+        name="gandalf_tune_optuna"
     )
 
     # analysis = tune.run(
