@@ -41,15 +41,15 @@ def _write_all_runs_no_lock(csv_file, runs):
         for row in runs:
             writer.writerow(row)
 
-def add_or_update_run(csv_file, bs, lr, nh, nb, status):
+def add_or_update_run(csv_file, bs, lr, nh, nb, nl, status):
     lr_str = str(lr).replace('.', ',')
-    combo = (str(bs), lr_str, str(nh), str(nb))
+    combo = (str(bs), lr_str, str(nh), str(nb), str(nl))
     lock = FileLock(csv_file + ".lock")
     with lock:
         runs = _read_trained_combinations_no_lock(csv_file)
         updated = False
         for row in runs:
-            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"]) == combo:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"]) == combo:
                 row["status"] = status
                 updated = True
                 break
@@ -61,18 +61,19 @@ def add_or_update_run(csv_file, bs, lr, nh, nb, status):
                 "learning rate": lr_str,
                 "number hidden": str(nh),
                 "number blocks": str(nb),
+                "number layers": str(nl),
                 "status": status
             })
         _write_all_runs_no_lock(csv_file, runs)
 
-def check_if_run_exists(csv_file, bs, lr, nh, nb):
+def check_if_run_exists(csv_file, bs, lr, nh, nb, nl):
     lr_str = str(lr).replace('.', ',')
-    combo = (str(bs), lr_str, str(nh), str(nb))
+    combo = (str(bs), lr_str, str(nh), str(nb), str(nl))
     lock = FileLock(csv_file + ".lock")
     with lock:
         runs = _read_trained_combinations_no_lock(csv_file)
         for row in runs:
-            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"]) == combo:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"]) == combo:
                 return row["status"]
     return None
 
@@ -82,6 +83,7 @@ def main(
         learning_rate,
         number_hidden,
         number_blocks,
+        number_layers,
         batch_size,
         logger):
     """"""
@@ -91,6 +93,7 @@ def main(
         learning_rate=learning_rate,
         number_hidden=number_hidden,
         number_blocks=number_blocks,
+        number_layers=number_layers,
         batch_size=batch_size,
         train_flow_logger=logger
     )
@@ -107,31 +110,32 @@ def train_tune(tune_config, base_config):
     lr = float(config['learning_rate'])
     nh = int(config['number_hidden'])
     nb = int(config['number_blocks'])
+    nl = int(config['number_layers'])
 
     if cfg['GRID_SEARCH'] is True:
         csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
 
-        existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb)
+        existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb, nl)
         if existing_status == "started":
-            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already started!", flush=True)
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl} already started!", flush=True)
             session.report({"loss": 1e10, "epoch": 0, "skipped": True})
             return
         if existing_status == "finished":
-            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already finished!", flush=True)
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl} already finished!", flush=True)
             session.report({"loss": 1e10, "epoch": 0, "skipped": True})
             return
 
-        add_or_update_run(csv_file, bs, lr, nh, nb, "started")
+        add_or_update_run(csv_file, bs, lr, nh, nb, nl, "started")
 
     config['PATH_OUTPUT'] = os.path.join(
         config['PATH_OUTPUT_BASE'],
         f"flow_training_{config['RUN_DATE']}",
-        f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}"
+        f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}"
     )
     config['PATH_OUTPUT_CATALOGS'] = os.path.join(
         config['PATH_OUTPUT_CATALOGS_BASE'],
         f"flow_training_{config['RUN_DATE']}",
-        f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}"
+        f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}"
     )
 
     os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
@@ -151,6 +155,7 @@ def train_tune(tune_config, base_config):
         learning_rate=config["learning_rate"],
         number_hidden=config["number_hidden"],
         number_blocks=config["number_blocks"],
+        number_layers=config["number_layers"],
         batch_size=config["batch_size"],
         train_flow_logger=logger
     )
@@ -159,7 +164,7 @@ def train_tune(tune_config, base_config):
         session.report({"loss": validation_loss, "epoch": epoch+1})
 
     if cfg['GRID_SEARCH'] is True:
-        add_or_update_run(csv_file, bs, lr, nh, nb, "finished")
+        add_or_update_run(csv_file, bs, lr, nh, nb, nl,"finished")
 
 def load_config_and_parser(system_path):
     if get_os() == "Mac":
@@ -232,6 +237,7 @@ if __name__ == '__main__':
     batch_size = cfg["BATCH_SIZE_FLOW"]
     number_hidden = cfg["NUMBER_HIDDEN"]
     number_blocks = cfg["NUMBER_BLOCKS"]
+    number_layers = cfg["NUMBER_LAYERS"]
     learning_rate = cfg["LEARNING_RATE_FLOW"]
 
     if not isinstance(batch_size, list):
@@ -240,6 +246,8 @@ if __name__ == '__main__':
         number_hidden = [number_hidden]
     if not isinstance(number_blocks, list):
         number_blocks = [number_blocks]
+    if not isinstance(number_layers, list):
+        number_layers = [number_layers]
     if not isinstance(learning_rate, list):
         learning_rate = [learning_rate, learning_rate]
 
@@ -248,6 +256,7 @@ if __name__ == '__main__':
         "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
         "number_hidden": tune.choice(number_hidden),
         "number_blocks": tune.choice(number_blocks),
+        "number_layers": tune.choice(number_layers),
         "INFO_LOGGER": cfg["INFO_LOGGER"],
         "ERROR_LOGGER": cfg["ERROR_LOGGER"],
         "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
@@ -261,7 +270,7 @@ if __name__ == '__main__':
     }
 
     reporter = CLIReporter(
-        parameter_columns=["learning_rate", "number_hidden", "number_blocks", "batch_size"],
+        parameter_columns=["learning_rate", "number_hidden", "number_blocks", "number_layers", "batch_size"],
         metric_columns=["loss"]
     )
 

@@ -64,6 +64,7 @@ class MADE(nn.Module):
                  num_hidden,
                  num_cond_inputs=None,
                  act='relu',
+                 num_layers=2,
                  lrelu=None):
         super(MADE, self).__init__()
 
@@ -100,20 +101,30 @@ class MADE(nn.Module):
             cond_in_features=num_cond_inputs
         )
 
-        self.trunk = nn.Sequential(
-            act_func(),
-            nn.MaskedLinear(
-                in_features=num_hidden,
-                out_features=num_hidden,
-                mask=hidden_mask
-            ),
-            act_func(),
-            nn.MaskedLinear(
-                in_features=num_hidden,
-                out_features=num_inputs * 2,
-                mask=output_mask
-            )
-        )
+        layers = []
+        for _ in range(num_layers - 1):
+            layers.append(act_func())
+            layers.append(nn.MaskedLinear(num_hidden, num_hidden, mask=hidden_mask))
+
+        layers.append(act_func())
+        layers.append(nn.MaskedLinear(num_hidden, num_inputs * 2, mask=output_mask))
+
+        self.trunk = nn.Sequential(*layers)
+
+        # self.trunk = nn.Sequential(
+        #     act_func(),
+        #     nn.MaskedLinear(
+        #         in_features=num_hidden,
+        #         out_features=num_hidden,
+        #         mask=hidden_mask
+        #     ),
+        #     act_func(),
+        #     nn.MaskedLinear(
+        #         in_features=num_hidden,
+        #         out_features=num_inputs * 2,
+        #         mask=output_mask
+        #     )
+        # )
 
     def forward(self, inputs, cond_inputs=None, mode='direct'):
         if mode == 'direct':

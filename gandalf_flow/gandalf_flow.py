@@ -30,6 +30,7 @@ class gaNdalFFlow(object):
                  number_hidden,
                  number_blocks,
                  batch_size,
+                 number_layers,
                  train_flow_logger
                  ):
         super().__init__()
@@ -81,12 +82,13 @@ class gaNdalFFlow(object):
         self.lr = learning_rate
         self.nh = number_hidden
         self.nb = number_blocks
+        self.nl = number_layers
 
         self.cfg['PATH_PLOTS_FOLDER'] = {}
-        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
-        self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{self.cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}"
+        self.cfg['PATH_OUTPUT_SUBFOLDER'] = f"{self.cfg['PATH_OUTPUT']}/lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_nl_{self.nl}_bs_{self.bs}"
+        self.cfg['PATH_OUTPUT_SUBFOLDER_CATALOGS'] = f"{self.cfg['PATH_OUTPUT_CATALOGS']}/lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_nl_{self.nl}_bs_{self.bs}"
         self.cfg['PATH_WRITER'] = (f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_WRITER']}/"
-                                   f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_bs_{self.bs}")
+                                   f"lr_{self.lr}_nh_{self.nh}_nb_{self.nb}_nl_{self.nl}_bs_{self.bs}")
         self.cfg['PATH_PLOTS'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_PLOTS']}"
         self.cfg['PATH_SAVE_NN'] = f"{self.cfg['PATH_OUTPUT_SUBFOLDER']}/{self.cfg['FOLDER_SAVE_NN']}"
 
@@ -99,6 +101,7 @@ class gaNdalFFlow(object):
             comment=f"learning rate: {self.lr} "
                     f"number hidden: {self.nh}_"
                     f"number blocks: {self.nb}_"
+                    f"number layers: {self.nl}_"
                     f"batch size: {self.bs}"
         )
         self.galaxies = self.init_dataset()  # self.train_loader, self.valid_loader, self.test_sampled_data, '
@@ -158,7 +161,7 @@ class gaNdalFFlow(object):
         modules = []
         for _ in range(self.nb):
             modules += [
-                fnn.MADE(num_inputs=num_outputs, num_hidden=self.nh, num_cond_inputs=num_input, act=self.act),
+                fnn.MADE(num_inputs=num_outputs, num_hidden=self.nh, num_cond_inputs=num_input, act=self.act, num_layers=self.nl),
                 fnn.BatchNormFlow(num_outputs),
                 fnn.Reverse(num_outputs)
             ]
@@ -217,13 +220,16 @@ class gaNdalFFlow(object):
                                                f"learning rate: {self.lr}\t"
                                                f"num_hidden: {self.nh}\t"
                                                f"num_blocks: {self.nb}\t"
+                                               f"num_layers: {self.nl}\t"
                                                f"batch_size: {self.bs}")
         self.writer.add_hparams(
             hparam_dict={
                 "learning rate": self.lr,
                 "batch size": self.bs,
                 "number hidden": self.nh,
-                "number blocks": self.nb},
+                "number blocks": self.nb,
+                "number layers": self.nl,
+            },
             metric_dict={
                 "hparam/last training loss": train_loss_epoch,
                 "hparam/last validation loss": validation_loss,
@@ -315,6 +321,7 @@ class gaNdalFFlow(object):
                                                f"learning rate: {self.lr},\t"
                                                f"number hidden: {self.nh},\t"
                                                f"number blocks: {self.nb},\t"
+                                               f"number layers: {self.nl},\t"
                                                f"batch size: {self.bs},\t"
                                                f"training loss: {train_loss}")
         self.writer.add_scalar('training loss', train_loss, epoch+1)
@@ -395,6 +402,7 @@ class gaNdalFFlow(object):
                                                f"learning rate: {self.lr},\t"
                                                f"number hidden: {self.nh},\t"
                                                f"number blocks: {self.nb},\t"
+                                               f"number layers: {self.nl},\t"
                                                f"batch size: {self.bs},\t"
                                                f"validation loss: {val_loss}")
         self.writer.add_scalar('validation loss', val_loss, epoch+1)
@@ -416,7 +424,7 @@ class gaNdalFFlow(object):
                 show_plot=False,
                 save_plot=True,
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['LOSS_PLOT']}/{today}_loss_{epoch + 1}.pdf",
-                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}; nl {self.nl}"
             )
             img_grid_loss = loss_plot(
                 epoch=epoch,
@@ -427,7 +435,7 @@ class gaNdalFFlow(object):
                 show_plot=False,
                 save_plot=True,
                 save_name=f"{self.cfg['PATH_PLOTS']}/{today}_loss.pdf",
-                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}"
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}; nl {self.nl}"
             )
             self.writer.add_image("loss plot", img_grid_loss, epoch + 1)
         if self.cfg["PLOT_TRAINING_LOG_LOSS"] is True:
@@ -440,7 +448,7 @@ class gaNdalFFlow(object):
                 show_plot=False,
                 save_plot=True,
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['LOSS_PLOT']}/{today}_loss_{epoch + 1}_logscale.pdf",
-                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}; nl {self.nl}",
                 log_scale=True
             )
             img_grid_log_loss = loss_plot(
@@ -452,7 +460,7 @@ class gaNdalFFlow(object):
                 show_plot=False,
                 save_plot=True,
                 save_name=f"{self.cfg['PATH_PLOTS']}/{today}_loss_logscale.pdf",
-                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}",
+                title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}; nl {self.nl}",
                 log_scale=True
             )
             self.writer.add_image("log loss plot", img_grid_log_loss, epoch + 1)
@@ -515,7 +523,7 @@ class gaNdalFFlow(object):
                 df_gandalf=df_output_gandalf,
                 df_balrog=df_output_true,
                 columns=self.cfg["OUTPUT_COLS"],
-                title_prefix=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb} - ",
+                title_prefix=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb} ; nl {self.nl} - ",
                 epoch=epoch,
                 today=today,
                 savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch+1}_compare_output.pdf"
