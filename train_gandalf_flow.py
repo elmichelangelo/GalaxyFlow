@@ -99,27 +99,29 @@ def main(
     return val_loss
 
 def train_tune(tune_config, base_config):
-    config = dict(base_config)  # vollständige Kopie
-    config.update(tune_config)  # überschreibe mit Tunables
-    csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
+    config = dict(base_config)
+    config.update(tune_config)
 
-    bs = int(config['batch_size'])
+    config['batch_size'] = int(config['batch_size'])
+    bs = config['batch_size']
     lr = float(config['learning_rate'])
     nh = int(config['number_hidden'])
     nb = int(config['number_blocks'])
-    combo = (bs, lr, nh, nb)
 
-    existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb)
-    if existing_status == "started":
-        print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already started!", flush=True)
-        session.report({"loss": 1e10, "epoch": 0, "skipped": True})
-        return
-    if existing_status == "finished":
-        print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already finished!", flush=True)
-        session.report({"loss": 1e10, "epoch": 0, "skipped": True})
-        return
+    if cfg['GRID_SEARCH'] is True:
+        csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
 
-    add_or_update_run(csv_file, bs, lr, nh, nb, "started")
+        existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb)
+        if existing_status == "started":
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already started!", flush=True)
+            session.report({"loss": 1e10, "epoch": 0, "skipped": True})
+            return
+        if existing_status == "finished":
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb} already finished!", flush=True)
+            session.report({"loss": 1e10, "epoch": 0, "skipped": True})
+            return
+
+        add_or_update_run(csv_file, bs, lr, nh, nb, "started")
 
     config['PATH_OUTPUT'] = os.path.join(
         config['PATH_OUTPUT_BASE'],
@@ -156,7 +158,8 @@ def train_tune(tune_config, base_config):
     for epoch, validation_loss in train_flow.run_training():
         session.report({"loss": validation_loss, "epoch": epoch+1})
 
-    add_or_update_run(csv_file, bs, lr, nh, nb, "finished")
+    if cfg['GRID_SEARCH'] is True:
+        add_or_update_run(csv_file, bs, lr, nh, nb, "finished")
 
 def load_config_and_parser(system_path):
     if get_os() == "Mac":
@@ -290,7 +293,7 @@ if __name__ == '__main__':
         config=search_space,
         search_alg=optuna_search,
         scheduler=asha,
-        num_samples=60,
+        num_samples=cfg['OPTUNA_RUNS'],
         max_concurrent_trials=3,
         resources_per_trial=resources,
         progress_reporter=reporter,
