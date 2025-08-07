@@ -248,7 +248,7 @@ if __name__ == '__main__':
     patience = cfg["PATIENCE"]
 
     if not isinstance(batch_size, list):
-        batch_size = [batch_size, batch_size, batch_size]
+        batch_size = [batch_size]
     if not isinstance(number_hidden, list):
         number_hidden = [number_hidden]
     if not isinstance(number_blocks, list):
@@ -261,7 +261,7 @@ if __name__ == '__main__':
         patience = [patience, patience]
 
     search_space = {
-        "batch_size": tune.qlograndint(batch_size[0], batch_size[1], batch_size[2]),
+        "batch_size": tune.choice(batch_size),
         "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
         "number_hidden": tune.choice(number_hidden),
         "number_blocks": tune.choice(number_blocks),
