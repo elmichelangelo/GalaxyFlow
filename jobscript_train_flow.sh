@@ -7,7 +7,7 @@
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gandalf_train_flow_%A_%a.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gaNdalF_train_flow_err_%A_%a.log
-#SBATCH --partition=cluster
+#SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:5
 #SBATCH --cpus-per-task=12
 
