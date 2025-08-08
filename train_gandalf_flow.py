@@ -299,15 +299,6 @@ if __name__ == '__main__':
         grace_period=2
     )
 
-    # stopper = TrialPlateauStopper(
-    #     metric="loss",
-    #     mode="min",
-    #     std=0.0,
-    #     num_results=10,
-    #     grace_period=15,
-    #     metric_threshold=1e-4
-    # )
-
     analysis = tune.run(
         partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
         config=search_space,
@@ -321,73 +312,5 @@ if __name__ == '__main__':
         name="gandalf_tune_optuna"
     )
 
-    # analysis = tune.run(
-    #     partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
-    #     config=search_space,
-    #     resources_per_trial=resources,
-    #     progress_reporter=reporter,
-    #     stop=stopper,
-    #     max_concurrent_trials=3,
-    #     metric="loss",
-    #     mode="min",
-    #     storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
-    #     name="gandalf_tune",
-    # )
-
     print("Best config found:")
     print(analysis.get_best_config(metric="loss", mode="min"))
-
-    # cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}"
-    # if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):
-    #     os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
-    # cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/flow_training_{cfg['RUN_DATE']}"
-    # if not os.path.exists(cfg['PATH_OUTPUT']):
-    #     os.mkdir(cfg['PATH_OUTPUT'])
-    # if not os.path.exists(cfg['PATH_OUTPUT_CATALOGS']):
-    #     os.mkdir(cfg['PATH_OUTPUT_CATALOGS'])
-    #
-    # log_lvl = logging.INFO
-    # if cfg["LOGGING_LEVEL"] == "DEBUG":
-    #     log_lvl = logging.DEBUG
-    # elif cfg["LOGGING_LEVEL"] == "ERROR":
-    #     log_lvl = logging.ERROR
-    # train_flow_logger = LoggerHandler(
-    #     logger_dict={"logger_name": "train flow logger",
-    #                  "info_logger": cfg['INFO_LOGGER'],
-    #                  "error_logger": cfg['ERROR_LOGGER'],
-    #                  "debug_logger": cfg['DEBUG_LOGGER'],
-    #                  "stream_logger": cfg['STREAM_LOGGER'],
-    #                  "stream_logging_level": log_lvl},
-    #     log_folder_path=f"{cfg['PATH_OUTPUT']}/"
-    # )
-    #
-    # batch_size = cfg["BATCH_SIZE_FLOW"]
-    # number_hidden = cfg["NUMBER_HIDDEN"]
-    # number_blocks = cfg["NUMBER_BLOCKS"]
-    # learning_rate = cfg["LEARNING_RATE_FLOW"]
-    #
-    # if not isinstance(batch_size, list):
-    #     batch_size = [batch_size]
-    # if not isinstance(number_hidden, list):
-    #     number_hidden = [number_hidden]
-    # if not isinstance(number_blocks, list):
-    #     number_blocks = [number_blocks]
-    # if not isinstance(learning_rate, list):
-    #     learning_rate = [learning_rate]
-    #
-    # for lr in learning_rate:
-    #     for nh in number_hidden:
-    #         for nb in number_blocks:
-    #             for bs in batch_size:
-    #                 train_flow_logger.log_info_stream(f"Batch size {bs}")
-    #                 train_flow_logger.log_info_stream(f"Number blocks {nb}")
-    #                 train_flow_logger.log_info_stream(f"Number hidden {nh}")
-    #                 train_flow_logger.log_info_stream(f"Learning rate {lr}")
-    #                 main(
-    #                     cfg=cfg,
-    #                     learning_rate=lr,
-    #                     number_hidden=nh,
-    #                     number_blocks=nb,
-    #                     batch_size=bs,
-    #                     logger=train_flow_logger
-    #                 )
