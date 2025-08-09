@@ -346,10 +346,15 @@ class gaNdalFFlow(object):
             if isinstance(module, fnn.BatchNormFlow):
                 module.momentum = 0
         with torch.no_grad():
-            self.model(
-                torch.tensor(self.galaxies.train_dataset[self.cfg["OUTPUT_COLS"]].values,dtype=torch.float64),
-                cond_inputs=torch.tensor(df_train[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
+            y = torch.tensor(
+                self.galaxies.train_dataset[self.cfg["OUTPUT_COLS"]].values,
+                dtype=torch.float64, device=self.device
             )
+            x = torch.tensor(
+                df_train[self.cfg["INPUT_COLS"]].values,
+                dtype=torch.float64, device=self.device
+            )
+            self.model(y, cond_inputs=x)
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
                 module.momentum = 0.1

@@ -36,18 +36,26 @@ class MaskedLinear(nn.Module):
         super(MaskedLinear, self).__init__()
         torch.set_default_dtype(torch.float64)
 
-        self.linear = nn.Linear(in_features, out_features).to(dtype=torch.float64)
+        self.linear = nn.Linear(in_features, out_features, bias=bias).to(dtype=torch.float64)
+
         if cond_in_features is not None:
             self.cond_linear = nn.Linear(cond_in_features, out_features, bias=False).to(dtype=torch.float64)
-            self.cond_linear.weight.data = self.cond_linear.weight.data.to(dtype=torch.float64)
+            # self.cond_linear.weight.data = self.cond_linear.weight.data.to(dtype=torch.float64)
 
         self.register_buffer('mask', mask.to(dtype=torch.float64))
 
     def forward(self, inputs, cond_inputs=None):
-        output = F.linear(inputs, self.linear.weight * self.mask, self.linear.bias)
+        weight = self.linear.weight
+        dev, dt = weight.device, weight.dtype
+
+        inputs = inputs.to(device=dev, dtype=dt)
+        W = weight * self.mask.to(device=dev, dtype=dt)
+
+        output = F.linear(inputs, W, self.linear.bias)
+        # output = F.linear(inputs, self.linear.weight * self.mask, self.linear.bias)
         if cond_inputs is not None:
-            cond_inputs = cond_inputs.to(dtype=torch.float64)
-            output += self.cond_linear(cond_inputs)
+            cond_inputs = cond_inputs.to(device=dev, dtype=dt)
+            output = output + self.cond_linear(cond_inputs)
         return output
 
 
