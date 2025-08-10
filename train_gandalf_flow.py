@@ -20,6 +20,8 @@ import csv
 from filelock import FileLock
 from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
+import hashlib, json, shutil
+from ray.air.checkpoint import Checkpoint
 
 plt.rcParams["figure.figsize"] = (16, 9)
 
@@ -116,6 +118,18 @@ def train_tune(tune_config, base_config):
     nl = int(config['number_layers'])
     pa = int(config['patience'])
 
+    trial_id = hparam_hash(bs, lr, nh, nb, nl, pa)
+    study_root_out = os.path.join(config['PATH_OUTPUT_BASE'], f"study_{config['RUN_ID']}")
+    study_root_cat = os.path.join(config['PATH_OUTPUT_CATALOGS_BASE'], f"study_{config['RUN_ID']}")
+    os.makedirs(study_root_out, exist_ok=True)
+    os.makedirs(study_root_cat, exist_ok=True)
+
+    # Die Trial-Roots sind jetzt deterministisch
+    config['PATH_OUTPUT'] = os.path.join(study_root_out, f"trial_{trial_id}")
+    config['PATH_OUTPUT_CATALOGS'] = os.path.join(study_root_cat, f"trial_{trial_id}")
+    os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
+    os.makedirs(config['PATH_OUTPUT_CATALOGS'], exist_ok=True)
+
     if cfg['GRID_SEARCH'] is True:
         csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
 
@@ -166,8 +180,16 @@ def train_tune(tune_config, base_config):
     )
 
     for epoch, validation_loss in train_flow.run_training():
-        print("hallo")
-        session.report({"loss": validation_loss, "epoch": epoch+1})
+        # Ray will ein Verzeichnis. Wir spiegeln die letzte .pt-Datei rein.
+        ckpt_src = os.path.join(config['PATH_OUTPUT_SUBFOLDER'], "last.ckpt.pt")
+        if os.path.exists(ckpt_src):
+            ray_ckpt_dir = os.path.join(config['PATH_OUTPUT'], "ray_ckpt")
+            os.makedirs(ray_ckpt_dir, exist_ok=True)
+            shutil.copy2(ckpt_src, os.path.join(ray_ckpt_dir, "last.ckpt.pt"))
+            session.report({"loss": validation_loss, "epoch": epoch + 1},
+                           checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
+        else:
+            session.report({"loss": validation_loss, "epoch": epoch + 1})
 
     if cfg['GRID_SEARCH'] is True:
         add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "finished")
@@ -207,19 +229,65 @@ def load_config_and_parser(system_path):
     config['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     return config, path_config_file
 
+def get_or_create_run_id(cfg):
+    """
+    Hält eine Kampagne stabil. Reihenfolge:
+    1) ENV RUN_ID (wenn gesetzt),
+    2) Datei <PATH_OUTPUT_BASE>/RUN_ID.txt,
+    3) neu erzeugen und persistieren.
+    """
+    base = cfg['PATH_OUTPUT_BASE']
+    os.makedirs(base, exist_ok=True)
+    marker = os.path.join(base, "RUN_ID.txt")
+
+    run_id = os.environ.get("RUN_ID")
+    if run_id:
+        with open(marker, "w") as f:
+            f.write(run_id.strip())
+        return run_id.strip()
+
+    if os.path.exists(marker):
+        return open(marker).read().strip()
+
+    # fallback: einmalig erzeugen
+    run_id = datetime.now().strftime('%Y-%m-%d')  # z.B. "2025-08-10"
+    with open(marker, "w") as f:
+        f.write(run_id)
+    return run_id
+
+def hparam_hash(bs, lr, nh, nb, nl, pa):
+    """
+    Deterministischer Hash nur aus den HPO-Parametern.
+    Kürzen auf 10 Zeichen für kürzere Ordnernamen.
+    """
+    payload = {
+        "bs": int(bs),
+        "lr": float(lr),
+        "nh": int(nh),
+        "nb": int(nb),
+        "nl": int(nl),
+        "pa": int(pa),
+    }
+    s = json.dumps(payload, sort_keys=True)
+    return hashlib.sha1(s.encode()).hexdigest()[:10]
+
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
     sys.path.append(os.path.dirname(__file__))
     cfg, path_cfg_file = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
-    GLOBAL_BASE_CONFIG = copy.deepcopy(cfg)  # <-- diese Variable
-
-    # Pfade merken (damit Ray pro Trial eigene anlegt)
+    # Basispfade festhalten
     cfg['PATH_OUTPUT_BASE'] = cfg['PATH_OUTPUT']
     cfg['PATH_OUTPUT_CATALOGS_BASE'] = cfg['PATH_OUTPUT_CATALOGS']
 
-    cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/flow_training_{cfg['RUN_DATE']}"
-    cfg['PATH_OUTPUT_CATALOGS'] = f"{cfg['PATH_OUTPUT_CATALOGS']}/flow_training_{cfg['RUN_DATE']}"
+    # Kampagnen-ID stabilisieren (ENV RUN_ID überschreibt, sonst Datei/neu)
+    cfg['RUN_ID'] = get_or_create_run_id(cfg)
+
+    # Keine flow_training_DATUM-Verzeichnisse mehr hier erzwingen – das macht jetzt die Trial-Hash-Logik unten.
+    cfg['PATH_OUTPUT'] = cfg['PATH_OUTPUT_BASE']
+    cfg['PATH_OUTPUT_CATALOGS'] = cfg['PATH_OUTPUT_CATALOGS_BASE']
+
+    GLOBAL_BASE_CONFIG = copy.deepcopy(cfg)
 
     os.makedirs(cfg['PATH_OUTPUT'], exist_ok=True)
     os.makedirs(cfg['PATH_OUTPUT_CATALOGS'], exist_ok=True)

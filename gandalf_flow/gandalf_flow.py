@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 import math
 from datetime import datetime
 from ray import tune
+import random
+import signal
 
 torch.set_default_dtype(torch.float64)
 
@@ -77,6 +79,9 @@ class gaNdalFFlow(object):
         self.dict_delta_color_diff = {}
         self.dict_delta_color_diff_mcal = {}
 
+        self.start_epoch = 0
+        self.current_epoch = 0
+
         self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_STANDARD_SCALER']}")
 
         self.bs = batch_size
@@ -135,6 +140,9 @@ class gaNdalFFlow(object):
         self.best_train_epoch = 1
         self.best_model = self.model
 
+        self.load_checkpoint_if_any()
+        self._install_sigterm_handler()
+
     def make_dirs(self):
         """"""
         if not os.path.exists(self.cfg['PATH_OUTPUT_SUBFOLDER']):
@@ -180,11 +188,80 @@ class gaNdalFFlow(object):
         optimizer = optim.AdamW(model.parameters(), lr=self.lr, )
         return model, optimizer
 
+    def _checkpoint_path(self):
+        return os.path.join(self.cfg['PATH_OUTPUT_SUBFOLDER'], "last.ckpt.pt")
+
+    def _state_dict(self, epoch):
+        return {
+            "epoch": int(epoch),
+            "model": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "best_validation_loss": float(self.best_validation_loss),
+            "best_validation_epoch": int(self.best_validation_epoch),
+            "best_train_loss": float(self.best_train_loss),
+            "best_train_epoch": int(self.best_train_epoch),
+            "rng": {
+                "python": random.getstate(),
+                "numpy": np.random.get_state(),
+                "torch": torch.random.get_rng_state(),
+                "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+            },
+            "hist": {
+                "lst_epochs": self.lst_epochs,
+                "lst_train_loss_per_epoch": self.lst_train_loss_per_epoch,
+                "lst_valid_loss_per_epoch": self.lst_valid_loss_per_epoch,
+            },
+            "cfg_snapshot": {
+                "lr": self.lr, "bs": self.bs, "nh": self.nh, "nb": self.nb, "nl": self.nl, "pa": self.pa
+            }
+        }
+
+    def save_checkpoint(self, epoch):
+        path = self._checkpoint_path()
+        tmp = path + ".tmp"
+        torch.save(self._state_dict(epoch), tmp)
+        os.replace(tmp, path)  # atomic
+
+    def load_checkpoint_if_any(self):
+        path = self._checkpoint_path()
+        if not os.path.exists(path):
+            self.start_epoch = 0
+            return False
+        ckpt = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(ckpt["model"])
+        self.optimizer.load_state_dict(ckpt["optimizer"])
+        self.best_validation_loss = ckpt.get("best_validation_loss", self.best_validation_loss)
+        self.best_validation_epoch = ckpt.get("best_validation_epoch", self.best_validation_epoch)
+        self.best_train_loss = ckpt.get("best_train_loss", self.best_train_loss)
+        self.best_train_epoch = ckpt.get("best_train_epoch", self.best_train_epoch)
+        random.setstate(ckpt["rng"]["python"])
+        np.random.set_state(ckpt["rng"]["numpy"])
+        torch.random.set_rng_state(ckpt["rng"]["torch"])
+        if torch.cuda.is_available() and ckpt["rng"]["cuda"] is not None:
+            torch.cuda.set_rng_state_all(ckpt["rng"]["cuda"])
+        self.start_epoch = int(ckpt["epoch"]) + 1
+        self.train_flow_logger.log_info_stream(f"Resumed from checkpoint at epoch {self.start_epoch}")
+        return True
+
+    def _install_sigterm_handler(self):
+        def _handler(signum, frame):
+            try:
+                ep = self.current_epoch if hasattr(self, "current_epoch") else 0
+                self.train_flow_logger.log_info_stream("SIGTERM – saving checkpoint...")
+                self.save_checkpoint(ep)
+            finally:
+                os._exit(0)
+
+        signal.signal(signal.SIGTERM, _handler)
+
     def run_training(self):
         today = datetime.now().strftime("%Y%m%d_%H%M%S")
         epochs_no_improve = 0
         min_delta = 1e-4
+
         for epoch in range(self.cfg["EPOCHS_FLOW"]):
+            self.current_epoch = epoch
+
             self.train_flow_logger.log_info_stream(f"Epoch: {epoch+1}/{self.cfg['EPOCHS_FLOW']}")
             self.train_flow_logger.log_info_stream(f"Train")
             train_loss_epoch = self.train(
@@ -221,6 +298,7 @@ class gaNdalFFlow(object):
                 self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
             yield epoch, validation_loss
 
+            self.save_checkpoint(epoch)
             if epochs_no_improve >= self.pa:
                 self.train_flow_logger.log_info_stream(f"Early stopping at epoch {epoch+1}")
                 break
