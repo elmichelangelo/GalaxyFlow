@@ -22,11 +22,11 @@ from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
 import hashlib, json, shutil
 try:
-    from ray.train import Checkpoint            # neuere Ray-Versionen
-except ImportError:
+    from ray.train import Checkpoint
+except (ImportError, AttributeError):
     try:
-        from ray.air import Checkpoint          # manche 2.x Builds
-    except ImportError:
+        from ray.air import Checkpoint
+    except (ImportError, AttributeError):
         Checkpoint = None
 
 plt.rcParams["figure.figsize"] = (16, 9)
