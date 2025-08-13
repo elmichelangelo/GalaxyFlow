@@ -21,7 +21,13 @@ from filelock import FileLock
 from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
 import hashlib, json, shutil
-from ray.air.checkpoint import Checkpoint
+try:
+    from ray.train import Checkpoint            # neuere Ray-Versionen
+except ImportError:
+    try:
+        from ray.air import Checkpoint          # manche 2.x Builds
+    except ImportError:
+        Checkpoint = None
 
 plt.rcParams["figure.figsize"] = (16, 9)
 
@@ -186,8 +192,11 @@ def train_tune(tune_config, base_config):
             ray_ckpt_dir = os.path.join(config['PATH_OUTPUT'], "ray_ckpt")
             os.makedirs(ray_ckpt_dir, exist_ok=True)
             shutil.copy2(ckpt_src, os.path.join(ray_ckpt_dir, "last.ckpt.pt"))
-            session.report({"loss": validation_loss, "epoch": epoch + 1},
-                           checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
+            if Checkpoint is not None:
+                session.report({"loss": validation_loss, "epoch": epoch + 1},
+                               checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
+            else:
+                session.report({"loss": validation_loss, "epoch": epoch + 1})
         else:
             session.report({"loss": validation_loss, "epoch": epoch + 1})
 
