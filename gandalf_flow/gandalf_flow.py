@@ -127,7 +127,6 @@ class gaNdalFFlow(object):
                 input_data = input_data.to(self.device)
                 output_data = output_data.to(self.device)
                 self.writer.add_graph(self.model, (output_data, input_data))
-                self.writer.close()
                 break
 
             total_parameters = count_parameters(self.model)
@@ -245,11 +244,9 @@ class gaNdalFFlow(object):
 
     def _install_sigterm_handler(self):
         import threading, os, signal
-        # Nur im Main-Thread und nur außerhalb von Ray/Tune installieren
         if threading.current_thread() is not threading.main_thread():
             self.train_flow_logger.log_info_stream("Skip SIGTERM handler: not in main thread.")
             return
-        # simple Heuristik: Wenn TUNE_* gesetzt ist, laufen wir in einem Trial
         if os.environ.get("TUNE_ORIG_WORKING_DIR") or os.environ.get("RAY_ADDRESS"):
             self.train_flow_logger.log_info_stream("Skip SIGTERM handler: running under Ray/Tune.")
             return
@@ -327,6 +324,7 @@ class gaNdalFFlow(object):
                                                f"batch_size: {self.bs}\t"
                                                f"patience: {self.pa}"
                                                )
+        self.writer.add_scalar('validation loss (last)', validation_loss, self.current_epoch + 1)
         self.writer.add_hparams(
             hparam_dict={
                 "learning rate": self.lr,
@@ -344,7 +342,6 @@ class gaNdalFFlow(object):
                 "hparam/best validation epoch": self.best_validation_epoch,
                 "hparam/best train epoch": self.best_train_epoch,
             },
-            run_name=f"final result"
         )
 
         if self.cfg['SAVE_NN_FLOW'] is True:
@@ -488,7 +485,7 @@ class gaNdalFFlow(object):
         output_data = torch.tensor(df_valid[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
 
         valid_dataset = TensorDataset(input_data, output_data)
-        valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False)
 
         pbar = tqdm(
             valid_loader,
@@ -502,9 +499,12 @@ class gaNdalFFlow(object):
 
             with torch.no_grad():
                 loss = -self.model.log_probs(output_data, input_data).mean()
-                val_loss += loss.data.item() * output_data.size(0)
+                # val_loss += loss.data.item() * output_data.size(0)
+                val_loss += loss.item() * output_data.size(0)
             total_samples += output_data.size(0)
-            self.lst_valid_loss_per_batch.append(val_loss)
+            # self.lst_valid_loss_per_batch.append(val_loss)
+            self.lst_valid_loss_per_batch.append(val_loss / max(1, total_samples))
+
             pbar.set_postfix(loss=val_loss / total_samples)
         pbar.close()
         val_loss = val_loss / len(self.galaxies.valid_dataset)
