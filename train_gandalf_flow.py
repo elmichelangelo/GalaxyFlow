@@ -292,6 +292,7 @@ if __name__ == '__main__':
     # Kampagnen-ID stabilisieren (ENV RUN_ID überschreibt, sonst Datei/neu)
     cfg['RUN_ID'] = get_or_create_run_id(cfg)
 
+    storage_dir = os.path.join(cfg['PATH_OUTPUT_BASE'], f"{cfg['RUN_ID']}_ray_results")
     # Keine flow_training_DATUM-Verzeichnisse mehr hier erzwingen – das macht jetzt die Trial-Hash-Logik unten.
     cfg['PATH_OUTPUT'] = cfg['PATH_OUTPUT_BASE']
     cfg['PATH_OUTPUT_CATALOGS'] = cfg['PATH_OUTPUT_CATALOGS_BASE']
@@ -385,7 +386,7 @@ if __name__ == '__main__':
         max_concurrent_trials=cfg['MAX_TRAILS'],
         resources_per_trial=resources,
         progress_reporter=reporter,
-        storage_path=f"{cfg['PATH_OUTPUT_BASE']}/{cfg['RUN_DATE']}_ray_results/",
+        storage_path=storage_dir,
         name="gandalf_tune_optuna"
     )
 
