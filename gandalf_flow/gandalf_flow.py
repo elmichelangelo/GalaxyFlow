@@ -244,15 +244,29 @@ class gaNdalFFlow(object):
         return True
 
     def _install_sigterm_handler(self):
+        import threading, os, signal
+        # Nur im Main-Thread und nur außerhalb von Ray/Tune installieren
+        if threading.current_thread() is not threading.main_thread():
+            self.train_flow_logger.log_info_stream("Skip SIGTERM handler: not in main thread.")
+            return
+        # simple Heuristik: Wenn TUNE_* gesetzt ist, laufen wir in einem Trial
+        if os.environ.get("TUNE_ORIG_WORKING_DIR") or os.environ.get("RAY_ADDRESS"):
+            self.train_flow_logger.log_info_stream("Skip SIGTERM handler: running under Ray/Tune.")
+            return
+
         def _handler(signum, frame):
             try:
-                ep = self.current_epoch if hasattr(self, "current_epoch") else 0
+                ep = getattr(self, "current_epoch", 0)
                 self.train_flow_logger.log_info_stream("SIGTERM – saving checkpoint...")
                 self.save_checkpoint(ep)
             finally:
                 os._exit(0)
 
-        signal.signal(signal.SIGTERM, _handler)
+        try:
+            signal.signal(signal.SIGTERM, _handler)
+            self.train_flow_logger.log_info_stream("Installed SIGTERM handler.")
+        except ValueError as e:
+            self.train_flow_logger.log_info_stream(f"Skip SIGTERM handler ({e}).")
 
     def run_training(self):
         today = datetime.now().strftime("%Y%m%d_%H%M%S")
