@@ -14,7 +14,6 @@
 
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-# Kampagne benennen – bleibt über viele 48h-Jobs gleich
-export RUN_ID="cpu_2025w32"
+export RUN_ID="optuna_2025w32"
 
 srun -n1 python train_gandalf_flow.py -cf LMU_train_flow.cfg
