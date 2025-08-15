@@ -270,7 +270,7 @@ class gaNdalFFlow(object):
         epochs_no_improve = 0
         min_delta = 1e-4
 
-        for epoch in range(self.cfg["EPOCHS_FLOW"]):
+        for epoch in range(self.start_epoch, self.cfg["EPOCHS_FLOW"]):
             self.current_epoch = epoch
 
             self.train_flow_logger.log_info_stream(f"Epoch: {epoch+1}/{self.cfg['EPOCHS_FLOW']}")

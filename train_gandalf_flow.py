@@ -151,16 +151,16 @@ def train_tune(tune_config, base_config):
 
         add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "started")
 
-    config['PATH_OUTPUT'] = os.path.join(
-        config['PATH_OUTPUT_BASE'],
-        f"flow_training_{config['RUN_DATE']}",
-        f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}_pa_{config['patience']}"
-    )
-    config['PATH_OUTPUT_CATALOGS'] = os.path.join(
-        config['PATH_OUTPUT_CATALOGS_BASE'],
-        f"flow_training_{config['RUN_DATE']}",
-        f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}_pa_{config['patience']}"
-    )
+    # config['PATH_OUTPUT'] = os.path.join(
+    #     config['PATH_OUTPUT_BASE'],
+    #     f"flow_training_{config['RUN_DATE']}",
+    #     f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}_pa_{config['patience']}"
+    # )
+    # config['PATH_OUTPUT_CATALOGS'] = os.path.join(
+    #     config['PATH_OUTPUT_CATALOGS_BASE'],
+    #     f"flow_training_{config['RUN_DATE']}",
+    #     f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}_pa_{config['patience']}"
+    # )
 
     os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
     os.makedirs(config['PATH_OUTPUT_CATALOGS'], exist_ok=True)
@@ -387,7 +387,8 @@ if __name__ == '__main__':
         resources_per_trial=resources,
         progress_reporter=reporter,
         storage_path=storage_dir,
-        name="gandalf_tune_optuna"
+        name="gandalf_tune_optuna",
+        resume="AUTO",
     )
 
     print("Best config found:")

@@ -10,7 +10,7 @@
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=8
-#SBATCH --requeue
+#SBATCH --signal=B:TERM@300
 
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
