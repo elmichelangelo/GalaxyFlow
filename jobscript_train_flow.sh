@@ -8,7 +8,7 @@
 #SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gandalf_train_flow_%A.log
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/gaNdalF_train_flow_err_%A.log
 #SBATCH --partition=inter
-#SBATCH --gres=gpu:a40:0
+#SBATCH --gres=gpu:a40:1
 #SBATCH --cpus-per-task=8
 #SBATCH --signal=B:TERM@300
 
