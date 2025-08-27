@@ -412,7 +412,7 @@ class gaNdalFFlow(object):
             self.optimizer.step()
             total_samples += output_data.size(0)
             train_loss += loss.item() * output_data.size(0)
-            pbar.set_postfix(loss=train_loss / total_samples)
+            # pbar.set_postfix(loss=train_loss / total_samples)
             self.lst_train_loss_per_batch.append(train_loss / total_samples)
             self.global_step += 1
         pbar.close()
@@ -499,16 +499,13 @@ class gaNdalFFlow(object):
 
             with torch.no_grad():
                 loss = -self.model.log_probs(output_data, input_data).mean()
-                # val_loss += loss.data.item() * output_data.size(0)
                 val_loss += loss.item() * output_data.size(0)
             total_samples += output_data.size(0)
-            # self.lst_valid_loss_per_batch.append(val_loss)
             self.lst_valid_loss_per_batch.append(val_loss / max(1, total_samples))
 
-            pbar.set_postfix(loss=val_loss / total_samples)
+            # pbar.set_postfix(loss=val_loss / total_samples)
         pbar.close()
         val_loss = val_loss / len(self.galaxies.valid_dataset)
-        # self.lst_valid_loss_per_epoch.append(val_loss)
         self.train_flow_logger.log_info_stream(f"Validation,\t"
                                                f"Epoch: {epoch + 1},\t"
                                                f"learning rate: {self.lr},\t"
