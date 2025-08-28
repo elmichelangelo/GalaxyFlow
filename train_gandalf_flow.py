@@ -31,60 +31,60 @@ except (ImportError, AttributeError):
 
 plt.rcParams["figure.figsize"] = (16, 9)
 
-# def _read_trained_combinations_no_lock(csv_file):
-#     runs = []
-#     if not os.path.exists(csv_file):
-#         return runs
-#     with open(csv_file, newline='') as f:
-#         reader = csv.DictReader(f)
-#         for row in reader:
-#             runs.append(row)
-#     return runs
+def _read_trained_combinations_no_lock(csv_file):
+    runs = []
+    if not os.path.exists(csv_file):
+        return runs
+    with open(csv_file, newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            runs.append(row)
+    return runs
 
-# def _write_all_runs_no_lock(csv_file, runs):
-#     header = ["trial number", "batch size", "learning rate", "number hidden", "number blocks", "patience", "status"]
-#     with open(csv_file, "w", newline='') as f:
-#         writer = csv.DictWriter(f, fieldnames=header)
-#         writer.writeheader()
-#         for row in runs:
-#             writer.writerow(row)
+def _write_all_runs_no_lock(csv_file, runs):
+    header = ["trial number", "batch size", "learning rate", "number hidden", "number blocks", "patience", "status"]
+    with open(csv_file, "w", newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        writer.writeheader()
+        for row in runs:
+            writer.writerow(row)
 
-# def add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, status):
-#     lr_str = str(lr).replace('.', ',')
-#     combo = (str(bs), lr_str, str(nh), str(nb), str(nl), str(pa))
-#     lock = FileLock(csv_file + ".lock")
-#     with lock:
-#         runs = _read_trained_combinations_no_lock(csv_file)
-#         updated = False
-#         for row in runs:
-#             if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"], row["patience"]) == combo:
-#                 row["status"] = status
-#                 updated = True
-#                 break
-#         if not updated:
-#             trial_number = str(len(runs) + 1)  # Laufende Nummer ab 1
-#             runs.append({
-#                 "trial number": trial_number,
-#                 "batch size": str(bs),
-#                 "learning rate": lr_str,
-#                 "number hidden": str(nh),
-#                 "number blocks": str(nb),
-#                 "number layers": str(nl),
-#                 "patience": str(pa),
-#                 "status": status
-#             })
-#         _write_all_runs_no_lock(csv_file, runs)
+def add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, status):
+    lr_str = str(lr).replace('.', ',')
+    combo = (str(bs), lr_str, str(nh), str(nb), str(nl), str(pa))
+    lock = FileLock(csv_file + ".lock")
+    with lock:
+        runs = _read_trained_combinations_no_lock(csv_file)
+        updated = False
+        for row in runs:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"], row["patience"]) == combo:
+                row["status"] = status
+                updated = True
+                break
+        if not updated:
+            trial_number = str(len(runs) + 1)  # Laufende Nummer ab 1
+            runs.append({
+                "trial number": trial_number,
+                "batch size": str(bs),
+                "learning rate": lr_str,
+                "number hidden": str(nh),
+                "number blocks": str(nb),
+                "number layers": str(nl),
+                "patience": str(pa),
+                "status": status
+            })
+        _write_all_runs_no_lock(csv_file, runs)
 
-# def check_if_run_exists(csv_file, bs, lr, nh, nb, nl, pa):
-#     lr_str = str(lr).replace('.', ',')
-#     combo = (str(bs), lr_str, str(nh), str(nb), str(nl), str(pa))
-#     lock = FileLock(csv_file + ".lock")
-#     with lock:
-#         runs = _read_trained_combinations_no_lock(csv_file)
-#         for row in runs:
-#             if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"], row["patience"]) == combo:
-#                 return row["status"]
-#     return None
+def check_if_run_exists(csv_file, bs, lr, nh, nb, nl, pa):
+    lr_str = str(lr).replace('.', ',')
+    combo = (str(bs), lr_str, str(nh), str(nb), str(nl), str(pa))
+    lock = FileLock(csv_file + ".lock")
+    with lock:
+        runs = _read_trained_combinations_no_lock(csv_file)
+        for row in runs:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"], row["patience"]) == combo:
+                return row["status"]
+    return None
 
 
 def main(
@@ -132,23 +132,23 @@ def train_tune(tune_config, base_config):
 
     config['PATH_OUTPUT'] = os.path.join(study_root_out, f"trial_{trial_id}")
     config['PATH_OUTPUT_CATALOGS'] = os.path.join(study_root_cat, f"trial_{trial_id}")
-    # os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
-    # os.makedirs(config['PATH_OUTPUT_CATALOGS'], exist_ok=True)
+    os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
+    os.makedirs(config['PATH_OUTPUT_CATALOGS'], exist_ok=True)
 
-    # if cfg['GRID_SEARCH'] is True:
-    #     csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
-    #
-    #     existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb, nl, pa)
-    #     if existing_status == "started":
-    #         print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, {pa} already started!", flush=True)
-    #         session.report({"loss": 1e10, "epoch": 1, "skipped": True})
-    #         return
-    #     if existing_status == "finished":
-    #         print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, {pa} already finished!", flush=True)
-    #         session.report({"loss": 1e10, "epoch": 1, "skipped": True})
-    #         return
-    #
-    #     add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "started")
+    if cfg['GRID_SEARCH'] is True:
+        csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
+
+        existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb, nl, pa)
+        if existing_status == "started":
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, {pa} already started!", flush=True)
+            session.report({"loss": 1e10, "epoch": 1, "skipped": True})
+            return
+        if existing_status == "finished":
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, {pa} already finished!", flush=True)
+            session.report({"loss": 1e10, "epoch": 1, "skipped": True})
+            return
+
+        add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "started")
 
     # config['PATH_OUTPUT'] = os.path.join(
     #     config['PATH_OUTPUT_BASE'],
@@ -198,8 +198,8 @@ def train_tune(tune_config, base_config):
         else:
             session.report({"loss": validation_loss, "epoch": epoch + 1})
 
-    # if cfg['GRID_SEARCH'] is True:
-    #     add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "finished")
+    if cfg['GRID_SEARCH'] is True:
+        add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "finished")
 
 def load_config_and_parser(system_path):
     if get_os() == "Mac":
