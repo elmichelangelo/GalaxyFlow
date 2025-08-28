@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=optuna_cpu_train_flow
+#SBATCH --job-name=cpu_check_optuna_train_flow
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
@@ -14,6 +14,6 @@
 
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-export RUN_ID="optuna_2025w32"
+export RUN_ID="cpu_check_optuna_2025w32"
 
 srun -n1 python train_gandalf_flow.py -cf LMU_train_flow.cfg
