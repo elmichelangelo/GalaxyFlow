@@ -396,29 +396,23 @@ class gaNdalFFlow(object):
         train_dataset = TensorDataset(input_data, output_data)
         train_loader = DataLoader(train_dataset, batch_size=self.bs, shuffle=True)
 
-        pbar = tqdm(
-            train_loader,
-            desc=f"Training, Epoch {epoch + 1}",
-            ncols=200
-        )
-
-        for input_data, output_data in pbar:
+        for input_data, output_data in train_loader:
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
+
             self.optimizer.zero_grad()
             loss = -self.model.log_probs(output_data, input_data).mean()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
             self.optimizer.step()
-            total_samples += output_data.size(0)
-            train_loss += loss.item() * output_data.size(0)
-            # pbar.set_postfix(loss=train_loss / total_samples)
+
+            bs_curr = output_data.size(0)
+            total_samples += bs_curr
+            train_loss += loss.item() * bs_curr
             self.lst_train_loss_per_batch.append(train_loss / total_samples)
             self.global_step += 1
-        pbar.close()
 
         train_loss = train_loss / len(self.galaxies.train_dataset)
-        # self.lst_train_loss_per_epoch.append(train_loss)
         self.train_flow_logger.log_info_stream(f"Training,\t"
                                                f"Epoch: {epoch + 1},\t"
                                                f"learning rate: {self.lr},\t"
@@ -487,24 +481,18 @@ class gaNdalFFlow(object):
         valid_dataset = TensorDataset(input_data, output_data)
         valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False)
 
-        pbar = tqdm(
-            valid_loader,
-            desc=f"Validation, Epoch {epoch + 1}",
-            ncols=200
-        )
-
-        for input_data, output_data in pbar:
+        for input_data, output_data in valid_loader:
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
 
             with torch.no_grad():
                 loss = -self.model.log_probs(output_data, input_data).mean()
-                val_loss += loss.item() * output_data.size(0)
-            total_samples += output_data.size(0)
+
+                bs_curr = output_data.size(0)
+                val_loss += loss.item() * bs_curr
+            total_samples += bs_curr
             self.lst_valid_loss_per_batch.append(val_loss / max(1, total_samples))
 
-            # pbar.set_postfix(loss=val_loss / total_samples)
-        pbar.close()
         val_loss = val_loss / len(self.galaxies.valid_dataset)
         self.train_flow_logger.log_info_stream(f"Validation,\t"
                                                f"Epoch: {epoch + 1},\t"
