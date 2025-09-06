@@ -2,7 +2,7 @@
 #SBATCH --job-name=optuna_train_flow
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=48:00:00
+#SBATCH --time=3:00:00
 #SBATCH --mem=512G
 #SBATCH -o /dss/dsshome1/04/di97tac/logs/optuna_gandalf_train_flow_%A.log
 #SBATCH -e /dss/dsshome1/04/di97tac/logs/optuna_gaNdalF_train_flow_err_%A.log
