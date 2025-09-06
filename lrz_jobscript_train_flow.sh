@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=optuna2_train_flow
+#SBATCH --job-name=optuna_train_flow
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=3:00:00
 #SBATCH --mem=512G
-#SBATCH -o /dss/dsshome1/04/di97tac/logs/optuna2_gandalf_train_flow_%A.log
-#SBATCH -e /dss/dsshome1/04/di97tac/logs/optuna2_gaNdalF_train_flow_err_%A.log
+#SBATCH -o /dss/dsshome1/04/di97tac/logs/optuna_gandalf_train_flow_%A.log
+#SBATCH -e /dss/dsshome1/04/di97tac/logs/optuna_gaNdalF_train_flow_err_%A.log
 #SBATCH --qos=mcml
 #SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --cpus-per-task=8

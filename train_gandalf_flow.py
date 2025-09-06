@@ -49,15 +49,15 @@ def _write_all_runs_no_lock(csv_file, runs):
         for row in runs:
             writer.writerow(row)
 
-def add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, status):
+def add_or_update_run(csv_file, bs, lr, nh, nb, nl, status):
     lr_str = str(lr).replace('.', ',')
-    combo = (str(bs), lr_str, str(nh), str(nb), str(nl), str(pa))
+    combo = (str(bs), lr_str, str(nh), str(nb), str(nl))
     lock = FileLock(csv_file + ".lock")
     with lock:
         runs = _read_trained_combinations_no_lock(csv_file)
         updated = False
         for row in runs:
-            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"], row["patience"]) == combo:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"]) == combo:
                 row["status"] = status
                 updated = True
                 break
@@ -70,19 +70,18 @@ def add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, status):
                 "number hidden": str(nh),
                 "number blocks": str(nb),
                 "number layers": str(nl),
-                "patience": str(pa),
                 "status": status
             })
         _write_all_runs_no_lock(csv_file, runs)
 
-def check_if_run_exists(csv_file, bs, lr, nh, nb, nl, pa):
+def check_if_run_exists(csv_file, bs, lr, nh, nb, nl):
     lr_str = str(lr).replace('.', ',')
-    combo = (str(bs), lr_str, str(nh), str(nb), str(nl), str(pa))
+    combo = (str(bs), lr_str, str(nh), str(nb), str(nl))
     lock = FileLock(csv_file + ".lock")
     with lock:
         runs = _read_trained_combinations_no_lock(csv_file)
         for row in runs:
-            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"], row["patience"]) == combo:
+            if (row["batch size"], row["learning rate"], row["number hidden"], row["number blocks"], row["number layers"]) == combo:
                 return row["status"]
     return None
 
@@ -122,9 +121,8 @@ def train_tune(tune_config, base_config):
     nh = int(config['number_hidden'])
     nb = int(config['number_blocks'])
     nl = int(config['number_layers'])
-    pa = int(config['patience'])
 
-    trial_id = hparam_hash(bs, lr, nh, nb, nl, pa)
+    trial_id = hparam_hash(bs, lr, nh, nb, nl)
     study_root_out = os.path.join(config['PATH_OUTPUT_BASE'], f"study_{config['RUN_ID']}")
     study_root_cat = os.path.join(config['PATH_OUTPUT_CATALOGS_BASE'], f"study_{config['RUN_ID']}")
     os.makedirs(study_root_out, exist_ok=True)
@@ -138,17 +136,17 @@ def train_tune(tune_config, base_config):
     if cfg['GRID_SEARCH'] is True:
         csv_file = os.path.join(config["PATH_OUTPUT_CSV"], "trained_params.csv")
 
-        existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb, nl, pa)
+        existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb, nl)
         if existing_status == "started":
-            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, {pa} already started!", flush=True)
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, already started!", flush=True)
             session.report({"loss": 1e10, "epoch": 1, "skipped": True})
             return
         if existing_status == "finished":
-            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, {pa} already finished!", flush=True)
+            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, already finished!", flush=True)
             session.report({"loss": 1e10, "epoch": 1, "skipped": True})
             return
 
-        add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "started")
+        add_or_update_run(csv_file, bs, lr, nh, nb, nl, "started")
 
     # config['PATH_OUTPUT'] = os.path.join(
     #     config['PATH_OUTPUT_BASE'],
@@ -199,7 +197,7 @@ def train_tune(tune_config, base_config):
             session.report({"loss": validation_loss, "epoch": epoch + 1})
 
     if cfg['GRID_SEARCH'] is True:
-        add_or_update_run(csv_file, bs, lr, nh, nb, nl, pa, "finished")
+        add_or_update_run(csv_file, bs, lr, nh, nb, nl, "finished")
 
 def load_config_and_parser(system_path):
     if get_os() == "Mac":
@@ -236,28 +234,7 @@ def load_config_and_parser(system_path):
     config['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     return config, path_config_file
 
-def get_or_create_run_id(cfg):
-    """
-    """
-    base = cfg['PATH_OUTPUT_BASE']
-    os.makedirs(base, exist_ok=True)
-    marker = os.path.join(base, "RUN_ID.txt")
-
-    run_id = os.environ.get("RUN_ID")
-    if run_id:
-        with open(marker, "w") as f:
-            f.write(run_id.strip())
-        return run_id.strip()
-
-    if os.path.exists(marker):
-        return open(marker).read().strip()
-
-    run_id = datetime.now().strftime('%Y-%m-%d')  # z.B. "2025-08-10"
-    with open(marker, "w") as f:
-        f.write(run_id)
-    return run_id
-
-def hparam_hash(bs, lr, nh, nb, nl, pa):
+def hparam_hash(bs, lr, nh, nb, nl):
     """
     """
     payload = {
@@ -265,8 +242,7 @@ def hparam_hash(bs, lr, nh, nb, nl, pa):
         "lr": float(lr),
         "nh": int(nh),
         "nb": int(nb),
-        "nl": int(nl),
-        "pa": int(pa),
+        "nl": int(nl)
     }
     s = json.dumps(payload, sort_keys=True)
     return hashlib.sha1(s.encode()).hexdigest()[:10]
@@ -280,17 +256,9 @@ if __name__ == '__main__':
     cfg['PATH_OUTPUT_BASE'] = cfg['PATH_OUTPUT']
     cfg['PATH_OUTPUT_CATALOGS_BASE'] = cfg['PATH_OUTPUT_CATALOGS']
 
-    cfg['RUN_ID'] = get_or_create_run_id(cfg)
-
-    storage_dir = os.path.join(cfg['PATH_OUTPUT_BASE'], f"{cfg['RUN_ID']}_ray_results")
-
-    cfg['PATH_OUTPUT'] = cfg['PATH_OUTPUT_BASE']
-    cfg['PATH_OUTPUT_CATALOGS'] = cfg['PATH_OUTPUT_CATALOGS_BASE']
+    storage_dir = os.path.join(cfg['PATH_OUTPUT_BASE'], f"study_{cfg['RUN_ID']}")
 
     GLOBAL_BASE_CONFIG = copy.deepcopy(cfg)
-
-    os.makedirs(cfg['PATH_OUTPUT'], exist_ok=True)
-    os.makedirs(cfg['PATH_OUTPUT_CATALOGS'], exist_ok=True)
 
     log_lvl = logging.INFO
     if cfg["LOGGING_LEVEL"] == "DEBUG":
