@@ -13,4 +13,4 @@
 
 export RUN_ID="optuna_2025w32"
 
-srun --container-image='<Path-to-sqsh>' --container-mounts=<Path-to-data-storage>:/mnt/<Name> -n1 python <PATH-to-file>train_gandalf_flow.py -cf LRZ_train_flow.cfg
+srun --container-image='/dss/dssfs02/lwp-dss-0001/pn76fa/pn76fa-dss-0000/di97tac/' --container-mounts=/dss/dssfs02/lwp-dss-0001/pn76fa/pn76fa-dss-0000/di97tac/:/mnt/project -n1 python /dss/dsshome1/04/di97tac/development/GalaxyFlow/train_gandalf_flow.py -cf LRZ_train_flow.cfg
