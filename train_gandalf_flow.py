@@ -178,7 +178,6 @@ def train_tune(tune_config, base_config):
         number_blocks=config["number_blocks"],
         number_layers=config["number_layers"],
         batch_size=config["batch_size"],
-        patience=config["patience"],
         train_flow_logger=logger
     )
 
@@ -281,7 +280,6 @@ if __name__ == '__main__':
     number_blocks = cfg["NUMBER_BLOCKS"]
     number_layers = cfg["NUMBER_LAYERS"]
     learning_rate = cfg["LEARNING_RATE_FLOW"]
-    patience = cfg["PATIENCE"]
 
     if not isinstance(batch_size, list):
         batch_size = [batch_size]
@@ -293,8 +291,6 @@ if __name__ == '__main__':
         number_layers = [number_layers]
     if not isinstance(learning_rate, list):
         learning_rate = [learning_rate, learning_rate]
-    if not isinstance(patience, list):
-        patience = [patience, patience]
 
     search_space = {
         "batch_size": tune.choice(batch_size),
@@ -302,7 +298,6 @@ if __name__ == '__main__':
         "number_hidden": tune.choice(number_hidden),
         "number_blocks": tune.choice(number_blocks),
         "number_layers": tune.choice(number_layers),
-        "patience": tune.randint(patience[0], patience[1]),
         "INFO_LOGGER": cfg["INFO_LOGGER"],
         "ERROR_LOGGER": cfg["ERROR_LOGGER"],
         "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],

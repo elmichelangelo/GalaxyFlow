@@ -28,14 +28,21 @@ class GalaxyDataset(Dataset):
 
     def _load_data_frames(self):
         if self.cfg["TRAINING"] is True:
-            if self.cfg["SCALER_TYPE"].lower() == "old":
-                df_train = self._load_data(filename=self.cfg["FILENAME_OLD_TRAIN_DATA"])
-                df_valid = self._load_data(filename=self.cfg["FILENAME_OLD_VAL_DATA"])
-                df_test = self._load_data(filename=self.cfg["FILENAME_OLD_TEST_DATA"])
-            else:
-                df_train = self._load_data(filename=self.cfg["FILENAME_TRAIN_DATA"])
-                df_valid = self._load_data(filename=self.cfg["FILENAME_VALIDATION_DATA"])
-                df_test = self._load_data(filename=self.cfg["FILENAME_TEST_DATA"])
+            df_train = self._load_data(filename=self.cfg["FILENAME_TRAIN_DATA"])
+            df_valid = self._load_data(filename=self.cfg["FILENAME_VALIDATION_DATA"])
+            df_test = self._load_data(filename=self.cfg["FILENAME_TEST_DATA"])
+
+            frac = self.cfg.get("SAMPLE_FRACTION", 1.0)
+            seed = self.cfg.get("SAMPLE_SEED", 42)
+
+            if frac < 1.0:
+                self.dataset_logger.log_info_stream(
+                    f"Subsampling {frac * 100:.0f}% of train/valid/test with seed={seed}"
+                )
+                df_train = df_train.sample(frac=frac, random_state=seed).reset_index(drop=True)
+                df_valid = df_valid.sample(frac=frac, random_state=seed).reset_index(drop=True)
+                df_test = df_test.sample(frac=frac, random_state=seed).reset_index(drop=True)
+
             return (df_train, df_valid, df_test)
         else:
             df_data = self._load_data(filename=self.cfg["FILENAME_TEST_DATA"])
