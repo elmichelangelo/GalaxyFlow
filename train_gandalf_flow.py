@@ -104,10 +104,9 @@ def main(
         number_blocks=number_blocks,
         number_layers=number_layers,
         batch_size=batch_size,
-        patience=patience,
         train_flow_logger=logger
     )
-    train_flow.run_training()
+    # train_flow.run_training()
     val_loss = train_flow.run_training()
     return val_loss
 
@@ -138,11 +137,11 @@ def train_tune(tune_config, base_config):
 
         existing_status = check_if_run_exists(csv_file, bs, lr, nh, nb, nl)
         if existing_status == "started":
-            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, already started!", flush=True)
+            train_flow_logger.log_info_stream(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, already started!", flush=True)
             session.report({"loss": 1e10, "epoch": 1, "skipped": True})
             return
         if existing_status == "finished":
-            print(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, already finished!", flush=True)
+            train_flow_logger.log_info_stream(f"Trial SKIP: {bs}, {lr}, {nh}, {nb}, {nl}, already finished!", flush=True)
             session.report({"loss": 1e10, "epoch": 1, "skipped": True})
             return
 
@@ -159,8 +158,8 @@ def train_tune(tune_config, base_config):
     #     f"bs_{config['batch_size']}_lr_{config['learning_rate']}_nh_{config['number_hidden']}_nb_{config['number_blocks']}_nl_{config['number_layers']}_pa_{config['patience']}"
     # )
 
-    os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
-    os.makedirs(config['PATH_OUTPUT_CATALOGS'], exist_ok=True)
+    # os.makedirs(config['PATH_OUTPUT'], exist_ok=True)
+    # os.makedirs(config['PATH_OUTPUT_CATALOGS'], exist_ok=True)
 
     logger = LoggerHandler(
         logger_dict={"logger_name": "train flow logger",
@@ -181,19 +180,22 @@ def train_tune(tune_config, base_config):
         train_flow_logger=logger
     )
 
-    for epoch, validation_loss in train_flow.run_training():
+    for epoch, validation_loss, training_loss in train_flow.run_training():
+        payload = {
+            "epoch": epoch + 1,
+            "loss": float(validation_loss),
+            "train_loss": float(training_loss),
+            "val_loss": float(validation_loss),
+        }
         ckpt_src = os.path.join(config['PATH_OUTPUT_SUBFOLDER'], "last.ckpt.pt")
-        if os.path.exists(ckpt_src):
-            ray_ckpt_dir = os.path.join(config['PATH_OUTPUT'], "ray_ckpt")
+        ray_ckpt_dir = os.path.join(config['PATH_OUTPUT'], "ray_ckpt")
+
+        if os.path.exists(ckpt_src) and Checkpoint is not None:
             os.makedirs(ray_ckpt_dir, exist_ok=True)
             shutil.copy2(ckpt_src, os.path.join(ray_ckpt_dir, "last.ckpt.pt"))
-            if Checkpoint is not None:
-                session.report({"loss": validation_loss, "epoch": epoch + 1},
-                               checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
-            else:
-                session.report({"loss": validation_loss, "epoch": epoch + 1})
+            session.report(payload, checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
         else:
-            session.report({"loss": validation_loss, "epoch": epoch + 1})
+            session.report(payload)  # <- nicht mehr mit alten Keys!
 
     if cfg['GRID_SEARCH'] is True:
         add_or_update_run(csv_file, bs, lr, nh, nb, nl, "finished")
@@ -312,7 +314,7 @@ if __name__ == '__main__':
 
     reporter = CLIReporter(
         parameter_columns=["learning_rate", "number_hidden", "number_blocks", "number_layers", "batch_size"],
-        metric_columns=["loss"]
+        metric_columns=["loss", "train_loss", "val_loss", "epoch"]
     )
 
     resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
@@ -344,5 +346,5 @@ if __name__ == '__main__':
         resume="AUTO",
     )
 
-    print("Best config found:")
-    print(analysis.get_best_config(metric="loss", mode="min"))
+    train_flow_logger.log_info_stream("Best config found:")
+    train_flow_logger.log_info_stream(analysis.get_best_config(metric="loss", mode="min"))

@@ -101,14 +101,14 @@ class gaNdalFFlow(object):
             self.cfg[f'PATH_PLOTS_FOLDER'][plot.upper()] = f"{self.cfg['PATH_PLOTS']}/{plot}"
 
         self.make_dirs()
-        self.writer = SummaryWriter(
-            log_dir=cfg['PATH_WRITER'],
-            comment=f"learning rate: {self.lr} "
-                    f"number hidden: {self.nh}_"
-                    f"number blocks: {self.nb}_"
-                    f"number layers: {self.nl}_"
-                    f"batch size: {self.bs}"
-        )
+        # self.writer = SummaryWriter(
+        #     log_dir=cfg['PATH_WRITER'],
+        #     comment=f"learning rate: {self.lr} "
+        #             f"number hidden: {self.nh}_"
+        #             f"number blocks: {self.nb}_"
+        #             f"number layers: {self.nl}_"
+        #             f"batch size: {self.bs}"
+        # )
         self.galaxies = self.init_dataset()  # self.train_loader, self.valid_loader, self.test_sampled_data, '
 
         self.model, self.optimizer = self.init_network(
@@ -116,18 +116,18 @@ class gaNdalFFlow(object):
             num_input=len(cfg[f"INPUT_COLS"])
         )
 
-        with torch.no_grad():
-            for i in range((len(self.galaxies.train_dataset) + self.bs - 1) // self.bs):
-                batch_df = self.galaxies.train_dataset.iloc[i * self.bs:(i + 1) * self.bs]
-                input_data = torch.tensor(batch_df[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
-                output_data = torch.tensor(batch_df[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
-                input_data = input_data.to(self.device)
-                output_data = output_data.to(self.device)
-                self.writer.add_graph(self.model, (output_data, input_data))
-                break
-
-            total_parameters = count_parameters(self.model)
-            self.train_flow_logger.log_info_stream(f"Total trainable parameters: {total_parameters}")
+        # with torch.no_grad():
+        #     for i in range((len(self.galaxies.train_dataset) + self.bs - 1) // self.bs):
+        #         batch_df = self.galaxies.train_dataset.iloc[i * self.bs:(i + 1) * self.bs]
+        #         input_data = torch.tensor(batch_df[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
+        #         output_data = torch.tensor(batch_df[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
+        #         input_data = input_data.to(self.device)
+        #         output_data = output_data.to(self.device)
+        #         self.writer.add_graph(self.model, (output_data, input_data))
+        #         break
+        #
+        #     total_parameters = count_parameters(self.model)
+        #     self.train_flow_logger.log_info_stream(f"Total trainable parameters: {total_parameters}")
 
         self.global_step = 0
         self.best_validation_loss = np.float64('inf')
@@ -302,9 +302,9 @@ class gaNdalFFlow(object):
             if self.cfg['PLOT_TRAINING'] is True:
                 self.plot_data(epoch=epoch, today=today)
 
-            for name, param in self.model.named_parameters():
-                self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
-            yield epoch, validation_loss
+            # for name, param in self.model.named_parameters():
+            #     self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
+            yield epoch, validation_loss, train_loss_epoch
 
             self.save_checkpoint(epoch)
 
@@ -317,24 +317,24 @@ class gaNdalFFlow(object):
                                                f"num_layers: {self.nl}\t"
                                                f"batch_size: {self.bs}"
                                                )
-        self.writer.add_scalar('validation loss (last)', validation_loss, self.current_epoch + 1)
-        self.writer.add_hparams(
-            hparam_dict={
-                "learning rate": self.lr,
-                "batch size": self.bs,
-                "number hidden": self.nh,
-                "number blocks": self.nb,
-                "number layers": self.nl
-            },
-            metric_dict={
-                "hparam/last training loss": train_loss_epoch,
-                "hparam/last validation loss": validation_loss,
-                "hparam/best validation loss": self.best_validation_loss,
-                "hparam/best train loss": self.best_train_loss,
-                "hparam/best validation epoch": self.best_validation_epoch,
-                "hparam/best train epoch": self.best_train_epoch,
-            },
-        )
+        # self.writer.add_scalar('validation loss (last)', validation_loss, self.current_epoch + 1)
+        # self.writer.add_hparams(
+        #     hparam_dict={
+        #         "learning rate": self.lr,
+        #         "batch size": self.bs,
+        #         "number hidden": self.nh,
+        #         "number blocks": self.nb,
+        #         "number layers": self.nl
+        #     },
+        #     metric_dict={
+        #         "hparam/last training loss": train_loss_epoch,
+        #         "hparam/last validation loss": validation_loss,
+        #         "hparam/best validation loss": self.best_validation_loss,
+        #         "hparam/best train loss": self.best_train_loss,
+        #         "hparam/best validation epoch": self.best_validation_epoch,
+        #         "hparam/best train epoch": self.best_train_epoch,
+        #     },
+        # )
 
         if self.cfg['SAVE_NN_FLOW'] is True:
             torch.save(
@@ -344,8 +344,8 @@ class gaNdalFFlow(object):
                 self.model,
                 f"{self.cfg['PATH_SAVE_NN']}/last_model_e_{self.cfg['EPOCHS_FLOW']}_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE']}.pt")
 
-        self.writer.flush()
-        self.writer.close()
+        # self.writer.flush()
+        # self.writer.close()
         return self.best_validation_loss
 
     def train(self, epoch, date):
@@ -413,7 +413,7 @@ class gaNdalFFlow(object):
                                                f"number layers: {self.nl},\t"
                                                f"batch size: {self.bs},\t"
                                                f"training loss: {train_loss}")
-        self.writer.add_scalar('training loss', train_loss, epoch+1)
+        # self.writer.add_scalar('training loss', train_loss, epoch+1)
 
         self.model.train()
         for module in self.model.modules():
@@ -493,7 +493,7 @@ class gaNdalFFlow(object):
                                                f"number layers: {self.nl},\t"
                                                f"batch size: {self.bs},\t"
                                                f"validation loss: {val_loss}")
-        self.writer.add_scalar('validation loss', val_loss, epoch+1)
+        # self.writer.add_scalar('validation loss', val_loss, epoch+1)
         return val_loss
 
     def plot_data(self, epoch, today):
@@ -525,7 +525,7 @@ class gaNdalFFlow(object):
                 save_name=f"{self.cfg['PATH_PLOTS']}/{today}_loss.pdf",
                 title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}; nl {self.nl}"
             )
-            self.writer.add_image("loss plot", img_grid_loss, epoch + 1)
+            # self.writer.add_image("loss plot", img_grid_loss, epoch + 1)
         if self.cfg["PLOT_TRAINING_LOG_LOSS"] is True:
             loss_plot(
                 epoch=epoch,
@@ -551,7 +551,7 @@ class gaNdalFFlow(object):
                 title=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb}; nl {self.nl}",
                 log_scale=True
             )
-            self.writer.add_image("log loss plot", img_grid_log_loss, epoch + 1)
+            # self.writer.add_image("log loss plot", img_grid_log_loss, epoch + 1)
 
         df_balrog = self.galaxies.test_dataset
 
@@ -570,7 +570,7 @@ class gaNdalFFlow(object):
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['INPUT_OUTPUT_PLOT']}/{today}_{epoch + 1}_Test_Scaled_Input.pdf",
                 epoch=epoch + 1
             )
-            self.writer.add_image("scaled input plot", img_grid_input, epoch + 1)
+            # self.writer.add_image("scaled input plot", img_grid_input, epoch + 1)
             img_grid_output = plot_single_feature_dist(
                 df=df_balrog,
                 columns=self.cfg["OUTPUT_COLS"],
@@ -578,7 +578,7 @@ class gaNdalFFlow(object):
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['INPUT_OUTPUT_PLOT']}/{today}_{epoch + 1}_Test_Scaled_Output.pdf",
                 epoch=epoch + 1
             )
-            self.writer.add_image("scaled output plot", img_grid_output, epoch + 1)
+            # self.writer.add_image("scaled output plot", img_grid_output, epoch + 1)
 
         input_data = torch.tensor(df_balrog[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_balrog[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
@@ -616,7 +616,7 @@ class gaNdalFFlow(object):
                 today=today,
                 savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch+1}_compare_output.pdf"
             )
-            self.writer.add_image("Feature Histogram", img_grid_feature_hist, epoch + 1)
+            # self.writer.add_image("Feature Histogram", img_grid_feature_hist, epoch + 1)
 
         self.train_flow_logger.log_info_stream(f"gaNdalF NaNs: {df_gandalf.isna().sum()}")
 
@@ -696,7 +696,7 @@ class gaNdalFFlow(object):
                 save_plot=self.cfg['SAVE_PLOT_FLOW'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['LOSS_PLOT']}/loss_{epoch + 1}.png"
             )
-            self.writer.add_image("loss plot", img_grid, epoch + 1)
+            # self.writer.add_image("loss plot", img_grid, epoch + 1)
 
         if self.cfg['PLOT_COLOR_COLOR_FLOW'] is True:
             try:
@@ -713,9 +713,9 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png",
                     ranges=[(-4, 4), (-4, 4)]
                 )
-                self.writer.add_image("color color plot", img_grid, epoch + 1)
+                # self.writer.add_image("color color plot", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch + 1}.png")
             try:
                 img_grid, self.dict_delta_color_color_mcal = plot_compare_corner(
                     data_frame_generated=df_gandalf_cut,
@@ -730,9 +730,9 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_COLOR_PLOT']}/mcal_color_color_{epoch + 1}.png",
                     ranges=[(-1.2, 1.8), (-1.5, 1.5)]
                 )
-                self.writer.add_image("color color plot mcal", img_grid, epoch + 1)
+                # self.writer.add_image("color color plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_COLOR_PLOT']}/mcal_color_color_{epoch + 1}.png")
         if self.cfg['PLOT_RESIDUAL_FLOW']:
             try:
@@ -746,9 +746,9 @@ class gaNdalFFlow(object):
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['RESIDUAL_PLOT']}/residual_plot_{epoch + 1}.png"
                 )
-                self.writer.add_image("residual plot", img_grid, epoch + 1)
+                # self.writer.add_image("residual plot", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['RESIDUAL_PLOT']}/residual_plot_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['RESIDUAL_PLOT']}/residual_plot_{epoch + 1}.png")
 
             try:
                 img_grid = residual_plot(
@@ -761,9 +761,9 @@ class gaNdalFFlow(object):
                     save_plot=self.cfg['SAVE_PLOT_FLOW'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_RESIDUAL_PLOT']}/mcal_residual_plot_{epoch + 1}.png"
                 )
-                self.writer.add_image("residual plot mcal", img_grid, epoch + 1)
+                # self.writer.add_image("residual plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_RESIDUAL_PLOT']}/mcal_residual_plot_{epoch + 1}.png")
 
         if self.cfg['PLOT_CHAIN_FLOW'] is True:
@@ -795,9 +795,9 @@ class gaNdalFFlow(object):
                     ],
                     ranges=[(15, 30), (15, 30), (15, 30), (-15, 75), (-1.5, 4), (-1.5, 2)]
                 )
-                self.writer.add_image("chain plot", img_grid, epoch + 1)
+                # self.writer.add_image("chain plot", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['CHAIN_PLOT']}/chainplot_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['CHAIN_PLOT']}/chainplot_{epoch + 1}.png")
 
             try:
                 img_grid, self.dict_delta_unsheared_mcal = plot_compare_corner(
@@ -827,9 +827,9 @@ class gaNdalFFlow(object):
                     ],
                     ranges=[(15, 30), (15, 30), (15, 30), (-75, 200), (-1.5, 6), (-1, 4)]
                 )
-                self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
+                # self.writer.add_image("chain plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_CHAIN_PLOT']}/mcal_chainplot_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_CHAIN_PLOT']}/mcal_chainplot_{epoch + 1}.png")
 
             try:
                 img_grid, self.dict_delta_color_diff = plot_compare_corner(
@@ -853,9 +853,9 @@ class gaNdalFFlow(object):
                     ],
                     ranges=[(-4, 4), (-4, 4), (-4, 4)]
                 )
-                self.writer.add_image("color diff plot", img_grid, epoch + 1)
+                # self.writer.add_image("color diff plot", img_grid, epoch + 1)
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_DIFF_PLOT']}/color_diff_{epoch + 1}.png")
 
             try:
                 img_grid, self.dict_delta_color_diff_mcal = plot_compare_corner(
@@ -879,9 +879,9 @@ class gaNdalFFlow(object):
                     ],
                     ranges=[(-1.5, 1.5), (-1.5, 1.5), (-1.5, 1.5)]
                 )
-                self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
+                # self.writer.add_image("color diff plot mcal", img_grid, epoch + 1)
             except Exception as e:
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_COLOR_DIFF_PLOT']}/mcal_color_diff_{epoch + 1}.png")
 
         if self.cfg['PLOT_MEAN_FLOW'] is True:
@@ -925,15 +925,15 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch + 1}.png",
                     statistic_type="mean"
                 )
-                self.writer.add_image("mean plot", img_grid, epoch + 1)
+                # self.writer.add_image("mean plot", img_grid, epoch + 1)
                 for idx_plot, lst_plot in enumerate(lists_mean_to_plot):
                     lst_plot = lists_mean_to_plot_updated[idx_plot]
 
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch + 1}.png")
-                print(
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MEAN_PLOT']}/mean_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(
                     f"Mean shapes: \t epoch \t {self.cfg['LUM_TYP_FLOWE'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r)} \t {len(self.lst_mean_mag_i)} \t {len(self.lst_mean_mag_z)} \t {len(self.lst_mean_snr)} \t {len(self.lst_mean_size_ratio)} \t {len(self.lst_mean_t)}")
 
             try:
@@ -975,15 +975,15 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_MEAN_PLOT']}/mcal_mean_{epoch + 1}.png",
                     statistic_type="mean"
                 )
-                self.writer.add_image("mean plot mcal", img_grid, epoch + 1)
+                # self.writer.add_image("mean plot mcal", img_grid, epoch + 1)
                 for idx_plot_cut, lst_plot_cut in enumerate(lists_mean_to_plot_cut):
                     lst_plot_cut = lists_mean_to_plot_cut_updated[idx_plot_cut]
 
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_MEAN_PLOT']}/mcal_mean_{epoch + 1}.png")
-                print(
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_MEAN_PLOT']}/mcal_mean_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(
                     f"Mean mcal shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_mean_mag_r_cut)} \t {len(self.lst_mean_mag_i_cut)} \t {len(self.lst_mean_mag_z_cut)} \t {len(self.lst_mean_snr_cut)} \t {len(self.lst_mean_size_ratio_cut)} \t {len(self.lst_mean_t_cut)}")
 
         if self.cfg['PLOT_STD_FLOW'] is True:
@@ -1026,15 +1026,15 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['STD_PLOT']}/std_{epoch + 1}.png",
                     statistic_type="std"
                 )
-                self.writer.add_image("std plot", img_grid, epoch + 1)
+                # self.writer.add_image("std plot", img_grid, epoch + 1)
                 for idx_plot, lst_plot in enumerate(lists_std_to_plot):
                     lst_plot = lists_std_to_plot_updated[idx_plot]
 
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['STD_PLOT']}/std_{epoch + 1}.png")
-                print(
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['STD_PLOT']}/std_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(
                     f"Std shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r)} \t {len(self.lst_std_mag_i)} \t {len(self.lst_std_mag_z)} \t {len(self.lst_std_snr)} \t {len(self.lst_std_size_ratio)} \t {len(self.lst_std_t)}")
 
             try:
@@ -1076,13 +1076,13 @@ class gaNdalFFlow(object):
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_STD_PLOT']}/mcal_std_{epoch + 1}.png",
                     statistic_type="std"
                 )
-                self.writer.add_image("std plot mcal", img_grid, epoch + 1)
+                # self.writer.add_image("std plot mcal", img_grid, epoch + 1)
                 for idx_plot_cut, lst_plot_cut in enumerate(lists_std_to_plot_cut):
                     lst_plot_cut = lists_std_to_plot_cut_updated[idx_plot_cut]
 
             except Exception as e:
-                print(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_STD_PLOT']}/mcal_std_{epoch + 1}.png")
-                print(
+                self.train_flow_logger.log_info_stream(f"Error {e}: {self.cfg[f'PATH_PLOTS_FOLDER']['MCAL_STD_PLOT']}/mcal_std_{epoch + 1}.png")
+                self.train_flow_logger.log_info_stream(
                     f"Std mcal shapes: \t epoch \t {self.cfg['LUM_TYPE_FLOW'].lower()} r \t {self.cfg['LUM_TYPE_FLOW'].lower()} i \t {self.cfg['LUM_TYPE_FLOW'].lower()} z \t snr \t size_ratio \t T")
-                print(
+                self.train_flow_logger.log_info_stream(
                     f"\t           \t {len(self.lst_epochs)} \t {len(self.lst_std_mag_r_cut)} \t {len(self.lst_std_mag_i_cut)} \t {len(self.lst_std_mag_z_cut)} \t {len(self.lst_std_snr_cut)} \t {len(self.lst_std_size_ratio_cut)} \t {len(self.lst_std_t_cut)}")
