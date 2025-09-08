@@ -266,6 +266,7 @@ class gaNdalFFlow(object):
         today = datetime.now().strftime("%Y%m%d_%H%M%S")
         epochs_no_improve = 0
         min_delta = 1e-4
+        epoch = 0
 
         for epoch in range(self.start_epoch, self.cfg["EPOCHS_FLOW"]):
             self.current_epoch = epoch
@@ -299,8 +300,8 @@ class gaNdalFFlow(object):
                 self.best_train_epoch = epoch
                 self.best_train_loss = train_loss_epoch
 
-            if self.cfg['PLOT_TRAINING'] is True:
-                self.plot_data(epoch=epoch, today=today)
+            # if self.cfg['PLOT_TRAINING'] is True:
+            #     self.plot_data(epoch=epoch, today=today)
 
             # for name, param in self.model.named_parameters():
             #     self.writer.add_histogram(name, param.clone().cpu().data.numpy().astype(np.float64), epoch+1)
@@ -308,6 +309,7 @@ class gaNdalFFlow(object):
 
             self.save_checkpoint(epoch)
 
+        self.plot_data(epoch=epoch+1, today=today)
         self.train_flow_logger.log_info_stream(f"End Training")
         self.train_flow_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
                                                f"best validation loss: {self.best_validation_loss}\t"
@@ -508,7 +510,7 @@ class gaNdalFFlow(object):
         """"""
         self.train_flow_logger.log_info_stream("Plot test")
         self.model.eval()
-        os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/", exist_ok=True)
+        # os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_loss_plots/", exist_ok=True)
         os.makedirs(f"{self.cfg['PATH_OUTPUT_PLOTS']}/{today}_output_plots/", exist_ok=True)
         if self.cfg["PLOT_TRAINING_LOSS"] is True:
             loss_plot(

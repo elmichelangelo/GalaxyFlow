@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=optuna_train_flow_drop
+#SBATCH --job-name=plot_optuna_train_flow_drop
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=512G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
-#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_drop_gandalf_train_flow_%A.log
-#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_drop_gaNdalF_train_flow_err_%A.log
+#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/plot_optuna_drop_gandalf_train_flow_%A.log
+#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/plot_optuna_drop_gaNdalF_train_flow_err_%A.log
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=12
@@ -14,6 +14,6 @@
 
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-export RUN_ID="optuna_drop"
+export RUN_ID="plot_optuna_drop"
 
 srun -n1 python train_gandalf_flow.py -cf LMU_train_flow.cfg
