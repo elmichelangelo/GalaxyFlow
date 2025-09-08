@@ -93,7 +93,6 @@ def main(
         number_blocks,
         number_layers,
         batch_size,
-        patience,
         logger):
     """"""
 
@@ -106,9 +105,10 @@ def main(
         batch_size=batch_size,
         train_flow_logger=logger
     )
-    # train_flow.run_training()
-    val_loss = train_flow.run_training()
-    return val_loss
+    last_val = None
+    for _, val_loss, _ in train_flow.run_training():
+        last_val = val_loss
+    return last_val if last_val is not None else train_flow.best_validation_loss
 
 def train_tune(tune_config, base_config):
     config = dict(base_config)
@@ -294,57 +294,74 @@ if __name__ == '__main__':
     if not isinstance(learning_rate, list):
         learning_rate = [learning_rate, learning_rate]
 
-    search_space = {
-        "batch_size": tune.choice(batch_size),
-        "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
-        "number_hidden": tune.choice(number_hidden),
-        "number_blocks": tune.choice(number_blocks),
-        "number_layers": tune.choice(number_layers),
-        "INFO_LOGGER": cfg["INFO_LOGGER"],
-        "ERROR_LOGGER": cfg["ERROR_LOGGER"],
-        "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
-        "STREAM_LOGGER": cfg["STREAM_LOGGER"],
-        "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
-        "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
-        "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
-        "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
-        "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
-        "RUN_DATE": cfg['RUN_DATE']
-    }
+    if cfg['HPARAM_SEARCH'] is False:
+        learning_rate = 0.001
+        number_hidden = 16
+        number_blocks = 8
+        number_layers = 16
+        batch_size = 65536
+        main(
+            cfg=cfg,
+            learning_rate=learning_rate,
+            number_hidden=number_hidden,
+            number_blocks=number_blocks,
+            number_layers=number_layers,
+            batch_size=batch_size,
+            logger=train_flow_logger,
+        )
+        exit()
+    else:
+        search_space = {
+            "batch_size": tune.choice(batch_size),
+            "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
+            "number_hidden": tune.choice(number_hidden),
+            "number_blocks": tune.choice(number_blocks),
+            "number_layers": tune.choice(number_layers),
+            "INFO_LOGGER": cfg["INFO_LOGGER"],
+            "ERROR_LOGGER": cfg["ERROR_LOGGER"],
+            "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
+            "STREAM_LOGGER": cfg["STREAM_LOGGER"],
+            "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
+            "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
+            "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
+            "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
+            "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
+            "RUN_DATE": cfg['RUN_DATE']
+        }
 
-    reporter = CLIReporter(
-        parameter_columns=["learning_rate", "number_hidden", "number_blocks", "number_layers", "batch_size"],
-        metric_columns=["loss", "train_loss", "val_loss", "epoch"]
-    )
+        reporter = CLIReporter(
+            parameter_columns=["learning_rate", "number_hidden", "number_blocks", "number_layers", "batch_size"],
+            metric_columns=["loss", "train_loss", "val_loss", "epoch"]
+        )
 
-    resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
+        resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
 
-    optuna_search = OptunaSearch(
-        metric="loss",
-        mode="min"
-    )
+        optuna_search = OptunaSearch(
+            metric="loss",
+            mode="min"
+        )
 
-    asha = ASHAScheduler(
-        metric="loss",
-        time_attr="epoch",
-        mode="min",
-        max_t=cfg["EPOCHS_FLOW"],
-        grace_period=2
-    )
+        asha = ASHAScheduler(
+            metric="loss",
+            time_attr="epoch",
+            mode="min",
+            max_t=cfg["EPOCHS_FLOW"],
+            grace_period=2
+        )
 
-    analysis = tune.run(
-        partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
-        config=search_space,
-        search_alg=optuna_search,
-        scheduler=asha,
-        num_samples=cfg['OPTUNA_RUNS'],
-        max_concurrent_trials=cfg['MAX_TRAILS'],
-        resources_per_trial=resources,
-        progress_reporter=reporter,
-        storage_path=storage_dir,
-        name="gandalf_tune_optuna",
-        resume="AUTO",
-    )
+        analysis = tune.run(
+            partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
+            config=search_space,
+            search_alg=optuna_search,
+            scheduler=asha,
+            num_samples=cfg['OPTUNA_RUNS'],
+            max_concurrent_trials=cfg['MAX_TRAILS'],
+            resources_per_trial=resources,
+            progress_reporter=reporter,
+            storage_path=storage_dir,
+            name="gandalf_tune_optuna",
+            resume="AUTO",
+        )
 
-    train_flow_logger.log_info_stream("Best config found:")
-    train_flow_logger.log_info_stream(analysis.get_best_config(metric="loss", mode="min"))
+        train_flow_logger.log_info_stream("Best config found:")
+        train_flow_logger.log_info_stream(analysis.get_best_config(metric="loss", mode="min"))

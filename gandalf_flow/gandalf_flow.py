@@ -382,6 +382,10 @@ class gaNdalFFlow(object):
                 epoch=epoch + 1
             )
 
+        if self.cfg["DROPPED"] is True:
+            df_train[self.cfg["INPUT_COLS"]] = df_train[self.cfg["INPUT_COLS"]].astype(np.float64)
+            df_train[self.cfg["OUTPUT_COLS"]] = df_train[self.cfg["OUTPUT_COLS"]].astype(np.float64)
+
         input_data = torch.tensor(df_train[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_train[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
 
@@ -465,6 +469,10 @@ class gaNdalFFlow(object):
                 save_name=f"{self.cfg['PATH_OUTPUT_PLOTS']}/{date}_output_plots/{date}_{epoch + 1}_Valid_Scaled_Output.pdf",
                 epoch=epoch + 1
             )
+
+        if self.cfg["DROPPED"] is True:
+            df_valid[self.cfg["INPUT_COLS"]] = df_valid[self.cfg["INPUT_COLS"]].astype(np.float64)
+            df_valid[self.cfg["OUTPUT_COLS"]] = df_valid[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
         input_data = torch.tensor(df_valid[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_valid[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
@@ -554,6 +562,10 @@ class gaNdalFFlow(object):
             # self.writer.add_image("log loss plot", img_grid_log_loss, epoch + 1)
 
         df_balrog = self.galaxies.test_dataset
+
+        if self.cfg["DROPPED"] is True:
+            df_balrog[self.cfg["INPUT_COLS"]] = df_balrog[self.cfg["INPUT_COLS"]].astype(np.float64)
+            df_balrog[self.cfg["OUTPUT_COLS"]] = df_balrog[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
         if epoch == 0:
             for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:

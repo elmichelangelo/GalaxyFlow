@@ -9,7 +9,7 @@
 #SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_gaNdalF_train_flow_err_%A.log
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:0
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=12
 #SBATCH --signal=B:TERM@300
 
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
