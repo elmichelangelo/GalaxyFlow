@@ -257,7 +257,7 @@ if __name__ == '__main__':
         plateau = TrialPlateauStopper(
             metric="loss",
             mode="min",
-            patience=5,
+            num_results=5,
             grace_period=10,
             std=1e-4
         )
