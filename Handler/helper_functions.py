@@ -110,7 +110,7 @@ def concatenate_lists(data_list):
 def luptize(flux, var, s, zp):
     # s: measurement error (variance) of the flux (with zero pt zp) of an object at the limiting magnitude of the survey
     # a: Pogson's ratio
-    # b: softening labels that sets the scale of transition between linear and log behavior of the luptitudes
+    # b: softening parameter that sets the scale of transition between linear and log behavior of the luptitudes
     a = 2.5 * np.log10(np.exp(1))
     b = a**(1./2) * s
     mu0 = zp -2.5 * np.log10(b)
@@ -125,7 +125,7 @@ def luptize_deep(flux, bins, var=0, zp=22.5):
     """
     The flux must be in the same dimension as the bins.
     The bins must be given as list like ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]
-    the ordering of the softening labels b
+    the ordering of the softening parameter b
     """
     dict_mags = {
         "i": 24.66,
@@ -153,11 +153,36 @@ def luptize_deep(flux, bins, var=0, zp=22.5):
     s = (10**((zp-arr_mags)/2.5)) / 10
     return luptize(flux, var, s, zp)
 
+
+def luptize_fluxes(data_frame, flux_col, lupt_col, bins):
+    """
+
+    :param bins: ["I", "R", "Z", "J", "H", "K"]
+    :param data_frame:
+    :param flux_col: ("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB")
+    :param lupt_col: ("BDF_LUPT_DERED_CALIB", "BDF_LUPT_ERR_DERED_CALIB")
+    :return:
+    """
+    lst_flux = []
+    lst_var = []
+    for bin in bins:
+        lst_flux.append(data_frame[f"{flux_col[0]}_{bin}"])
+        lst_var.append(data_frame[f"{flux_col[1]}_{bin}"])
+    arr_flux = np.array(lst_flux).T
+    arr_var = np.array(lst_var).T
+    lupt_mag, lupt_var = luptize_deep(flux=arr_flux, bins=bins, var=arr_var, zp=30)
+    lupt_mag = lupt_mag.T
+    lupt_var = lupt_var.T
+    for idx_bin, bin in enumerate(bins):
+        data_frame[f"{lupt_col[0]}_{bin}"] = lupt_mag[idx_bin]
+        data_frame[f"{lupt_col[1]}_{bin}"] = lupt_var[idx_bin]
+    return data_frame
+
 def luptize_inverse(lupt, lupt_var, s, zp):
     """"""
     # s: measurement error (variance) of the flux (with zero pt zp) of an object at the limiting magnitude of the survey
     # a: Pogson's ratio
-    # b: softening labels that sets the scale of transition between linear and log behavior of the luptitudes
+    # b: softening parameter that sets the scale of transition between linear and log behavior of the luptitudes
     a = 2.5 * np.log10(np.exp(1))
     b = a**(1./2) * s
     mu0 = zp -2.5 * np.log10(b)
@@ -174,7 +199,7 @@ def luptize_inverse_deep(lupt, bins, lupt_var=0, zp=22.5):
     """
         The flux must be in the same dimension as the bins.
         The bins must be given as list like ["i", "g", "r", "z", "u", "Y", "J", "H", "K"]
-        the ordering of the softening labels b
+        the ordering of the softening parameter b
     """
     dict_mags = {
         "i": 24.66,
@@ -203,12 +228,12 @@ def luptize_inverse_deep(lupt, bins, lupt_var=0, zp=22.5):
     return luptize_inverse(lupt, lupt_var, s, zp)
 
 
-def luptize_inverse_fluxes(data_frame, flux_col, lupt_col, bins):
+def luptize_inverse_fluxes(cfg, data_frame, flux_col, lupt_col, bins):
     """
 
     :param bins: ["I", "R", "Z", "J", "H", "K"]
     :param data_frame:
-    :param flux_col: ("BDF_FLUX_DERED_CALIB_I", "BDF_FLUX_ERR_DERED_CALIB_I")
+    :param flux_col: ("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB")
     :param lupt_col: ("BDF_LUPT_DERED_CALIB", "BDF_LUPT_ERR_DERED_CALIB")
     :return:
     """
@@ -219,7 +244,7 @@ def luptize_inverse_fluxes(data_frame, flux_col, lupt_col, bins):
         lst_lupt_var.append(data_frame[f"{lupt_col[1]}_{bin}"])
     arr_lupt = np.array(lst_lupt).T
     arr_lupt_var = np.array(lst_lupt_var).T
-    arr_flux, arr_var = luptize_inverse_deep(lupt=arr_lupt, bins=bins, lupt_var=arr_lupt_var)
+    arr_flux, arr_var = luptize_inverse_deep(lupt=arr_lupt, bins=bins, lupt_var=arr_lupt_var, zp=cfg["ZERO_POINT"])
     arr_flux = arr_flux.T
     arr_var = arr_var.T
     for idx_bin, bin in enumerate(bins):
@@ -237,22 +262,33 @@ def mag2flux(magnitude, zero_pt=30):
         print("Warning")
 
 
-def flux2mag(flux, zero_pt=30, clip=0.001):
-    # convert flux to magnitude
-    """lst_mag = []
-    for f in flux:
-        try:
-            magnitude = zero_pt - 2.5 * np.log10(f)
-            lst_mag.append(magnitude)
-        except RuntimeWarning:
-            print("Warning")
-            # lst_mag.append(-100)"""
-    if clip is None:
-        return zero_pt - 2.5 * np.log10(flux)
-    return zero_pt - 2.5 * np.log10(flux.clip(clip))
+def flux2mag(flux, zero_pt=30, clip=0.001):  # clip=0.001
+    """Convert flux to magnitude, with optional clipping."""
+    if clip is not None:
+        flux = np.clip(flux, clip, None)
+    return zero_pt - 2.5 * np.log10(flux)
 
-def flux_err_to_mag_err(flux, flux_err):
-    return 1.0857 * (flux_err / flux)
+def fluxerr2magerr(flux, flux_err):
+    """Convert flux uncertainty to magnitude uncertainty."""
+    return (2.5 / np.log(10)) * (flux_err / flux)
+
+
+def calc_mag(cfg, data_frame, flux_col, mag_col, bins):
+    """"""
+    for b in bins:
+        if isinstance(mag_col, tuple):
+            data_frame[f"{mag_col[0]}_{b}"] = flux2mag(
+                flux=data_frame[f"{flux_col[0]}_{b}"],
+                zero_pt=cfg["ZERO_POINT"],
+                clip=cfg["CLIP"]
+            )
+            data_frame[f"{mag_col[1]}_{b}"] = fluxerr2magerr(
+                flux=data_frame[f"{flux_col[0]}_{b}"],
+                flux_err=data_frame[f"{flux_col[1]}_{b}"]
+            )
+        else:
+            data_frame[f"{mag_col}_{b}"] = flux2mag(data_frame[f"{flux_col}_{b}"])
+    return data_frame
 
 
 def replace_values(data_frame, replace_value):

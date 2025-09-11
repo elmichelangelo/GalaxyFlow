@@ -95,23 +95,9 @@ def plot_corner(data_frame, columns, labels, ranges=None, show_plot=False, save_
 def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, title, epoch, dict_delta, ranges=None,
                         show_plot=False, save_plot=False, save_name=None):
     import corner
-    if epoch == 1:
-        for label in labels:
-            dict_delta[f"delta mean {label}"] = []
-            dict_delta[f"delta median {label}"] = []
-            dict_delta[f"delta q16 {label}"] = []
-            dict_delta[f"delta q84 {label}"] = []
 
     arr_generated = data_frame_generated[columns].values
     arr_true = data_frame_true[columns].values
-
-    # Quantile für gandalf berechnen
-    quantiles_gandalf = np.quantile(arr_generated, q=[0.16, 0.84], axis=0)
-
-    # Quantile für balrog berechnen
-    quantiles_balrog = np.quantile(arr_true, q=[0.16, 0.84], axis=0)
-
-    delta_names = ["mean", "median", "q16", "q84"]
 
     ndim = arr_generated.shape[1]
 
@@ -176,57 +162,57 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         Line2D([0], [0], color='#51a6fb', lw=4, label='Balrog')
     ]
 
-    for i in range(ndim):
-        ax = axes[i, i]
-        ax.set_yticklabels(ax.get_yticks(), rotation=45)
-
-        # Titel mit Quantilen manuell hinzufügen
-        delta_mean = np.mean(arr_generated[:, i]) - np.mean(arr_true[:, i])
-        delta_median = np.median(arr_generated[:, i]) - np.median(arr_true[:, i])
-        delta_q16 = quantiles_gandalf[0, i] - quantiles_balrog[0, i]
-        delta_q84 = quantiles_gandalf[1, i] - quantiles_balrog[1, i]
-
-        if dict_delta is not None:
-            dict_delta[f"delta mean {labels[i]}"].append(delta_mean)
-            dict_delta[f"delta median {labels[i]}"].append(delta_median)
-            dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
-            dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
-        else:
-            pass
-            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: Delta mean = {np.abs(delta_mean):.5f}'), )
-            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: median={delta_median:.5f}'), )
-            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q16={delta_q16:.5f}'), )
-            # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q84={delta_q84:.5f}'), )
+    # for i in range(ndim):
+    #     ax = axes[i, i]
+    #     ax.set_yticklabels(ax.get_yticks(), rotation=45)
+    #
+    #     # Titel mit Quantilen manuell hinzufügen
+    #     delta_mean = np.mean(arr_generated[:, i]) - np.mean(arr_true[:, i])
+    #     delta_median = np.median(arr_generated[:, i]) - np.median(arr_true[:, i])
+    #     delta_q16 = quantiles_gandalf[0, i] - quantiles_balrog[0, i]
+    #     delta_q84 = quantiles_gandalf[1, i] - quantiles_balrog[1, i]
+    #
+    #     if dict_delta is not None:
+    #         dict_delta[f"delta mean {labels[i]}"].append(delta_mean)
+    #         dict_delta[f"delta median {labels[i]}"].append(delta_median)
+    #         dict_delta[f"delta q16 {labels[i]}"].append(delta_q16)
+    #         dict_delta[f"delta q84 {labels[i]}"].append(delta_q84)
+    #     else:
+    #         pass
+    #         # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: Delta mean = {np.abs(delta_mean):.5f}'), )
+    #         # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: median={delta_median:.5f}'), )
+    #         # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q16={delta_q16:.5f}'), )
+    #         # legend_elements.append(Line2D([0], [0], color='#ff8c00', lw=0, label=f'{labels[i]}: q84={delta_q84:.5f}'), )
 
     if epoch is not None:
         fig.suptitle(f'{title}, epoch {epoch}', fontsize=20)
     else:
         fig.suptitle(f'{title}', fontsize=20)
 
-    if dict_delta is not None:
-        delta_legend_elements = []
-        epochs = list(range(1, epoch + 1))
-        for idx, delta_name in enumerate(delta_names):
-            delta_ax = fig.add_subplot(gs[ndim + 1 + idx, :])
-            for i, label in enumerate(labels):
-                line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o',
-                                      label=f"delta {label}")
-                if idx == 0:
-                    delta_legend_elements.append(line)
-
-            delta_ax.axhline(y=0, color='gray', linestyle='--')
-            delta_ax.set_ylim(-0.05, 0.05)
-
-            if idx == len(delta_names) - 1:
-                delta_ax.set_xlabel('Epoch')
-            else:
-                delta_ax.set_xticklabels([])
-
-            delta_ax.set_ylabel(f'Delta {delta_name}')
-
-        fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
-    else:
-        fig.legend(handles=legend_elements, loc='upper right', fontsize=16)
+    # if dict_delta is not None:
+    #     delta_legend_elements = []
+    #     epochs = list(range(1, epoch + 1))
+    #     for idx, delta_name in enumerate(delta_names):
+    #         delta_ax = fig.add_subplot(gs[ndim + 1 + idx, :])
+    #         for i, label in enumerate(labels):
+    #             line, = delta_ax.plot(epochs, dict_delta[f"delta {delta_name} {label}"], '-o',
+    #                                   label=f"delta {label}")
+    #             if idx == 0:
+    #                 delta_legend_elements.append(line)
+    #
+    #         delta_ax.axhline(y=0, color='gray', linestyle='--')
+    #         delta_ax.set_ylim(-0.05, 0.05)
+    #
+    #         if idx == len(delta_names) - 1:
+    #             delta_ax.set_xlabel('Epoch')
+    #         else:
+    #             delta_ax.set_xticklabels([])
+    #
+    #         delta_ax.set_ylabel(f'Delta {delta_name}')
+    #
+    #     fig.legend(handles=legend_elements + delta_legend_elements, loc='upper right', fontsize=12)
+    # else:
+    fig.legend(handles=legend_elements, loc='upper right', fontsize=16)
 
     img_tensor = plot_to_tensor()
     if show_plot is True:
@@ -548,8 +534,7 @@ def loss_plot(
 
 def residual_plot(data_frame_generated, data_frame_true, luminosity_type, bands, plot_title, show_plot, save_plot, save_name):
     """"""
-    hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = \
-        plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
+    hist_figure, ((stat_ax1), (stat_ax2), (stat_ax3)) = plt.subplots(nrows=3, ncols=1, figsize=(12, 12))
     hist_figure.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
     hist_figure.suptitle(plot_title, fontsize=16)
 
