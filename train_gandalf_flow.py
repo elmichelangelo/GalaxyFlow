@@ -22,10 +22,10 @@ from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
 import hashlib, json, shutil
 try:
-    from ray.train import Checkpoint
+    from ray.train import Checkpoint, RunConfig, CheckpointConfig
 except (ImportError, AttributeError):
     try:
-        from ray.air import Checkpoint
+        from ray.air import Checkpoint, RunConfig, CheckpointConfig
     except (ImportError, AttributeError):
         Checkpoint = None
 
@@ -80,6 +80,8 @@ def train_tune(tune_config, base_config):
     ckpt_src = os.path.join(config['PATH_OUTPUT'], "last.ckpt.pt")
     ray_ckpt_dir = os.path.join(config['PATH_OUTPUT_CKPT'], "ray_ckpt")
 
+    best_so_far = [float("inf")]
+
     def reporter(epoch, train_loss, val_loss):
         payload = {
             "epoch": int(epoch + 1),
@@ -87,7 +89,9 @@ def train_tune(tune_config, base_config):
             "train_loss": float(train_loss),
             "val_loss": float(val_loss),
         }
-        if os.path.exists(ckpt_src) and Checkpoint is not None:
+        improved = val_loss < best_so_far[0] - 1e-6
+        if improved and os.path.exists(ckpt_src) and Checkpoint is not None:
+            best_so_far[0] = val_loss
             os.makedirs(ray_ckpt_dir, exist_ok=True)
             shutil.copy2(ckpt_src, os.path.join(ray_ckpt_dir, "last.ckpt.pt"))
             session.report(payload, checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
@@ -95,6 +99,14 @@ def train_tune(tune_config, base_config):
             session.report(payload)
 
     train_flow.run_training(on_epoch_end=reporter)
+
+    final_payload = {
+        "epoch": int(train_flow.current_epoch + 1),
+        "loss": float(train_flow.lst_valid_loss_per_epoch[-1]) if train_flow.lst_valid_loss_per_epoch else None,
+        "train_loss": float(train_flow.lst_train_loss_per_epoch[-1]) if train_flow.lst_train_loss_per_epoch else None,
+        "val_loss": float(train_flow.lst_valid_loss_per_epoch[-1]) if train_flow.lst_valid_loss_per_epoch else None,
+    }
+    session.report(final_payload)
 
 def load_config_and_parser(system_path):
     if get_os() == "Mac":
@@ -276,7 +288,9 @@ if __name__ == '__main__':
             resume="AUTO",
             name=f"study_{cfg['RUN_ID']}",
             trial_name_creator=my_trial_name_creator,
-            trial_dirname_creator=my_trial_name_creator
+            trial_dirname_creator=my_trial_name_creator,
+            keep_checkpoints_num=1,  # nur den besten behalten
+            checkpoint_score_attr="min-loss",  # Metrik & Richtung
         )
 
         train_flow_logger.log_info_stream("Best config found:")
