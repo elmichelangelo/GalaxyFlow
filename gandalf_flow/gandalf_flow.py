@@ -466,6 +466,8 @@ class gaNdalFFlow(object):
 
     def plot_data(self, epoch, today):
         """"""
+        plt.rcParams["text.usetex"] = False
+
         self.gandalf_logger.log_info_stream("Plot test")
         self.model.eval()
         df_balrog = self.galaxies.test_dataset
