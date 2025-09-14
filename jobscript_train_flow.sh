@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=optuna_cut2_train_flow
+#SBATCH --job-name=optuna_new_cuts
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=512G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
-#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_cut2_train_flow_%A.log
-#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_cut2_train_flow_err_%A.log
+#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_new_cuts_%A.log
+#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_train_flow/optuna_new_cuts_err_%A.log
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=12
