@@ -8,7 +8,7 @@
 #SBATCH -e /dss/dsshome1/04/di97tac/logs/optuna_wo_gpu_err_%A.log
 #SBATCH --qos=mcml
 ##SBATCH --partition=mcml-hgx-h100-94x4
-#SBATCH --partition=lrz-cpu
+#SBATCH --partition=lrz-v100x2
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-task=0
 
