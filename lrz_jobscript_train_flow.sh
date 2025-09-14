@@ -6,8 +6,6 @@
 #SBATCH --mem=256G
 #SBATCH -o /dss/dsshome1/04/di97tac/logs/optuna_wo_gpu_%A.log
 #SBATCH -e /dss/dsshome1/04/di97tac/logs/optuna_wo_gpu_err_%A.log
-##SBATCH --qos=mcml
-##SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --partition=lrz-cpu
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-task=0
