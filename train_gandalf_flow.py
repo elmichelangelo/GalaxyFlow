@@ -289,8 +289,8 @@ if __name__ == '__main__':
             name=f"study_{cfg['RUN_ID']}",
             trial_name_creator=my_trial_name_creator,
             trial_dirname_creator=my_trial_name_creator,
-            keep_checkpoints_num=1,  # nur den besten behalten
-            checkpoint_score_attr="min-loss",  # Metrik & Richtung
+            keep_checkpoints_num=1,
+            checkpoint_score_attr="min-loss",
         )
 
         train_flow_logger.log_info_stream("Best config found:")
