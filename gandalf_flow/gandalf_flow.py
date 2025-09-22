@@ -354,6 +354,9 @@ class gaNdalFFlow(object):
         df_train = self.galaxies.train_dataset
 
         if epoch == 0:
+            for band in self.cfg["BANDS_FLOW"]:
+                df_train[f"unsheared/mag_err_{band}"] = np.log10(df_train[f"unsheared/mag_err_{band}"])
+
             for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
                 scaler = self.scalers[col]
                 mean = scaler.mean_[0]
@@ -425,6 +428,9 @@ class gaNdalFFlow(object):
         df_valid = self.galaxies.valid_dataset
 
         if epoch == 0:
+            for band in self.cfg["BANDS_FLOW"]:
+                df_valid[f"unsheared/mag_err_{band}"] = np.log10(df_valid[f"unsheared/mag_err_{band}"])
+
             for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
                 scaler = self.scalers[col]
                 mean = scaler.mean_[0]
@@ -477,6 +483,9 @@ class gaNdalFFlow(object):
             df_balrog[self.cfg["OUTPUT_COLS"]] = df_balrog[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
 
+        for band in self.cfg["BANDS_FLOW"]:
+            df_balrog[f"unsheared/mag_err_{band}"] = np.log10(df_balrog[f"unsheared/mag_err_{band}"])
+
         for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
             scaler = self.scalers[col]
             mean = scaler.mean_[0]
@@ -507,6 +516,19 @@ class gaNdalFFlow(object):
         df_output_gandalf = pd.DataFrame(arr_all, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
         df_output_gandalf = df_output_gandalf[self.cfg["NF_COLUMNS_OF_INTEREST"]]
 
+        if self.cfg['PLOT_TRAINING_FEATURES'] is True:
+            img_grid_feature_hist = plot_features(
+                cfg=self.cfg,
+                plot_log=self.gandalf_logger,
+                df_gandalf=df_output_gandalf,
+                df_balrog=df_output_true,
+                columns=self.cfg["OUTPUT_PLOT_COLS"],
+                title_prefix=f"scaled bs {self.bs}; lr {self.lr:.6f}; nh {self.nh}; nb {self.nb} ; nl {self.nl} - ",
+                epoch=epoch,
+                today=today,
+                savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch}_compare_output_scaled.pdf"
+            )
+
         for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
             scaler = self.scalers[col]
             mean = scaler.mean_[0]
@@ -514,69 +536,73 @@ class gaNdalFFlow(object):
             df_output_true[col] = (df_output_true[col] * scale) + mean
             df_output_gandalf[col] = (df_output_gandalf[col] * scale) + mean
 
-        df_output_true = luptize_inverse_fluxes(
-            cfg=self.cfg,
-            data_frame=df_output_true,
-            flux_col=("unsheared/flux", "unsheared/flux_err"),
-            lupt_col=("unsheared/lupt", "unsheared/lupt_err"),
-            bins=self.cfg['BANDS_FLOW']
-        )
+        for band in self.cfg["BANDS_FLOW"]:
+            df_output_true[f"unsheared/mag_err_{band}"] = np.power(10, df_output_true[f"unsheared/mag_err_{band}"])
+            df_output_gandalf[f"unsheared/mag_err_{band}"] = np.power(10, df_output_gandalf[f"unsheared/mag_err_{band}"])
 
-        df_output_gandalf = luptize_inverse_fluxes(
-            cfg=self.cfg,
-            data_frame=df_output_gandalf,
-            flux_col=("unsheared/flux", "unsheared/flux_err"),
-            lupt_col=("unsheared/lupt", "unsheared/lupt_err"),
-            bins=self.cfg['BANDS_FLOW']
-        )
-
-        df_output_true = luptize_inverse_fluxes(
-            cfg=self.cfg,
-            data_frame=df_output_true,
-            flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
-            lupt_col=("BDF_LUPT_DERED_CALIB", "BDF_LUPT_ERR_DERED_CALIB"),
-            bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
-        )
-
-        df_output_gandalf = luptize_inverse_fluxes(
-            cfg=self.cfg,
-            data_frame=df_output_gandalf,
-            flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
-            lupt_col=("BDF_LUPT_DERED_CALIB", "BDF_LUPT_ERR_DERED_CALIB"),
-            bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
-        )
-
-        df_output_true = calc_mag(
-            cfg=self.cfg,
-            data_frame=df_output_true,
-            flux_col=("unsheared/flux", "unsheared/flux_err"),
-            mag_col=("unsheared/mag", "unsheared/mag_err"),
-            bins=self.cfg['BANDS_FLOW']
-        )
-
-        df_output_gandalf = calc_mag(
-            cfg=self.cfg,
-            data_frame=df_output_gandalf,
-            flux_col=("unsheared/flux", "unsheared/flux_err"),
-            mag_col=("unsheared/mag", "unsheared/mag_err"),
-            bins=self.cfg['BANDS_FLOW']
-        )
-
-        df_output_true = calc_mag(
-            cfg=self.cfg,
-            data_frame=df_output_true,
-            flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
-            mag_col=("BDF_MAG_DERED_CALIB", "BDF_MAG_ERR_DERED_CALIB"),
-            bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
-        )
-
-        df_output_gandalf = calc_mag(
-            cfg=self.cfg,
-            data_frame=df_output_gandalf,
-            flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
-            mag_col=("BDF_MAG_DERED_CALIB", "BDF_MAG_ERR_DERED_CALIB"),
-            bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
-        )
+        # df_output_true = luptize_inverse_fluxes(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_true,
+        #     flux_col=("unsheared/flux", "unsheared/flux_err"),
+        #     lupt_col=("unsheared/lupt", "unsheared/lupt_err"),
+        #     bins=self.cfg['BANDS_FLOW']
+        # )
+        #
+        # df_output_gandalf = luptize_inverse_fluxes(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_gandalf,
+        #     flux_col=("unsheared/flux", "unsheared/flux_err"),
+        #     lupt_col=("unsheared/lupt", "unsheared/lupt_err"),
+        #     bins=self.cfg['BANDS_FLOW']
+        # )
+        #
+        # df_output_true = luptize_inverse_fluxes(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_true,
+        #     flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
+        #     lupt_col=("BDF_LUPT_DERED_CALIB", "BDF_LUPT_ERR_DERED_CALIB"),
+        #     bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
+        # )
+        #
+        # df_output_gandalf = luptize_inverse_fluxes(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_gandalf,
+        #     flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
+        #     lupt_col=("BDF_LUPT_DERED_CALIB", "BDF_LUPT_ERR_DERED_CALIB"),
+        #     bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
+        # )
+        #
+        # df_output_true = calc_mag(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_true,
+        #     flux_col=("unsheared/flux", "unsheared/flux_err"),
+        #     mag_col=("unsheared/mag", "unsheared/mag_err"),
+        #     bins=self.cfg['BANDS_FLOW']
+        # )
+        #
+        # df_output_gandalf = calc_mag(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_gandalf,
+        #     flux_col=("unsheared/flux", "unsheared/flux_err"),
+        #     mag_col=("unsheared/mag", "unsheared/mag_err"),
+        #     bins=self.cfg['BANDS_FLOW']
+        # )
+        #
+        # df_output_true = calc_mag(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_true,
+        #     flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
+        #     mag_col=("BDF_MAG_DERED_CALIB", "BDF_MAG_ERR_DERED_CALIB"),
+        #     bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
+        # )
+        #
+        # df_output_gandalf = calc_mag(
+        #     cfg=self.cfg,
+        #     data_frame=df_output_gandalf,
+        #     flux_col=("BDF_FLUX_DERED_CALIB", "BDF_FLUX_ERR_DERED_CALIB"),
+        #     mag_col=("BDF_MAG_DERED_CALIB", "BDF_MAG_ERR_DERED_CALIB"),
+        #     bins=[band.upper() for band in self.cfg['BANDS_FLOW']]
+        # )
 
         if self.cfg['PLOT_TRAINING_FEATURES'] is True:
             img_grid_feature_hist = plot_features(
@@ -585,7 +611,7 @@ class gaNdalFFlow(object):
                 df_gandalf=df_output_gandalf,
                 df_balrog=df_output_true,
                 columns=self.cfg["OUTPUT_PLOT_COLS"],
-                title_prefix=f"bs {self.bs}; lr {self.lr}; nh {self.nh}; nb {self.nb} ; nl {self.nl} - ",
+                title_prefix=f"bs {self.bs}; lr {self.lr:.6f}; nh {self.nh}; nb {self.nb} ; nl {self.nl} - ",
                 epoch=epoch,
                 today=today,
                 savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch}_compare_output.pdf"
