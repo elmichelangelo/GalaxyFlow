@@ -3267,14 +3267,18 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
         sns.histplot(x=x1_clip, bins=100, ax=axes[i], label="gandalf")
         sns.histplot(x=x2_clip, bins=100, ax=axes[i], label="balrog")
         axes[i].set_yscale("log")
-        axes[i].set_title(f"{k}")
-        axes[i].set_xlabel(k)
+        if k in ["unsheared/mag_err_r", "unsheared/mag_err_i", "unsheared/mag_err_z"]:
+            axes[i].set_title(f"log10({k})")
+            axes[i].set_xlabel(f"log10({k})")
+        else:
+            axes[i].set_title(k)
+            axes[i].set_xlabel(k)
 
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
-    fig.tight_layout()
+    fig.suptitle(f"epochs: {epoch} {title_prefix}", fontsize=16)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.legend()
-    fig.suptitle(f"{epoch} {title_prefix} Features", fontsize=16)
     plt.savefig(savename, bbox_inches='tight', dpi=300)
     img_tensor = plot_to_tensor()
     plt.clf()
