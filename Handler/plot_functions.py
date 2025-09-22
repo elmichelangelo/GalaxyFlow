@@ -3267,19 +3267,19 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
         sns.histplot(x=x1_clip, bins=100, ax=axes[i], label="gandalf")
         sns.histplot(x=x2_clip, bins=100, ax=axes[i], label="balrog")
         axes[i].set_yscale("log")
-        axes[i].set_title(f"{epoch} {title_prefix} {k}")
+        axes[i].set_title(f"{k}")
         axes[i].set_xlabel(k)
 
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
     fig.tight_layout()
     plt.legend()
+    fig.suptitle(f"{epoch} {title_prefix} Features", fontsize=16)
     plt.savefig(savename, bbox_inches='tight', dpi=300)
     img_tensor = plot_to_tensor()
     plt.clf()
     plt.close(fig)
     return img_tensor
-
 
 
 def plot_single_feature_dist(df, columns, title_prefix, save_name, epoch=None):

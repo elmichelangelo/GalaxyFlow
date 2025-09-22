@@ -516,19 +516,6 @@ class gaNdalFFlow(object):
         df_output_gandalf = pd.DataFrame(arr_all, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
         df_output_gandalf = df_output_gandalf[self.cfg["NF_COLUMNS_OF_INTEREST"]]
 
-        if self.cfg['PLOT_TRAINING_FEATURES'] is True:
-            img_grid_feature_hist = plot_features(
-                cfg=self.cfg,
-                plot_log=self.gandalf_logger,
-                df_gandalf=df_output_gandalf,
-                df_balrog=df_output_true,
-                columns=self.cfg["OUTPUT_PLOT_COLS"],
-                title_prefix=f"scaled bs {self.bs}; lr {self.lr:.6f}; nh {self.nh}; nb {self.nb} ; nl {self.nl} - ",
-                epoch=epoch,
-                today=today,
-                savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch}_compare_output_scaled.pdf"
-            )
-
         for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
             scaler = self.scalers[col]
             mean = scaler.mean_[0]
@@ -536,9 +523,9 @@ class gaNdalFFlow(object):
             df_output_true[col] = (df_output_true[col] * scale) + mean
             df_output_gandalf[col] = (df_output_gandalf[col] * scale) + mean
 
-        for band in self.cfg["BANDS_FLOW"]:
-            df_output_true[f"unsheared/mag_err_{band}"] = np.power(10, df_output_true[f"unsheared/mag_err_{band}"])
-            df_output_gandalf[f"unsheared/mag_err_{band}"] = np.power(10, df_output_gandalf[f"unsheared/mag_err_{band}"])
+        # for band in self.cfg["BANDS_FLOW"]:
+        #     df_output_true[f"unsheared/mag_err_{band}"] = np.power(10, df_output_true[f"unsheared/mag_err_{band}"])
+        #     df_output_gandalf[f"unsheared/mag_err_{band}"] = np.power(10, df_output_gandalf[f"unsheared/mag_err_{band}"])
 
         # df_output_true = luptize_inverse_fluxes(
         #     cfg=self.cfg,
@@ -636,9 +623,9 @@ class gaNdalFFlow(object):
                         f"mag_r",
                         f"mag_i",
                         f"mag_z",
-                        f"mag_err_r",
-                        f"mag_err_i",
-                        f"mag_err_z",
+                        f"log10(mag_err_r)",
+                        f"log10(mag_err_i)",
+                        f"log10(mag_err_z)",
                         "e_1",
                         "e_1",
                         "snr",
@@ -708,6 +695,9 @@ class gaNdalFFlow(object):
                     "mag r",
                     "mag i",
                     "mag z",
+                    "log10(mag err r)",
+                    "log10(mag err i)",
+                    "log10(mag err z)",
                     "e_1",
                     "e_2",
                     "snr",
@@ -720,6 +710,9 @@ class gaNdalFFlow(object):
                     [18, 24.5],  # mag r
                     [18, 24.5],  # mag i
                     [18, 24.5],  # mag z
+                    None,  # mag err r
+                    None,  # mag err i
+                    None,  # mag err z
                     None,  # e_1
                     None,  # e_2
                     [2, 100],  # snr
@@ -732,6 +725,9 @@ class gaNdalFFlow(object):
                     None,  # mag r
                     None,  # mag i
                     None,  # mag z
+                    None,  # mag err r
+                    None,  # mag err i
+                    None,  # mag err z
                     None,  # e_1
                     None,  # e_2
                     2,  # snr
