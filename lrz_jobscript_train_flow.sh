@@ -6,7 +6,7 @@
 #SBATCH --mem=256G
 #SBATCH -o /dss/dsshome1/04/di97tac/logs/h100_optuna_%A.log
 #SBATCH -e /dss/dsshome1/04/di97tac/logs/h100_optuna_err_%A.log
-##SBATCH --qos=mcml
+#SBATCH --qos=mcml
 #SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-task=3
