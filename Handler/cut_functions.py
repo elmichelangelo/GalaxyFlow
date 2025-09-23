@@ -57,8 +57,8 @@ def unsheared_mag_cut(data_frame):
             (data_frame["unsheared/mag_z"] < 26) &
             (-1.5 < data_frame["unsheared/mag_r"] - data_frame["unsheared/mag_i"]) &
             (data_frame["unsheared/mag_r"] - data_frame["unsheared/mag_i"] < 4) &
-            (-4 < data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"]) &
-            (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 1.5)
+            (-1.5 < data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"]) &
+            (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 4)
     )
     data_frame = data_frame[cuts]
     print('Length of catalog after applying unsheared mag cuts: {}'.format(len(data_frame)))

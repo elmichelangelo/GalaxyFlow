@@ -2472,16 +2472,16 @@ def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, s
                                      save_plot=False, show_plot=True, save_name="", plot_scatter=False):
     print("Start plotting")
 
-    import matplotlib as mpl
-    # Use LaTeX fonts in matplotlib
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.family'] = 'serif'
-    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    mpl.rcParams['axes.labelsize'] = 24
-    mpl.rcParams['font.size'] = 28
-    mpl.rcParams['legend.fontsize'] = 24
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 20
+    # import matplotlib as mpl
+    # # Use LaTeX fonts in matplotlib
+    # mpl.rcParams['text.usetex'] = True
+    # mpl.rcParams['font.family'] = 'serif'
+    # mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+    # mpl.rcParams['axes.labelsize'] = 24
+    # mpl.rcParams['font.size'] = 28
+    # mpl.rcParams['legend.fontsize'] = 24
+    # mpl.rcParams['xtick.labelsize'] = 20
+    # mpl.rcParams['ytick.labelsize'] = 20
 
     # Define colors and levels
     color_gandalf = 'darkgreen'
@@ -2847,16 +2847,16 @@ def plot_balrog_histogram_with_error(
     df_gandalf, df_balrog, columns, labels, ranges, binwidths,
     title, show_plot, save_plot, save_name
 ):
-    import matplotlib as mpl
-    # Use LaTeX fonts in matplotlib
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.family'] = 'serif'
-    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    mpl.rcParams['axes.labelsize'] = 24
-    mpl.rcParams['font.size'] = 28
-    mpl.rcParams['legend.fontsize'] = 24
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 20
+    # import matplotlib as mpl
+    # # Use LaTeX fonts in matplotlib
+    # mpl.rcParams['text.usetex'] = True
+    # mpl.rcParams['font.family'] = 'serif'
+    # mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+    # mpl.rcParams['axes.labelsize'] = 24
+    # mpl.rcParams['font.size'] = 28
+    # mpl.rcParams['legend.fontsize'] = 24
+    # mpl.rcParams['xtick.labelsize'] = 20
+    # mpl.rcParams['ytick.labelsize'] = 20
 
     # Define colors and levels
     color_gandalf = 'darkgreen'
@@ -3230,7 +3230,7 @@ def plot_compare_mean_z_bootstrap(
     plt.close(fig)
 
 
-def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, epoch, today, savename):
+def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, savename):
     n_features = len(columns)
     ncols = min(n_features, 3)
     nrows = int(np.ceil(n_features / ncols))
@@ -3241,31 +3241,31 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
         plot_log.log_info_stream(f"{k}: gandalf infs={np.isinf(df_gandalf[k]).sum()}, balrog infs={np.isinf(df_balrog[k]).sum()}")
         plot_log.log_info_stream(f"{k}: gandalf unique={df_gandalf[k].nunique()}, balrog unique={df_balrog[k].nunique()}")
 
-        x1 = df_gandalf[k].replace([np.inf, -np.inf], np.nan).dropna()
-        x2 = df_balrog[k].replace([np.inf, -np.inf], np.nan).dropna()
-        plot_log.log_info_stream(f"{k}: min={x1.min()}, max={x1.max()}, finite={np.isfinite(x1).all()}, len={len(x1)}")
+        # x1 = df_gandalf[k].replace([np.inf, -np.inf], np.nan).dropna()
+        # x2 = df_balrog[k].replace([np.inf, -np.inf], np.nan).dropna()
+        # plot_log.log_info_stream(f"{k}: min={x1.min()}, max={x1.max()}, finite={np.isfinite(x1).all()}, len={len(x1)}")
+        #
+        # V_MIN, V_MAX = -1e5, 1e5
+        #
+        # # Clippen pro Feature, du kannst das für jede Variable auch individuell machen!
+        # x1_clip = x1[np.isfinite(x1)]
+        # x2_clip = x2[np.isfinite(x2)]
+        # x1_clip = x1_clip[(x1_clip >= V_MIN) & (x1_clip <= V_MAX)]
+        # x2_clip = x2_clip[(x2_clip >= V_MIN) & (x2_clip <= V_MAX)]
+        #
+        # if len(x1_clip) == 0 or len(x2_clip) == 0:
+        #     plot_log.log_info_stream(f"Skip plotting {k}: no data after clipping")
+        #     continue
+        #
+        # if np.isclose(x1_clip.max(), x1_clip.min()) or not np.isfinite([x1_clip.min(), x1_clip.max()]).all():
+        #     plot_log.log_info_stream(f"Skip plotting {k}: invalid range in gandalf ({x1_clip.min()}..{x1_clip.max()})")
+        #     continue
+        # if np.isclose(x2_clip.max(), x2_clip.min()) or not np.isfinite([x2_clip.min(), x2_clip.max()]).all():
+        #     plot_log.log_info_stream(f"Skip plotting {k}: invalid range in balrog ({x2_clip.min()}..{x2_clip.max()})")
+        #     continue
 
-        V_MIN, V_MAX = -1e5, 1e5
-
-        # Clippen pro Feature, du kannst das für jede Variable auch individuell machen!
-        x1_clip = x1[np.isfinite(x1)]
-        x2_clip = x2[np.isfinite(x2)]
-        x1_clip = x1_clip[(x1_clip >= V_MIN) & (x1_clip <= V_MAX)]
-        x2_clip = x2_clip[(x2_clip >= V_MIN) & (x2_clip <= V_MAX)]
-
-        if len(x1_clip) == 0 or len(x2_clip) == 0:
-            plot_log.log_info_stream(f"Skip plotting {k}: no data after clipping")
-            continue
-
-        if np.isclose(x1_clip.max(), x1_clip.min()) or not np.isfinite([x1_clip.min(), x1_clip.max()]).all():
-            plot_log.log_info_stream(f"Skip plotting {k}: invalid range in gandalf ({x1_clip.min()}..{x1_clip.max()})")
-            continue
-        if np.isclose(x2_clip.max(), x2_clip.min()) or not np.isfinite([x2_clip.min(), x2_clip.max()]).all():
-            plot_log.log_info_stream(f"Skip plotting {k}: invalid range in balrog ({x2_clip.min()}..{x2_clip.max()})")
-            continue
-
-        sns.histplot(x=x1_clip, bins=100, ax=axes[i], label="gandalf")
-        sns.histplot(x=x2_clip, bins=100, ax=axes[i], label="balrog")
+        sns.histplot(x=df_gandalf[k], bins=100, ax=axes[i], label="gandalf")
+        sns.histplot(x=df_balrog[k], bins=100, ax=axes[i], label="balrog")
         axes[i].set_yscale("log")
         if k in ["unsheared/mag_err_r", "unsheared/mag_err_i", "unsheared/mag_err_z"]:
             axes[i].set_title(f"log10({k})")
@@ -3276,14 +3276,17 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, e
 
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
-    fig.suptitle(f"epochs: {epoch} {title_prefix}", fontsize=16)
+    fig.suptitle(f"{title_prefix}", fontsize=16)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.legend()
-    plt.savefig(savename, bbox_inches='tight', dpi=300)
-    img_tensor = plot_to_tensor()
+    if cfg["SAVE_PLOT"] is True:
+        plt.savefig(savename, bbox_inches='tight', dpi=300)
+    elif cfg["SHOW_PLOT"] is True:
+        plt.show()
+    # img_tensor = plot_to_tensor()
     plt.clf()
     plt.close(fig)
-    return img_tensor
+    # return img_tensor
 
 
 def plot_single_feature_dist(df, columns, title_prefix, save_name, epoch=None):

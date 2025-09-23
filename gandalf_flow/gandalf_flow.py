@@ -170,6 +170,8 @@ class gaNdalFFlow(object):
             dataset_logger=self.gandalf_logger,
             cfg=self.cfg
         )
+        galaxies.apply_log10()
+        galaxies.scale_data()
         return galaxies
 
     def init_network(self, num_outputs, num_input):
@@ -351,17 +353,19 @@ class gaNdalFFlow(object):
 
         train_loss = 0.0
         total_samples = 0
+
+        self.galaxies.train_dataset = self.galaxies.scale_data(self.galaxies.train_dataset)
         df_train = self.galaxies.train_dataset
 
-        if epoch == 0:
-            for band in self.cfg["BANDS_FLOW"]:
-                df_train[f"unsheared/mag_err_{band}"] = np.log10(df_train[f"unsheared/mag_err_{band}"])
-
-            for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-                scaler = self.scalers[col]
-                mean = scaler.mean_[0]
-                scale = scaler.scale_[0]
-                df_train[col] = (df_train[col] - mean) / scale
+        # if epoch == 0:
+        #     for band in self.cfg["BANDS_FLOW"]:
+        #         df_train[f"unsheared/mag_err_{band}"] = np.log10(df_train[f"unsheared/mag_err_{band}"])
+        #
+        #     # for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+        #     #     scaler = self.scalers[col]
+        #     #     mean = scaler.mean_[0]
+        #     #     scale = scaler.scale_[0]
+        #     #     df_train[col] = (df_train[col] - mean) / scale
 
         if self.cfg["DROPPED"] is True:
             df_train[self.cfg["INPUT_COLS"]] = df_train[self.cfg["INPUT_COLS"]].astype(np.float64)
@@ -427,15 +431,15 @@ class gaNdalFFlow(object):
 
         df_valid = self.galaxies.valid_dataset
 
-        if epoch == 0:
-            for band in self.cfg["BANDS_FLOW"]:
-                df_valid[f"unsheared/mag_err_{band}"] = np.log10(df_valid[f"unsheared/mag_err_{band}"])
-
-            for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-                scaler = self.scalers[col]
-                mean = scaler.mean_[0]
-                scale = scaler.scale_[0]
-                df_valid[col] = (df_valid[col] - mean) / scale
+        # if epoch == 0:
+        #     for band in self.cfg["BANDS_FLOW"]:
+        #         df_valid[f"unsheared/mag_err_{band}"] = np.log10(df_valid[f"unsheared/mag_err_{band}"])
+        #
+        #     for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+        #         scaler = self.scalers[col]
+        #         mean = scaler.mean_[0]
+        #         scale = scaler.scale_[0]
+        #         df_valid[col] = (df_valid[col] - mean) / scale
 
         if self.cfg["DROPPED"] is True:
             df_valid[self.cfg["INPUT_COLS"]] = df_valid[self.cfg["INPUT_COLS"]].astype(np.float64)
@@ -482,14 +486,14 @@ class gaNdalFFlow(object):
             df_balrog[self.cfg["INPUT_COLS"]] = df_balrog[self.cfg["INPUT_COLS"]].astype(np.float64)
             df_balrog[self.cfg["OUTPUT_COLS"]] = df_balrog[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
-        for band in self.cfg["BANDS_FLOW"]:
-            df_balrog[f"unsheared/mag_err_{band}"] = np.log10(df_balrog[f"unsheared/mag_err_{band}"])
-
-        for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-            scaler = self.scalers[col]
-            mean = scaler.mean_[0]
-            scale = scaler.scale_[0]
-            df_balrog[col] = (df_balrog[col] - mean) / scale
+        # for band in self.cfg["BANDS_FLOW"]:
+        #     df_balrog[f"unsheared/mag_err_{band}"] = np.log10(df_balrog[f"unsheared/mag_err_{band}"])
+        #
+        # for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+        #     scaler = self.scalers[col]
+        #     mean = scaler.mean_[0]
+        #     scale = scaler.scale_[0]
+        #     df_balrog[col] = (df_balrog[col] - mean) / scale
 
         input_data = torch.tensor(df_balrog[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
         output_data = torch.tensor(df_balrog[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
@@ -515,26 +519,19 @@ class gaNdalFFlow(object):
         df_output_gandalf = pd.DataFrame(arr_all, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
         df_output_gandalf = df_output_gandalf[self.cfg["NF_COLUMNS_OF_INTEREST"]]
 
-        for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-            scaler = self.scalers[col]
-            mean = scaler.mean_[0]
-            scale = scaler.scale_[0]
-            df_output_true[col] = (df_output_true[col] * scale) + mean
-            df_output_gandalf[col] = (df_output_gandalf[col] * scale) + mean
+        df_output_true = self.galaxies.inverse_scale_data(df_output_true)
+        df_output_gandalf = self.galaxies.inverse_scale_data(df_output_gandalf)
 
         if self.cfg['PLOT_TRAINING_FEATURES'] is True:
-            img_grid_feature_hist = plot_features(
+            plot_features(
                 cfg=self.cfg,
                 plot_log=self.gandalf_logger,
                 df_gandalf=df_output_gandalf,
                 df_balrog=df_output_true,
                 columns=self.cfg["OUTPUT_PLOT_COLS"],
-                title_prefix=f"bs {self.bs}; lr {self.lr:.6f}; nh {self.nh}; nb {self.nb} ; nl {self.nl}",
-                epoch=epoch,
-                today=today,
+                title_prefix=f"epoch {epoch}; bs {self.bs}; lr {self.lr:.6f}; nh {self.nh}; nb {self.nb} ; nl {self.nl}",
                 savename=f"{self.cfg['PATH_PLOTS_FOLDER']['FEATURE_HIST_PLOT']}/{today}_{epoch}_compare_output.pdf"
             )
-            # self.writer.add_image("Feature Histogram", img_grid_feature_hist, epoch + 1)
 
         self.gandalf_logger.log_info_stream(f"gaNdalF NaNs: {df_gandalf.isna().sum()}")
 
@@ -546,8 +543,8 @@ class gaNdalFFlow(object):
                     dict_delta=self.dict_delta_unsheared,
                     epoch=epoch,
                     title=f"chain plot",
-                    show_plot=self.cfg['SHOW_PLOT_FLOW'],
-                    save_plot=self.cfg['SAVE_PLOT_FLOW'],
+                    show_plot=self.cfg['SHOW_PLOT'],
+                    save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['CHAIN_PLOT']}/{today}_{epoch}_chainplot.pdf",
                     columns=self.cfg["OUTPUT_PLOT_COLS"],
                     labels=[
@@ -594,8 +591,8 @@ class gaNdalFFlow(object):
                     title=f"color-color plot",
                     columns=["r-i", "i-z"],
                     labels=["r-i", "i-z"],
-                    show_plot=self.cfg['SHOW_PLOT_FLOW'],
-                    save_plot=self.cfg['SAVE_PLOT_FLOW'],
+                    show_plot=self.cfg['SHOW_PLOT'],
+                    save_plot=self.cfg['SAVE_PLOT'],
                     save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['COLOR_COLOR_PLOT']}/color_color_{epoch}.pdf",
                     ranges=[(-4, 4), (-4, 4)]
                 )
@@ -609,8 +606,8 @@ class gaNdalFFlow(object):
                 df_balrog=df_output_true,
                 sample_size=10000,
                 plot_scatter=False,
-                show_plot=self.cfg["SHOW_PLOT_FLOW"],
-                save_plot=self.cfg["SAVE_PLOT_FLOW"],
+                show_plot=self.cfg["SHOW_PLOT"],
+                save_plot=self.cfg["SAVE_PLOT"],
                 title="gaNdalF vs. Balrog: Measured Photometric Property Distribution Comparison",
                 save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['BINNING_STATS']}/binning_statistics_combined_{epoch}",
             )
@@ -666,7 +663,7 @@ class gaNdalFFlow(object):
                     0.2,  # T
                 ],
                 title=r"gaNdalF vs. Balrog: Property Distribution Comparison",
-                show_plot=self.cfg["SHOW_PLOT_FLOW"],
-                save_plot=self.cfg["SAVE_PLOT_FLOW"],
+                show_plot=self.cfg["SHOW_PLOT"],
+                save_plot=self.cfg["SAVE_PLOT"],
                 save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['HIST_W_ERROR']}/hist_plot_{epoch}.pdf"
             )
