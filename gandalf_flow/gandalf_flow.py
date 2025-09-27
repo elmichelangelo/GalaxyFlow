@@ -83,7 +83,7 @@ class gaNdalFFlow(object):
         self.start_epoch = 0
         self.current_epoch = 0
 
-        self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_STANDARD_SCALER']}")
+        # self.scalers = joblib.load(f"{self.cfg['PATH_TRANSFORMERS']}/{self.cfg['FILENAME_STANDARD_SCALER']}")
 
         self.bs = batch_size
         self.lr = learning_rate
@@ -285,10 +285,10 @@ class gaNdalFFlow(object):
 
             self.gandalf_logger.log_info_stream(f"Epoch: {epoch+1}/{self.cfg['EPOCHS_FLOW']}")
             self.gandalf_logger.log_info_stream(f"Train")
-            train_loss_epoch = self.train(epoch=epoch, date=today)
+            train_loss_epoch = self.train(epoch=epoch)
 
             self.gandalf_logger.log_info_stream(f"Validation")
-            validation_loss = self.validate(epoch=epoch, date=today)
+            validation_loss = self.validate(epoch=epoch)
 
             self.lst_epochs.append(epoch)
             self.lst_train_loss_per_epoch.append(train_loss_epoch)
@@ -319,7 +319,7 @@ class gaNdalFFlow(object):
             self.save_checkpoint(epoch)
 
         if last_epoch is not None:
-            self.plot_data(epoch=last_epoch + 1, today=today)
+            self.run_tests(epoch=last_epoch + 1, today=today)
         else:
             self.gandalf_logger.log_info_stream(
                 "Kein Training durchgeführt (start_epoch >= EPOCHS_FLOW) – skip plots.")
@@ -345,7 +345,7 @@ class gaNdalFFlow(object):
 
         return self.best_validation_loss
 
-    def train(self, epoch, date):
+    def train(self, epoch):
         self.model.train()
         for module in self.model.modules():
             if isinstance(module, fnn.BatchNormFlow):
@@ -354,18 +354,7 @@ class gaNdalFFlow(object):
         train_loss = 0.0
         total_samples = 0
 
-        self.galaxies.train_dataset = self.galaxies.scale_data(self.galaxies.train_dataset)
         df_train = self.galaxies.train_dataset
-
-        # if epoch == 0:
-        #     for band in self.cfg["BANDS_FLOW"]:
-        #         df_train[f"unsheared/mag_err_{band}"] = np.log10(df_train[f"unsheared/mag_err_{band}"])
-        #
-        #     # for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-        #     #     scaler = self.scalers[col]
-        #     #     mean = scaler.mean_[0]
-        #     #     scale = scaler.scale_[0]
-        #     #     df_train[col] = (df_train[col] - mean) / scale
 
         if self.cfg["DROPPED"] is True:
             df_train[self.cfg["INPUT_COLS"]] = df_train[self.cfg["INPUT_COLS"]].astype(np.float64)
@@ -424,22 +413,12 @@ class gaNdalFFlow(object):
 
         return train_loss
 
-    def validate(self, epoch, date):
+    def validate(self, epoch):
         self.model.eval()
         val_loss = 0
         total_samples = 0
 
         df_valid = self.galaxies.valid_dataset
-
-        # if epoch == 0:
-        #     for band in self.cfg["BANDS_FLOW"]:
-        #         df_valid[f"unsheared/mag_err_{band}"] = np.log10(df_valid[f"unsheared/mag_err_{band}"])
-        #
-        #     for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-        #         scaler = self.scalers[col]
-        #         mean = scaler.mean_[0]
-        #         scale = scaler.scale_[0]
-        #         df_valid[col] = (df_valid[col] - mean) / scale
 
         if self.cfg["DROPPED"] is True:
             df_valid[self.cfg["INPUT_COLS"]] = df_valid[self.cfg["INPUT_COLS"]].astype(np.float64)
@@ -474,7 +453,7 @@ class gaNdalFFlow(object):
                                                f"validation loss: {val_loss}")
         return val_loss
 
-    def plot_data(self, epoch, today):
+    def run_tests(self, epoch, today):
         """"""
         plt.rcParams["text.usetex"] = False
 
