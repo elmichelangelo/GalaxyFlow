@@ -424,6 +424,10 @@ class gaNdalFClassifier(nn.Module):
         df_test['gandalf_probability'] = probability
         df_test['gandalf_detected'] = detected
 
+        df_test['true_detected'] = detected_true
+        df_test['detected_calibrated'] = detected
+        df_test['detected_true'] = detected
+
         accuracy = accuracy_score(detected_true, detected)
         self.classifier_logger.log_info_stream(
             f"Accuracy for lr={self.lr}, bs={self.bs}: {accuracy * 100.0:.2f}%")
@@ -445,33 +449,27 @@ class gaNdalFClassifier(nn.Module):
         lst_cols = [
             ['BDF_MAG_DERED_CALIB_R', 'BDF_MAG_DERED_CALIB_I'],
             ['BDF_MAG_DERED_CALIB_I', 'BDF_MAG_DERED_CALIB_Z'],
-            ['Color BDF MAG U-G', 'Color BDF MAG G-R'],
             ['Color BDF MAG R-I', 'Color BDF MAG I-Z'],
-            ['Color BDF MAG Z-J', 'Color BDF MAG J-H'],
             ['BDF_T', 'BDF_G'],
             ['FWHM_WMEAN_R', 'FWHM_WMEAN_I'],
             ['FWHM_WMEAN_I', 'FWHM_WMEAN_Z'],
             ['AIRMASS_WMEAN_R', 'AIRMASS_WMEAN_I'],
             ['AIRMASS_WMEAN_I', 'AIRMASS_WMEAN_Z'],
             ['MAGLIM_R', 'MAGLIM_I'],
-            ['MAGLIM_I', 'MAGLIM_Z'],
-            ['EBV_SFD98', 'Color BDF MAG H-K']
+            ['MAGLIM_I', 'MAGLIM_Z']
         ]
 
         lst_save_names = [
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_BDF_RI_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_BDF_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_Color_UG_GR_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_Color_RI_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_Color_ZJ_JH_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_BDF_TG_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_FWHM_RI_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_FWHM_IZ_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_RI_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_AIRMASS_IZ_epoch_{epoch}.png",
             f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_RI_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{epoch}.png",
-            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_EBV_Color_{epoch}.png",
+            f"{self.cfg['PATH_PLOTS_FOLDER'][f'MISS-CLASSIFICATION']}/classf_MAGLIM_IZ_epoch_{epoch}.png"
         ]
 
         if self.cfg['PLOT_MISS_CLASSF'] is True:

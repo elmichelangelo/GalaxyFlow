@@ -792,9 +792,9 @@ def plot_classification_results(data_frame, cols, show_plot, save_plot, save_nam
     ax4.grid(True)
 
     ax2.legend(loc='center left', bbox_to_anchor=(1.25, 0.5))
-    ax1.get_legend().remove()
-    ax3.get_legend().remove()
-    ax4.get_legend().remove()
+    # ax1.get_legend().remove()
+    # ax3.get_legend().remove()
+    # ax4.get_legend().remove()
 
     if show_plot is True:
         plt.show()
