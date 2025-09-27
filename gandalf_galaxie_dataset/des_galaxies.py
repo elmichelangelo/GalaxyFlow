@@ -107,7 +107,7 @@ class GalaxyDataset(Dataset):
 
         self.dataset_logger.log_info_stream(f"Use {self.name_scaler} to scale data")
 
-        for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
+        for col in self.cfg["COLUMNS_OF_INTEREST"]:
             scaler = self.scalers[col]
             mean = scaler.mean_[0]
             scale = scaler.scale_[0]

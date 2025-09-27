@@ -131,11 +131,8 @@ def train_tune_classifier(tune_config, base_config):
 
     train_cf.run_training(on_epoch_end=reporter)
 
-    acc = train_cf.classifier_logger.handlers[0].stream.getvalue().splitlines()[-1]
-
     final_payload = {
         "epoch": int(train_cf.current_epoch + 1),
-        "accuracy": float(acc),
         "loss": float(train_cf.lst_valid_loss_per_epoch[-1]) if train_cf.lst_valid_loss_per_epoch else None,
         "train_loss": float(
             train_cf.lst_train_loss_per_epoch[-1]) if train_cf.lst_train_loss_per_epoch else None,
