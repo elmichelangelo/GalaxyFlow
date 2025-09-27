@@ -81,50 +81,78 @@ def main(cfg, galaxies, iteration, lgr):
     cfg['PATH_OUTPUT'] = f"{cfg['PATH_OUTPUT']}/{cfg['RUN_DATE']}_classifier_training/"
     os.makedirs(cfg['PATH_OUTPUT'], exist_ok=True)
 
-    train_detector = gaNdalFClassifier(
-        cfg=cfg,
-        galaxies=galaxies,
-        iteration=iteration,
-        classifier_logger=lgr
+
+def train_tune_classifier(tune_config, base_config):
+    config = dict(base_config)
+    config.update(tune_config)
+
+    ray_trial_dir = session.get_trial_dir()
+
+    config['PATH_OUTPUT'] = ray_trial_dir
+    config['PATH_OUTPUT_CKPT'] = ray_trial_dir
+
+    config['TRIAL_ID'] = hparam_hash(
+        int(config['batch_size']),
+        float(config['learning_rate']),
+        list(config['hidden_sizes']),
+        float(config['dropout_prob']),
+        int(bool(config['batch_norm']))
     )
 
-    train_detector.run_training()
+    train_cf = gaNdalFClassifier(
+        cfg=config,
+        batch_size=config["batch_size"],
+        learning_rate=config["learning_rate"],
+        hidden_sizes=config["hidden_sizes"],
+        dropout_prob=config["dropout_prob"],
+        batch_norm=config["batch_norm"],
+    )
 
-    if cfg['SAVE_NN_CLASSF'] is True:
-        train_detector.save_model()
+    ckpt_src = os.path.join(config['PATH_OUTPUT'], "last.ckpt.pt")
+    ray_ckpt_dir = os.path.join(config['PATH_OUTPUT_CKPT'], "ray_ckpt")
+
+    best_so_far = [float("inf")]
+
+    def reporter(epoch, train_loss, val_loss):
+        payload = {
+            "epoch": int(epoch + 1),
+            "loss": float(val_loss),
+            "train_loss": float(train_loss),
+            "val_loss": float(val_loss),
+        }
+        improved = val_loss < best_so_far[0] - 1e-6
+        if improved and os.path.exists(ckpt_src) and Checkpoint is not None:
+            best_so_far[0] = val_loss
+            os.makedirs(ray_ckpt_dir, exist_ok=True)
+            shutil.copy2(ckpt_src, os.path.join(ray_ckpt_dir, "last.ckpt.pt"))
+            session.report(payload, checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
+        else:
+            session.report(payload)
+
+    train_cf.run_training(on_epoch_end=reporter)
+
+    acc = train_cf.classifier_logger.handlers[0].stream.getvalue().splitlines()[-1]
+
+    final_payload = {
+        "epoch": int(train_cf.current_epoch + 1),
+        "accuracy": float(acc),
+        "loss": float(train_cf.lst_valid_loss_per_epoch[-1]) if train_cf.lst_valid_loss_per_epoch else None,
+        "train_loss": float(
+            train_cf.lst_train_loss_per_epoch[-1]) if train_cf.lst_train_loss_per_epoch else None,
+        "val_loss": float(train_cf.lst_valid_loss_per_epoch[-1]) if train_cf.lst_valid_loss_per_epoch else None,
+    }
+    session.report(final_payload)
 
 
-def train_tune_classifier(config, cfg, galaxies, performance_logger):
-    now = datetime.now()
-    cfg['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M-%S')
-    cfg['PATH_OUTPUT'] = os.path.join(cfg['PATH_OUTPUT'], f"raytune_run_{cfg['RUN_DATE']}")
-
-    # Apply hyperparameters from Ray Tune
-    cfg["ACTIVATIONS"] = [lambda: getattr(nn, config["activation"])()]
-    cfg["POSSIBLE_NUM_LAYERS"] = [config["num_layers"]]
-    cfg["POSSIBLE_HIDDEN_SIZES"] = config["hidden_sizes"]
-    cfg["LEARNING_RATE_CLASSF"] = [config["lr"]]
-    cfg["BATCH_SIZE_CLASSF"] = [config["batch_size"]]
-    cfg["USE_BATCHNORM_CLASSF"] = [config["batch_norm"]]
-    cfg["DROPOUT_PROB_CLASSF"] = [config["dropout"]]
-
-    model = gaNdalFClassifier(cfg=cfg, galaxies=galaxies, iteration=0, classifier_logger=performance_logger)
-    model.run_training()
-
-    # Use any score you want to optimize here
-    acc = model.classifier_logger.handlers[0].stream.getvalue().splitlines()[-1]
-    tune.report(calibrated_accuracy=model.best_validation_acc)
-
-
-def hparam_hash(bs, lr, nh, nb, nl):
+def hparam_hash(bs, lr, hs, dp, bn):
     """
     """
     payload = {
         "bs": int(bs),
         "lr": float(lr),
-        "nh": int(nh),
-        "nb": int(nb),
-        "nl": int(nl)
+        "hs": "-".join(map(str, hs)),
+        "dp": int(dp),
+        "bn": int(bn)
     }
     s = json.dumps(payload, sort_keys=True)
     return hashlib.sha1(s.encode()).hexdigest()[:10]
@@ -133,10 +161,10 @@ def hparam_hash(bs, lr, nh, nb, nl):
 def my_trial_name_creator(trial):
     bs = int(trial.config["batch_size"])
     lr = float(trial.config["learning_rate"])
-    nh = int(trial.config["number_hidden"])
-    nb = int(trial.config["number_blocks"])
-    nl = int(trial.config["number_layers"])
-    return f"trial_{hparam_hash(bs, lr, nh, nb, nl)}"
+    hs = trial.config["hidden_sizes"]
+    dp = float(trial.config["dropout_prob"])
+    bn = int(bool(trial.config["batch_norm"]))
+    return f"trial_{hparam_hash(bs, lr, hs, dp, bn)}"
 
 
 if __name__ == '__main__':
@@ -173,47 +201,31 @@ if __name__ == '__main__':
     train_classifier_logger.log_info_stream("Start train classifier")
 
     if cfg['HPARAM_SEARCH'] is False:
-        cfg["ACTIVATIONS"] = [lambda: nn.LeakyReLU(0.2)]
-
-        galaxies = DESGalaxies(
-            cfg=cfg,
-            dataset_logger=train_classifier_logger
-        )
-
-        start = datetime.now()
-        base_path = cfg['PATH_OUTPUT']
-        for i in range(cfg["ITERATIONS"]):
-            main(
-                cfg=cfg,
-                galaxies=galaxies,
-                iteration=i+1,
-                lgr=train_classifier_logger
-            )
-            cfg['PATH_OUTPUT'] = base_path
+        pass
     else:
-        batch_size = cfg["BATCH_SIZE_FLOW"]
-        number_hidden = cfg["NUMBER_HIDDEN"]
-        number_blocks = cfg["NUMBER_BLOCKS"]
-        number_layers = cfg["NUMBER_LAYERS"]
-        learning_rate = cfg["LEARNING_RATE_FLOW"]
+        batch_size = cfg["BATCH_SIZE"]
+        hidden_sizes = cfg["HIDDEN_SIZES"]
+        learning_rate = cfg["LEARNING_RATE"]
+        dropout_prob = cfg["DROPOUT_PROB"]
+        batch_norm = cfg["BATCH_NORM"]
 
         if not isinstance(batch_size, list):
             batch_size = [batch_size]
-        if not isinstance(number_hidden, list):
-            number_hidden = [number_hidden]
-        if not isinstance(number_blocks, list):
-            number_blocks = [number_blocks]
-        if not isinstance(number_layers, list):
-            number_layers = [number_layers]
+        if not isinstance(hidden_sizes, list):
+            hidden_sizes = [hidden_sizes]
+        if not isinstance(dropout_prob, list):
+            dropout_prob = [dropout_prob]
         if not isinstance(learning_rate, list):
             learning_rate = [learning_rate, learning_rate]
+        if not isinstance(batch_norm, list):
+            batch_norm = [batch_norm]
 
         search_space = {
             "batch_size": tune.choice(batch_size),
             "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
-            "number_hidden": tune.choice(number_hidden),
-            "number_blocks": tune.choice(number_blocks),
-            "number_layers": tune.choice(number_layers),
+            "hidden_sizes": tune.choice(hidden_sizes),
+            "dropout_prob": tune.choice(dropout_prob),
+            "batch_norm": tune.choice(batch_norm),
             "INFO_LOGGER": cfg["INFO_LOGGER"],
             "ERROR_LOGGER": cfg["ERROR_LOGGER"],
             "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
@@ -227,7 +239,7 @@ if __name__ == '__main__':
         }
 
         reporter = CLIReporter(
-            parameter_columns=["learning_rate", "number_hidden", "number_blocks", "number_layers", "batch_size"],
+            parameter_columns=["batch_size", "learning_rate", "hidden_sizes", "dropout_prob", "batch_norm"],
             metric_columns=["loss", "train_loss", "val_loss", "epoch"]
         )
 
@@ -242,7 +254,7 @@ if __name__ == '__main__':
             metric="loss",
             time_attr="epoch",
             mode="min",
-            max_t=cfg["EPOCHS_FLOW"],
+            max_t=cfg["EPOCHS"],
             grace_period=10,
             reduction_factor=4,
             stop_last_trials=False
