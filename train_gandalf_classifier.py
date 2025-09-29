@@ -185,6 +185,7 @@ if __name__ == '__main__':
     elif cfg["LOGGING_LEVEL"] == "ERROR":
         log_lvl = logging.ERROR
 
+    os.makedirs(f"{cfg['PATH_OUTPUT']}/Logs/", exist_ok=True)
     # Initialize the logger
     train_classifier_logger = LoggerHandler(
         logger_dict={"logger_name": "train classifier",
