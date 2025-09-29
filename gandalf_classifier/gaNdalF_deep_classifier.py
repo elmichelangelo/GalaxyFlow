@@ -53,6 +53,7 @@ class gaNdalFClassifier(nn.Module):
         self.lst_valid_loss_per_batch = []
         self.lst_valid_loss_per_epoch = []
         self.lst_valid_f1_per_epoch = []
+        self._finalized = False
         self.make_dirs()
 
         log_lvl = logging.INFO
@@ -307,8 +308,25 @@ class gaNdalFClassifier(nn.Module):
     def run_training(self, on_epoch_end=None):
         """"""
         today = datetime.now().strftime("%Y%m%d_%H%M%S")
-        epochs_no_improve = 0
         min_delta = 1e-4
+        patience = int(self.cfg.get("EARLY_STOP_PATIENCE", 0))
+        epochs_no_improve = 0
+
+        self._finalized = False
+
+        if self.start_epoch >= int(self.cfg["EPOCHS"]):
+            self.classifier_logger.log_info_stream(
+                f"No epochs to run (start_epoch={self.start_epoch} >= EPOCHS={self.cfg['EPOCHS']})."
+            )
+            if not self._already_plotted:
+                try:
+                    self.model.load_state_dict(self.best_model_state_dict)
+                    self.run_tests(epoch=max(self.start_epoch, 1), today=today)
+                    self._already_plotted = True
+                except Exception as e:
+                    self.classifier_logger.log_info_stream(f"run_tests failed: {e}")
+            self._finalize_and_log(ep_for_plots=max(self.start_epoch, 1), reason="no_epochs")
+            return self.best_validation_loss
 
         last_epoch = None
         for epoch in range(self.start_epoch, self.cfg["EPOCHS"]):
@@ -316,80 +334,84 @@ class gaNdalFClassifier(nn.Module):
             last_epoch = epoch
 
             self.classifier_logger.log_info_stream(f"Epoch: {epoch + 1}/{self.cfg['EPOCHS']}")
-            self.classifier_logger.log_info_stream(f"Train")
+            self.classifier_logger.log_info_stream("Train")
             train_loss_epoch = self.train_cf(epoch=epoch)
 
-            self.classifier_logger.log_info_stream(f"Validation")
-            validation_loss, validation_acc, validation_f1 = self.validate_cf(epoch=epoch)
-            self.lst_valid_f1_per_epoch.append(validation_f1)
+            self.classifier_logger.log_info_stream("Validation")
+            val_loss, val_acc, val_f1 = self.validate_cf(epoch=epoch)
+
             self.lst_epochs.append(epoch)
             self.lst_train_loss_per_epoch.append(train_loss_epoch)
-            self.lst_valid_loss_per_epoch.append(validation_loss)
-            self.lst_valid_acc_per_epoch.append(validation_acc)
+            self.lst_valid_loss_per_epoch.append(val_loss)
+            self.lst_valid_acc_per_epoch.append(val_acc)
+            self.lst_valid_f1_per_epoch.append(val_f1)
 
-            if validation_loss < self.best_validation_loss - min_delta:
+            if val_loss < self.best_validation_loss - min_delta:
+                self.best_validation_loss = float(val_loss)
                 self.best_validation_epoch = epoch
-                self.best_validation_loss = validation_loss
                 self.best_model_state_dict = copy.deepcopy(self.model.state_dict())
                 epochs_no_improve = 0
             else:
                 epochs_no_improve += 1
 
             if train_loss_epoch < self.best_train_loss - min_delta:
+                self.best_train_loss = float(train_loss_epoch)
                 self.best_train_epoch = epoch
-                self.best_train_loss = train_loss_epoch
+
+            self.save_checkpoint(epoch)
+
+            term_flag = bool(getattr(self, "_terminate_requested", False))
+            early_flag = bool(patience and epochs_no_improve >= patience)
+            last_flag = bool((epoch + 1) >= int(self.cfg["EPOCHS"]))
+            should_finish_now = term_flag or early_flag or last_flag
+
+            if should_finish_now:
+                reason = "sigterm" if term_flag else ("early_stop" if early_flag else "last_epoch")
+
+                last_state_dict = copy.deepcopy(self.model.state_dict())
+
+                if not self._already_plotted:
+                    try:
+                        self.classifier_logger.log_info_stream(
+                            f"Trigger run_tests at epoch {epoch + 1} (reason={reason})."
+                        )
+                        self.model.load_state_dict(self.best_model_state_dict)
+                        self.run_tests(epoch=epoch + 1, today=today)
+                        self._already_plotted = True
+                    except Exception as e:
+                        self.classifier_logger.log_info_stream(f"run_tests failed (in-loop): {e}")
+
+                self._finalize_and_log(ep_for_plots=epoch + 1, reason=reason, last_state_dict=last_state_dict)
 
             if on_epoch_end is not None:
                 try:
                     on_epoch_end(
                         epoch=epoch,
                         train_loss=float(train_loss_epoch),
-                        val_loss=float(validation_loss),
-                        accuracy=float(validation_acc),
-                        f1=float(validation_f1)
+                        val_loss=float(val_loss),
+                        accuracy=float(val_acc),
+                        f1=float(val_f1),
                     )
-                except Exception as e:
-                    self.classifier_logger.log_info_stream(f"on_epoch_end failed: {e}")
+                except BaseException as e:
+                    if not self._finalized:
+                        self._finalize_and_log(ep_for_plots=epoch + 1, reason=f"on_epoch_end_raised:{type(e).__name__}")
+                    raise
 
-            self.save_checkpoint(epoch)
-
-            if getattr(self, "_terminate_requested", False):
-                self.classifier_logger.log_info_stream(
-                    f"Graceful termination requested after epoch {epoch + 1}. Running plots now."
-                )
-                try:
-                    self.run_tests(epoch=epoch + 1, today=today)
-                    self._already_plotted = True
-                except Exception as e:
-                    self.classifier_logger.log_info_stream(f"run_tests during termination failed: {e}")
+            if should_finish_now:
                 break
 
-        if last_epoch is not None and not self._already_plotted:
-            self.model.load_state_dict(self.best_model_state_dict)
+        if not self._finalized:
             try:
-                self.run_tests(epoch=last_epoch + 1, today=today)
+                if not self._already_plotted:
+                    self.model.load_state_dict(self.best_model_state_dict)
+                    ep_for_plots = (last_epoch + 1) if last_epoch is not None else max(self.start_epoch, 1)
+                    self.classifier_logger.log_info_stream(f"Fallback run_tests after loop at epoch {ep_for_plots}.")
+                    self.run_tests(epoch=ep_for_plots, today=today)
+                    self._already_plotted = True
             except Exception as e:
-                self.classifier_logger.log_info_stream(f"run_tests failed: {e}")
-        self.classifier_logger.log_info_stream(f"End Training")
-        self.classifier_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
-                                               f"best validation loss: {self.best_validation_loss}\t"
-                                               f"learning rate: {self.lr}\t"
-                                               f"hidden_size: {self.hs}\t"
-                                               f"batch_norm: {self.ubn}\t"
-                                               f"dropout_prob: {self.dp}\t"
-                                               f"num_layers: {self.nl}\t"
-                                               f"batch_size: {self.bs}"
-                                               )
-
-        if self.cfg['SAVE_NN'] is True:
-            torch.save(
-                self.best_model_state_dict,
-                f"{self.cfg['PATH_SAVE_NN']}/best_model_state_e_{self.best_validation_epoch + 1}_lr_{self.lr}_bs_{self.bs}_hs_{self.hs}_ubn_{self.ubn}_dp_{self.dp}_nl_{self.nl}_run_{self.cfg['RUN_DATE']}.pt"
-            )
-            torch.save(
-                self.model.state_dict(),
-                f"{self.cfg['PATH_SAVE_NN']}/last_model_state_e_{self.cfg['EPOCHS']}_lr_{self.lr}_bs_{self.bs}_hs_{self.hs}_ubn_{self.ubn}_dp_{self.dp}_nl_{self.nl}_run_{self.cfg['RUN_DATE']}.pt"
-            )
+                self.classifier_logger.log_info_stream(f"run_tests (post-loop) failed: {e}")
+            self._finalize_and_log(ep_for_plots=(last_epoch + 1) if last_epoch is not None else max(self.start_epoch, 1),
+                              reason="post_loop")
 
         return self.best_validation_loss
 
@@ -669,37 +691,69 @@ class gaNdalFClassifier(nn.Module):
                 title=f"nl: {self.nl}; nh: {self.number_hidden}; af: {self.activation}; lr: {self.lr}; bs: {self.bs}; YJ: {self.cfg['APPLY_YJ_TRANSFORM_CLASSF']}; scaler: {self.cfg['APPLY_SCALER_CLASSF']}"
             )
 
-            # ROC und AUC
-            if self.cfg['PLOT_ROC_CURVE'] is True:
-                plot_roc_curve(
-                    data_frame=df_test,
-                    show_plot=self.cfg['SHOW_PLOT'],
-                    save_plot=self.cfg['SAVE_PLOT'],
-                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
-                    title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
-                )
+        if self.cfg['PLOT_ROC_CURVE'] is True:
+            plot_roc_curve(
+                data_frame=df_test,
+                show_plot=self.cfg['SHOW_PLOT'],
+                save_plot=self.cfg['SAVE_PLOT'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'ROC_CURVE']}/roc_curve_epoch_{epoch}.png",
+                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
 
-            # Precision-Recall-Kurve
-            if self.cfg['PLOT_PRECISION_RECALL_CURVE'] is True:
-                plot_recall_curve(
-                    data_frame=df_test,
-                    show_plot=self.cfg['SHOW_PLOT'],
-                    save_plot=self.cfg['SAVE_PLOT'],
-                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{epoch}.png",
-                    title=f"recision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
-                )
+        if self.cfg['PLOT_PRECISION_RECALL_CURVE'] is True:
+            plot_recall_curve(
+                data_frame=df_test,
+                show_plot=self.cfg['SHOW_PLOT'],
+                save_plot=self.cfg['SAVE_PLOT'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PRECISION_RECALL_CURVE']}/precision_recall_curve_epoch_{epoch}.png",
+                title=f"recision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
 
-            # Histogramm der vorhergesagten Wahrscheinlichkeiten
-            if self.cfg['PLOT_PROBABILITY_HIST'] is True:
-                plot_probability_hist(
-                    data_frame=df_test,
-                    show_plot=self.cfg['SHOW_PLOT'],
-                    save_plot=self.cfg['SAVE_PLOT'],
-                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PROB_HIST']}/probability_histogram{epoch}.png",
-                    title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}"
-                )
+        if self.cfg['PLOT_PROBABILITY_HIST'] is True:
+            plot_probability_hist(
+                data_frame=df_test,
+                show_plot=self.cfg['SHOW_PLOT'],
+                save_plot=self.cfg['SAVE_PLOT'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PROB_HIST']}/probability_histogram{epoch}.png",
+                title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
 
-            self.classifier_logger.log_info_stream("run_tests: done")
+        self.classifier_logger.log_info_stream("run_tests: done")
+
+    def _finalize_and_log(self, ep_for_plots: int, reason: str, last_state_dict=None):
+        if self._finalized:
+            return
+        try:
+            self.classifier_logger.log_info_stream(f"Finalize training at epoch {ep_for_plots} (reason={reason}).")
+            self.classifier_logger.log_info_stream("End Training")
+            self.classifier_logger.log_info_stream(
+                f"Best validation epoch: {self.best_validation_epoch + 1}\t"
+                f"best validation loss: {self.best_validation_loss}\t"
+                f"learning rate: {self.lr}\t"
+                f"hidden_size: {self.hs}\t"
+                f"batch_norm: {self.ubn}\t"
+                f"dropout_prob: {self.dp}\t"
+                f"num_layers: {self.nl}\t"
+                f"batch_size: {self.bs}"
+            )
+            if self.cfg.get('SAVE_NN', False):
+                try:
+                    torch.save(
+                        self.best_model_state_dict,
+                        f"{self.cfg['PATH_SAVE_NN']}/best_model_state_e_{self.best_validation_epoch + 1}"
+                        f"_lr_{self.lr}_bs_{self.bs}_hs_{self.hs}_ubn_{self.ubn}_dp_{self.dp}"
+                        f"_nl_{self.nl}_run_{self.cfg['RUN_DATE']}.pt"
+                    )
+                    torch.save(
+                        (last_state_dict if last_state_dict is not None else self.model.state_dict()),
+                        f"{self.cfg['PATH_SAVE_NN']}/last_model_state_e_{self.cfg['EPOCHS']}"
+                        f"_lr_{self.lr}_bs_{self.bs}_hs_{self.hs}_ubn_{self.ubn}_dp_{self.dp}"
+                        f"_nl_{self.nl}_run_{self.cfg['RUN_DATE']}.pt"
+                    )
+                except Exception as e:
+                    self.classifier_logger.log_info_stream(f"Saving models failed: {e}")
+        finally:
+            self._finalized = True
 
 
 if __name__ == '__main__':
