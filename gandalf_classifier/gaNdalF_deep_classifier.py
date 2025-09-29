@@ -4,9 +4,11 @@ import seaborn as sns
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
+import matplotlib as mpl
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 from Handler import plot_classification_results, plot_confusion_matrix, plot_roc_curve, plot_recall_curve, plot_probability_hist, plot_multivariate_clf, LoggerHandler
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from gandalf_galaxie_dataset import DESGalaxies
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -33,6 +35,7 @@ class gaNdalFClassifier(nn.Module):
         self.best_acc = 0.0
         self.best_epoch = 0
         self.lst_epochs = []
+        self.lst_valid_acc_per_epoch = []
 
         self.bs = int(batch_size)
         self.lr = float(learning_rate)
@@ -50,7 +53,7 @@ class gaNdalFClassifier(nn.Module):
         self.lst_train_loss_per_epoch = []
         self.lst_valid_loss_per_batch = []
         self.lst_valid_loss_per_epoch = []
-
+        self.lst_valid_f1_per_epoch = []
         self.make_dirs()
 
         log_lvl = logging.INFO
@@ -79,7 +82,10 @@ class gaNdalFClassifier(nn.Module):
         self.best_model_state_dict = copy.deepcopy(self.model.state_dict())
 
         # self.loss_function = nn.BCELoss()
-        self.loss_function = nn.BCEWithLogitsLoss()
+        n_positive = int((self.galaxies.train_dataset["detected"] == 1).sum())
+        n_negative = int((self.galaxies.train_dataset["detected"] == 0).sum())
+        pos_weight = torch.tensor([n_negative / max(1, n_positive)], device=self.device, dtype=torch.float32)
+        self.loss_function = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         self.classifier_logger.log_info_stream(f"#########################################################################")
         self.classifier_logger.log_info_stream(f"Hidden Sizes: {self.number_hidden}")
@@ -95,8 +101,25 @@ class gaNdalFClassifier(nn.Module):
         self.best_train_loss = np.float64('inf')
         self.best_train_epoch = 1
         self.best_model = self.model
+        self._terminate_requested = False
+        self._already_plotted = False
 
         self.load_checkpoint_if_any()
+
+        if bool(self.cfg.get("TENSORBOARD_GRAPH", True)):
+            try:
+                from torch.utils.tensorboard import SummaryWriter
+                dummy = torch.zeros(1, len(self.cfg['INPUT_COLS']), dtype=torch.float32).to(self.device)
+                writer = SummaryWriter(log_dir=self.cfg['PATH_OUTPUT'])
+                self.model.eval()
+                writer.add_graph(self.model, dummy)
+                writer.flush()
+                writer.close()
+                self.classifier_logger.log_info_stream("TensorBoard: graph written (add_graph).")
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"TensorBoard-Graph error writing graph: {e}")
+
+
         self._install_sigterm_handler()
 
     def init_dataset(self):
@@ -200,25 +223,27 @@ class gaNdalFClassifier(nn.Module):
         return True
 
     def _install_sigterm_handler(self):
-        import threading, os, signal
+        import threading, signal
         if threading.current_thread() is not threading.main_thread():
             self.classifier_logger.log_info_stream("Skip SIGTERM handler: not in main thread.")
             return
-        if os.environ.get("TUNE_ORIG_WORKING_DIR") or os.environ.get("RAY_ADDRESS"):
-            self.classifier_logger.log_info_stream("Skip SIGTERM handler: running under Ray/Tune.")
-            return
+
+        self._terminate_requested = False
 
         def _handler(signum, frame):
+            ep = getattr(self, "current_epoch", 0)
             try:
-                ep = getattr(self, "current_epoch", 0)
-                self.classifier_logger.log_info_stream("SIGTERM – saving checkpoint...")
+                self.classifier_logger.log_info_stream("SIGTERM – checkpoint & graceful stop requested.")
                 self.save_checkpoint(ep)
-            finally:
-                os._exit(0)
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"SIGTERM – checkpoint failed: {e}")
+            # Kein os._exit(0)! Wir beenden die Epoche und plotten danach:
+            self._terminate_requested = True
 
         try:
             signal.signal(signal.SIGTERM, _handler)
-            self.classifier_logger.log_info_stream("Installed SIGTERM handler.")
+            signal.signal(signal.SIGINT, _handler)  # falls manuell abgebrochen wird
+            self.classifier_logger.log_info_stream("Installed SIGTERM handler (graceful).")
         except ValueError as e:
             self.classifier_logger.log_info_stream(f"Skip SIGTERM handler ({e}).")
 
@@ -274,11 +299,12 @@ class gaNdalFClassifier(nn.Module):
             train_loss_epoch = self.train_cf(epoch=epoch)
 
             self.classifier_logger.log_info_stream(f"Validation")
-            validation_loss = self.validate_cf(epoch=epoch)
-
+            validation_loss, validation_acc, validation_f1 = self.validate_cf(epoch=epoch)
+            self.lst_valid_f1_per_epoch.append(validation_f1)
             self.lst_epochs.append(epoch)
             self.lst_train_loss_per_epoch.append(train_loss_epoch)
             self.lst_valid_loss_per_epoch.append(validation_loss)
+            self.lst_valid_acc_per_epoch.append(validation_acc)
 
             if validation_loss < self.best_validation_loss - min_delta:
                 self.best_validation_epoch = epoch
@@ -298,17 +324,31 @@ class gaNdalFClassifier(nn.Module):
                         epoch=epoch,
                         train_loss=float(train_loss_epoch),
                         val_loss=float(validation_loss),
+                        accuracy=float(validation_acc),
+                        f1=float(validation_f1)
                     )
                 except Exception as e:
                     self.classifier_logger.log_info_stream(f"on_epoch_end failed: {e}")
 
             self.save_checkpoint(epoch)
 
-        if last_epoch is not None:
+            if getattr(self, "_terminate_requested", False):
+                self.classifier_logger.log_info_stream(
+                    f"Graceful termination requested after epoch {epoch + 1}. Running plots now."
+                )
+                try:
+                    self.run_tests(epoch=epoch + 1, today=today)
+                    self._already_plotted = True
+                except Exception as e:
+                    self.classifier_logger.log_info_stream(f"run_tests during termination failed: {e}")
+                break
+
+        if last_epoch is not None and not self._already_plotted:
             self.model.load_state_dict(self.best_model_state_dict)
-            self.run_tests(epoch=last_epoch + 1, today=today)
-        else:
-            self.classifier_logger.log_info_stream("No Training! (start_epoch >= EPOCHS) – skip plots.")
+            try:
+                self.run_tests(epoch=last_epoch + 1, today=today)
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"run_tests failed: {e}")
         self.classifier_logger.log_info_stream(f"End Training")
         self.classifier_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
                                                f"best validation loss: {self.best_validation_loss}\t"
@@ -335,8 +375,8 @@ class gaNdalFClassifier(nn.Module):
     def train_cf(self, epoch):
         """"""
         self.model.train()
-
         train_loss = 0.0
+        seen = 0
 
         df_train = self.galaxies.train_dataset
 
@@ -356,20 +396,25 @@ class gaNdalFClassifier(nn.Module):
             loss = self.loss_function(outputs.squeeze(), output_data.squeeze()).mean()
             loss.backward()
             self.optimizer.step()
-            train_loss += loss.item() * output_data.size(0)
-        avg_train_loss = train_loss / num_samples
+            bs_curr = output_data.size(0)
+            train_loss += loss.item() * bs_curr
+            seen += bs_curr
+
+            if getattr(self, "_terminate_requested", False):
+                break
+
+        avg_train_loss = train_loss / max(1, seen)
         self.lst_loss.append(avg_train_loss)
-        self.classifier_logger.log_info_stream(f'Epoch {epoch + 1} \t Training Loss: {train_loss:.4f}')
+        self.classifier_logger.log_info_stream(f'Epoch {epoch + 1} \t Training Loss: {avg_train_loss:.6f}')
         return avg_train_loss
 
     def validate_cf(self, epoch):
         self.model.eval()
         val_loss = 0
         correct = 0
-        total = 0
+        seen = 0
 
         df_valid = self.galaxies.valid_dataset
-
         num_valid_samples = len(df_valid)
 
         input_data = torch.tensor(df_valid[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
@@ -378,6 +423,11 @@ class gaNdalFClassifier(nn.Module):
         valid_dataset = TensorDataset(input_data, output_data)
         valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False)
 
+        use_random_threshold = bool(self.cfg.get("VALID_RANDOM_THRESHOLD", False))
+
+        all_true = []
+        all_pred = []
+
         for input_data, output_data in valid_loader:
             with torch.no_grad():
                 input_data = input_data.to(self.device)
@@ -385,32 +435,51 @@ class gaNdalFClassifier(nn.Module):
 
                 logits = self.model(input_data.to(self.device)).squeeze()
                 loss = self.loss_function(logits.squeeze(), output_data.squeeze()).mean()
-                val_loss += loss.item() * output_data.size(0)
+                bs_curr = output_data.size(0)
+                val_loss += loss.item() * bs_curr
 
                 probability = torch.sigmoid(logits).cpu().numpy()
-                detected = (probability > np.random.rand(len(probability))).astype(int)
-                detected = detected.astype(int)
+                if use_random_threshold is True:
+                    detected = (probability > np.random.rand(len(probability))).astype(int)
+                else:
+                    detected = (probability >= 0.5).astype(int)
 
                 true_detected = output_data.cpu().numpy().astype(int).ravel()
-
                 correct += (detected == true_detected).sum()
+                seen += true_detected.size
 
-                total += true_detected.size
+                all_true.append(true_detected)
+                all_pred.append(detected)
 
-        val_loss = val_loss / num_valid_samples
+            if getattr(self, "_terminate_requested", False):
+                break
 
-        avg_accuracy = correct / total
+        val_loss = val_loss / max(1, seen)
+        avg_accuracy = correct / max(1, seen)
+
+        all_true = np.concatenate(all_true) if len(all_true) > 0 else np.array([], dtype=int)
+        all_pred = np.concatenate(all_pred) if len(all_pred) > 0 else np.array([], dtype=int)
+        if all_true.size > 0:
+            f1 = f1_score(all_true, all_pred)
+            self.classifier_logger.log_info_stream(
+                f"F1 for lr={self.lr}, bs={self.bs}: {f1:.3f}"
+            )
+        else:
+            f1 = 0
+            self.classifier_logger.log_info_stream("F1: skipped (no validation samples).")
 
         self.classifier_logger.log_info_stream(f"Accuracy for lr={self.lr}, bs={self.bs}: {avg_accuracy * 100.0:.2f}%")
 
         if val_loss <= self.best_loss:
             self.classifier_logger.log_info_stream(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f})')
             self.best_loss = val_loss
+
         self.classifier_logger.log_info_stream(f'Epoch {epoch + 1} \t Validation Loss: {val_loss:.4f}')
-        return val_loss
+        return val_loss, avg_accuracy, f1
 
     def run_tests(self, epoch, today):
         """"""
+        self.classifier_logger.log_info_stream("run_tests: start")
         df_test = self.galaxies.test_dataset
         input_data = torch.tensor(df_test[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
         detected_true = df_test["detected"]
@@ -429,10 +498,11 @@ class gaNdalFClassifier(nn.Module):
         df_test['detected_true'] = detected
 
         accuracy = accuracy_score(detected_true, detected)
+        f1_Score = f1_score(detected_true, detected)
         self.classifier_logger.log_info_stream(
             f"Accuracy for lr={self.lr}, bs={self.bs}: {accuracy * 100.0:.2f}%")
         self.classifier_logger.log_info_stream(
-            f'Accuracy (normal) for lr={self.lr}, bs={self.bs}: {accuracy * 100.0:.2f}%')
+            f'f1_Score for lr={self.lr}, bs={self.bs}: {f1_Score:.3f}')
 
         self.classifier_logger.log_info_stream(f"detected shape: {detected.shape}")
         self.classifier_logger.log_info_stream(f"detected_true shape: {detected_true.shape}")
@@ -608,6 +678,8 @@ class gaNdalFClassifier(nn.Module):
                     save_name=f"{self.cfg['PATH_PLOTS_FOLDER'][f'PROB_HIST']}/probability_histogram{epoch}.png",
                     title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}"
                 )
+
+            self.classifier_logger.log_info_stream("run_tests: done")
 
 
 if __name__ == '__main__':

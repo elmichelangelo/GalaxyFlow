@@ -23,6 +23,7 @@ from functools import partial
 from ray.air import session
 from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.tune_config import TuneConfig
 import hashlib, json, shutil
 try:
     from ray.train import Checkpoint, RunConfig, CheckpointConfig
@@ -111,18 +112,19 @@ def train_tune_classifier(tune_config, base_config):
     ckpt_src = os.path.join(config['PATH_OUTPUT'], "last.ckpt.pt")
     ray_ckpt_dir = os.path.join(config['PATH_OUTPUT_CKPT'], "ray_ckpt")
 
-    best_so_far = [float("inf")]
+    best_so_far = [0.0]
 
-    def reporter(epoch, train_loss, val_loss):
+    def reporter(epoch, train_loss, val_loss, accuracy, f1):
         payload = {
             "epoch": int(epoch + 1),
-            "loss": float(val_loss),
-            "train_loss": float(train_loss),
+            "f1": float(f1),
+            "accuracy": float(accuracy),
             "val_loss": float(val_loss),
+            "train_loss": float(train_loss),
         }
-        improved = val_loss < best_so_far[0] - 1e-6
+        improved = f1 > best_so_far[0] + 1e-6
         if improved and os.path.exists(ckpt_src) and Checkpoint is not None:
-            best_so_far[0] = val_loss
+            best_so_far[0] = f1
             os.makedirs(ray_ckpt_dir, exist_ok=True)
             shutil.copy2(ckpt_src, os.path.join(ray_ckpt_dir, "last.ckpt.pt"))
             session.report(payload, checkpoint=Checkpoint.from_directory(ray_ckpt_dir))
@@ -133,10 +135,10 @@ def train_tune_classifier(tune_config, base_config):
 
     final_payload = {
         "epoch": int(train_cf.current_epoch + 1),
-        "loss": float(train_cf.lst_valid_loss_per_epoch[-1]) if train_cf.lst_valid_loss_per_epoch else None,
-        "train_loss": float(
-            train_cf.lst_train_loss_per_epoch[-1]) if train_cf.lst_train_loss_per_epoch else None,
+        "f1": float(train_cf.lst_valid_f1_per_epoch[-1]) if train_cf.lst_valid_f1_per_epoch else None,
+        "accuracy": float(train_cf.lst_valid_acc_per_epoch[-1]) if train_cf.lst_valid_acc_per_epoch else None,
         "val_loss": float(train_cf.lst_valid_loss_per_epoch[-1]) if train_cf.lst_valid_loss_per_epoch else None,
+        "train_loss": float(train_cf.lst_train_loss_per_epoch[-1]) if train_cf.lst_train_loss_per_epoch else None,
     }
     session.report(final_payload)
 
@@ -208,8 +210,7 @@ if __name__ == '__main__':
 
         if not isinstance(batch_size, list):
             batch_size = [batch_size]
-        if not isinstance(hidden_sizes, list):
-            hidden_sizes = [hidden_sizes]
+        hidden_sizes = [tuple(h) if isinstance(h, list) else h for h in hidden_sizes]
         if not isinstance(dropout_prob, list):
             dropout_prob = [dropout_prob]
         if not isinstance(learning_rate, list):
@@ -236,33 +237,45 @@ if __name__ == '__main__':
         }
 
         reporter = CLIReporter(
-            parameter_columns=["batch_size", "learning_rate", "hidden_sizes", "dropout_prob", "batch_norm"],
-            metric_columns=["loss", "train_loss", "val_loss", "epoch"]
+            parameter_columns={
+                "batch_size": "bs",
+                "learning_rate": "lr",
+                "hidden_sizes": "hs",
+                "dropout_prob": "dp",
+                "batch_norm": "bn",
+            },
+            metric_columns={
+                "f1": "F1",
+                "accuracy": "Acc",
+                "train_loss": "Train",
+                "val_loss": "Val",
+                "epoch": "Ep",
+            },
         )
 
         resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
 
         optuna_search = OptunaSearch(
-            metric="loss",
-            mode="min"
+            metric="f1",
+            mode="max"
         )
 
         asha = ASHAScheduler(
-            metric="loss",
+            metric="f1",
             time_attr="epoch",
-            mode="min",
+            mode="max",
             max_t=cfg["EPOCHS"],
-            grace_period=10,
-            reduction_factor=4,
-            stop_last_trials=False
+            grace_period=max(20, cfg["EPOCHS"]//3),
+            reduction_factor=3,
+            stop_last_trials=True
         )
 
         plateau = TrialPlateauStopper(
-            metric="loss",
-            mode="min",
-            num_results=5,
-            grace_period=10,
-            std=1e-4
+            metric="f1",
+            mode="max",
+            num_results=20,
+            grace_period=max(20, cfg["EPOCHS"]//3),
+            std=5e-3
         )
 
         analysis = tune.run(
@@ -270,7 +283,7 @@ if __name__ == '__main__':
             config=search_space,
             search_alg=optuna_search,
             scheduler=asha,
-            stop=plateau,
+            stop=None, #plateau,
             num_samples=cfg['OPTUNA_RUNS'],
             max_concurrent_trials=cfg['MAX_TRAILS'],
             resources_per_trial=resources,
@@ -281,8 +294,8 @@ if __name__ == '__main__':
             trial_name_creator=my_trial_name_creator,
             trial_dirname_creator=my_trial_name_creator,
             keep_checkpoints_num=1,
-            checkpoint_score_attr="min-loss",
+            # checkpoint_score_attr="max-accuracy",
         )
 
         train_classifier_logger.log_info_stream("Best config found:")
-        train_classifier_logger.log_info_stream(analysis.get_best_config(metric="loss", mode="min"))
+        train_classifier_logger.log_info_stream(analysis.get_best_config(metric="f1", mode="max"))
