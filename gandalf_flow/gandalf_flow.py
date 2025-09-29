@@ -111,12 +111,17 @@ class gaNdalFFlow(object):
         flow_dtype_str = str(self.cfg.get("FLOW_DTYPE", "float64")).lower()
         self.dtype = torch.float32 if flow_dtype_str == "float32" else torch.float64
 
-        self.use_amp = bool(self.cfg.get("AMP_FLOW", True)) and (self.device.type == "cuda") and (
-                self.dtype == torch.float32)
-        self.autocast_dtype = (
-            torch.bfloat16 if (
-                    bool(self.cfg.get("AMP_BF16", True)) and torch.cuda.is_bf16_supported()) else torch.float16
+        self.use_amp = (
+                bool(self.cfg.get("AMP_FLOW", True))
+                and (self.device.type == "cuda")
+                and (self.dtype == torch.float32)
         )
+
+        if self.device.type == "cuda" and torch.cuda.is_available():
+            bf16_ok = bool(self.cfg.get("AMP_BF16", True)) and torch.cuda.is_bf16_supported()
+            self.autocast_dtype = torch.bfloat16 if bf16_ok else torch.float32
+        else:
+            self.autocast_dtype = torch.float32
         self.cuda_scaler = torch.amp.GradScaler('cuda', enabled=self.use_amp)
 
         if self.device.type == "cuda":
@@ -419,12 +424,16 @@ class gaNdalFFlow(object):
         train_dataset = TensorDataset(input_data, output_data)
         train_loader = DataLoader(train_dataset, batch_size=self.bs, shuffle=True)
 
+        dev_type = "cuda" if self.device.type == "cuda" else ("mps" if self.device.type == "mps" else "cpu")
+
         for input_data, output_data in train_loader:
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
 
             self.optimizer.zero_grad(set_to_none=True)
-            with torch.amp.autocast('cuda', dtype=self.autocast_dtype, enabled=self.use_amp):
+            with torch.amp.autocast(device_type=dev_type,
+                                    dtype=(self.autocast_dtype if dev_type == "cuda" else None),
+                                    enabled=(self.use_amp if dev_type == "cuda" else False)):
                 loss = -self.model.log_probs(output_data, input_data).mean()
 
             if self.use_amp:
@@ -495,12 +504,16 @@ class gaNdalFFlow(object):
         valid_dataset = TensorDataset(input_data, output_data)
         valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False)
 
+        dev_type = "cuda" if self.device.type == "cuda" else ("mps" if self.device.type == "mps" else "cpu")
+
         for input_data, output_data in valid_loader:
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
 
             with torch.no_grad():
-                with torch.amp.autocast('cuda', dtype=self.autocast_dtype, enabled=self.use_amp):
+                with torch.amp.autocast(device_type=dev_type,
+                                        dtype=(self.autocast_dtype if dev_type == "cuda" else None),
+                                        enabled=(self.use_amp if dev_type == "cuda" else False)):
                     loss = -self.model.log_probs(output_data, input_data).mean()
 
                 bs_curr = output_data.size(0)
