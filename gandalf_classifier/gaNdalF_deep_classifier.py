@@ -47,7 +47,6 @@ class gaNdalFClassifier(nn.Module):
         self.activation = nn.ReLU
         self.weight_decay = float(self.cfg.get("WEIGHT_DECAY", 1e-4))
         self.number_hidden = []
-        self.device = torch.device(self.cfg["DEVICE_CLASSF"])
         self.lst_loss = []
         self.lst_train_loss_per_batch = []
         self.lst_train_loss_per_epoch = []
@@ -71,6 +70,25 @@ class gaNdalFClassifier(nn.Module):
                          "stream_logging_level": log_lvl},
             log_folder_path=f"{self.cfg['PATH_LOGS']}/"
         )
+
+        dev_str = str(self.cfg.get("DEVICE_CLASSF", "auto")).lower()
+        if dev_str == "auto":
+            if torch.cuda.is_available():
+                dev_str = "cuda"
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                dev_str = "mps"
+            else:
+                dev_str = "cpu"
+
+        self.device = torch.device(dev_str)
+        if self.device.type == "cuda":
+            self.classifier_logger.log_info_stream(
+                f"Using CUDA device: {torch.cuda.get_device_name(0)} "
+                f"(visible: {os.environ.get('CUDA_VISIBLE_DEVICES')})"
+            )
+            torch.backends.cudnn.benchmark = True
+        elif self.device.type == "cpu" and dev_str.startswith("cuda"):
+            self.classifier_logger.log_info_stream("CUDA not available – using CPU.")
 
         self.galaxies = self.init_dataset()
 
@@ -103,6 +121,9 @@ class gaNdalFClassifier(nn.Module):
         self.best_model = self.model
         self._terminate_requested = False
         self._already_plotted = False
+
+        self.use_amp = bool(self.cfg.get("AMP", True)) and (self.device.type == "cuda")
+        self.cuda_scaler = torch.amp.GradScaler('cuda', enabled=self.use_amp)
 
         self.load_checkpoint_if_any()
 
@@ -384,18 +405,28 @@ class gaNdalFClassifier(nn.Module):
         output_data = torch.tensor(df_train[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float32)
 
         train_dataset = TensorDataset(input_data, output_data)
-        train_loader = DataLoader(train_dataset, batch_size=self.bs, shuffle=True)
 
-        num_samples = len(df_train)
+        pin = (self.device.type == "cuda")
+        nw = max(1, os.cpu_count() // 2)
+        train_loader = DataLoader(train_dataset, batch_size=self.bs, shuffle=True,
+                                  num_workers=nw, pin_memory=pin, persistent_workers=True)
 
         for input_data, output_data in train_loader:
-            input_data = input_data.to(self.device)
-            output_data = output_data.to(self.device)
-            self.optimizer.zero_grad()
-            outputs = self.model(input_data)
-            loss = self.loss_function(outputs.squeeze(), output_data.squeeze()).mean()
-            loss.backward()
-            self.optimizer.step()
+            input_data = input_data.to(self.device, non_blocking=pin)
+            output_data = output_data.to(self.device, non_blocking=pin)
+            self.optimizer.zero_grad(set_to_none=True)
+            with torch.amp.autocast('cuda', enabled=self.use_amp):
+                outputs = self.model(input_data)
+                loss = self.loss_function(outputs.squeeze(), output_data.squeeze()).mean()
+
+            if self.use_amp:
+                self.cuda_scaler.scale(loss).backward()
+                self.cuda_scaler.step(self.optimizer)
+                self.cuda_scaler.update()
+            else:
+                loss.backward()
+                self.optimizer.step()
+
             bs_curr = output_data.size(0)
             train_loss += loss.item() * bs_curr
             seen += bs_curr
@@ -410,70 +441,59 @@ class gaNdalFClassifier(nn.Module):
 
     def validate_cf(self, epoch):
         self.model.eval()
-        val_loss = 0
-        correct = 0
-        seen = 0
+        val_loss, correct, seen = 0.0, 0, 0
 
         df_valid = self.galaxies.valid_dataset
-        num_valid_samples = len(df_valid)
-
         input_data = torch.tensor(df_valid[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
         output_data = torch.tensor(df_valid[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float32)
-
         valid_dataset = TensorDataset(input_data, output_data)
-        valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False)
+
+        pin = (self.device.type == "cuda")
+        nw = max(1, os.cpu_count() // 2)
+        valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False,
+                                  num_workers=nw, pin_memory=pin, persistent_workers=True)
 
         use_random_threshold = bool(self.cfg.get("VALID_RANDOM_THRESHOLD", False))
+        all_true, all_pred = [], []
 
-        all_true = []
-        all_pred = []
+        with torch.no_grad():
+            for input_data, output_data in valid_loader:
+                input_data = input_data.to(self.device, non_blocking=pin)
+                output_data = output_data.to(self.device, non_blocking=pin)
 
-        for input_data, output_data in valid_loader:
-            with torch.no_grad():
-                input_data = input_data.to(self.device)
-                output_data = output_data.to(self.device)
+                with torch.amp.autocast('cuda', enabled=self.use_amp):
+                    logits = self.model(input_data).squeeze()
+                    loss = self.loss_function(logits.squeeze(), output_data.squeeze()).mean()
 
-                logits = self.model(input_data.to(self.device)).squeeze()
-                loss = self.loss_function(logits.squeeze(), output_data.squeeze()).mean()
                 bs_curr = output_data.size(0)
                 val_loss += loss.item() * bs_curr
 
-                probability = torch.sigmoid(logits).cpu().numpy()
-                if use_random_threshold is True:
-                    detected = (probability > np.random.rand(len(probability))).astype(int)
-                else:
-                    detected = (probability >= 0.5).astype(int)
+                probability = torch.sigmoid(logits).float().cpu().numpy()
+                detected = (probability > np.random.rand(len(probability))).astype(int) if use_random_threshold \
+                    else (probability >= 0.5).astype(int)
 
-                true_detected = output_data.cpu().numpy().astype(int).ravel()
+                true_detected = output_data.float().cpu().numpy().astype(int).ravel()
                 correct += (detected == true_detected).sum()
                 seen += true_detected.size
 
                 all_true.append(true_detected)
                 all_pred.append(detected)
 
-            if getattr(self, "_terminate_requested", False):
-                break
+                if getattr(self, "_terminate_requested", False):
+                    break
 
         val_loss = val_loss / max(1, seen)
         avg_accuracy = correct / max(1, seen)
+        all_true = np.concatenate(all_true) if all_true else np.array([], dtype=int)
+        all_pred = np.concatenate(all_pred) if all_pred else np.array([], dtype=int)
+        f1 = f1_score(all_true, all_pred) if all_true.size > 0 else 0.0
 
-        all_true = np.concatenate(all_true) if len(all_true) > 0 else np.array([], dtype=int)
-        all_pred = np.concatenate(all_pred) if len(all_pred) > 0 else np.array([], dtype=int)
-        if all_true.size > 0:
-            f1 = f1_score(all_true, all_pred)
-            self.classifier_logger.log_info_stream(
-                f"F1 for lr={self.lr}, bs={self.bs}: {f1:.3f}"
-            )
-        else:
-            f1 = 0
-            self.classifier_logger.log_info_stream("F1: skipped (no validation samples).")
-
+        self.classifier_logger.log_info_stream(f"F1 for lr={self.lr}, bs={self.bs}: {f1:.3f}")
         self.classifier_logger.log_info_stream(f"Accuracy for lr={self.lr}, bs={self.bs}: {avg_accuracy * 100.0:.2f}%")
-
         if val_loss <= self.best_loss:
-            self.classifier_logger.log_info_stream(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f})')
+            self.classifier_logger.log_info_stream(
+                f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f})')
             self.best_loss = val_loss
-
         self.classifier_logger.log_info_stream(f'Epoch {epoch + 1} \t Validation Loss: {val_loss:.4f}')
         return val_loss, avg_accuracy, f1
 
