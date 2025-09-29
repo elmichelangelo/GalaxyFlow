@@ -22,9 +22,6 @@ import random
 import logging
 import signal
 
-torch.set_default_dtype(torch.float64)
-
-
 class gaNdalFFlow(object):
 
     def __init__(self,
@@ -111,6 +108,24 @@ class gaNdalFFlow(object):
 
         self.galaxies = self.init_dataset()
 
+        flow_dtype_str = str(self.cfg.get("FLOW_DTYPE", "float64")).lower()
+        self.dtype = torch.float32 if flow_dtype_str == "float32" else torch.float64
+
+        self.use_amp = bool(self.cfg.get("AMP_FLOW", True)) and (self.device.type == "cuda") and (
+                self.dtype == torch.float32)
+        self.autocast_dtype = (
+            torch.bfloat16 if (
+                    bool(self.cfg.get("AMP_BF16", True)) and torch.cuda.is_bf16_supported()) else torch.float16
+        )
+        self.cuda_scaler = torch.amp.GradScaler('cuda', enabled=self.use_amp)
+
+        if self.device.type == "cuda":
+            self.gandalf_logger.log_info_stream(
+                f"Using CUDA: {torch.cuda.get_device_name(0)} | AMP_FLOW={self.use_amp} | model_dtype={self.dtype} | "
+                f"autocast={'bf16' if self.autocast_dtype is torch.bfloat16 else ('fp16' if self.use_amp else '-')}"
+            )
+            torch.backends.cudnn.benchmark = True
+
         self.model, self.optimizer = self.init_network(
             num_outputs=len(cfg[f"OUTPUT_COLS"]),
             num_input=len(cfg[f"INPUT_COLS"])
@@ -124,6 +139,10 @@ class gaNdalFFlow(object):
         self.best_train_loss = np.float64('inf')
         self.best_train_epoch = 1
         self.best_model = self.model
+
+        self._terminate_requested = False
+        self._already_plotted = False
+        self._finalized = False
 
         self.load_checkpoint_if_any()
         self._install_sigterm_handler()
@@ -183,7 +202,7 @@ class gaNdalFFlow(object):
                 fnn.Reverse(num_outputs)
             ]
         model = fnn.FlowSequential(*modules)
-        model = model.to(dtype=torch.float64)
+        model = model.to(dtype=self.dtype)
         for module in model.modules():
             if isinstance(module, torch.nn.Linear):
                 torch.nn.init.orthogonal_(module.weight)
@@ -258,36 +277,56 @@ class gaNdalFFlow(object):
             self.gandalf_logger.log_info_stream("Skip SIGTERM handler: running under Ray/Tune.")
             return
 
+        self._terminate_requested = False
+
         def _handler(signum, frame):
+            ep = getattr(self, "current_epoch", 0)
             try:
-                ep = getattr(self, "current_epoch", 0)
-                self.gandalf_logger.log_info_stream("SIGTERM – saving checkpoint...")
+                self.gandalf_logger.log_info_stream("SIGTERM/SIGINT – checkpoint & graceful stop requested.")
                 self.save_checkpoint(ep)
-            finally:
-                os._exit(0)
+            except Exception as e:
+                self.gandalf_logger.log_info_stream(f"SIGTERM – checkpoint failed: {e}")
+            self._terminate_requested = True
 
         try:
             signal.signal(signal.SIGTERM, _handler)
-            self.gandalf_logger.log_info_stream("Installed SIGTERM handler.")
+            signal.signal(signal.SIGINT, _handler)
+            self.gandalf_logger.log_info_stream("Installed SIGTERM/SIGINT handler (graceful).")
         except ValueError as e:
             self.gandalf_logger.log_info_stream(f"Skip SIGTERM handler ({e}).")
 
     def run_training(self, on_epoch_end=None):
         today = datetime.now().strftime("%Y%m%d_%H%M%S")
-        epochs_no_improve = 0
         min_delta = 1e-4
+        patience = int(self.cfg.get("EARLY_STOP_PATIENCE_FLOW", self.cfg.get("EARLY_STOP_PATIENCE", 0)))
+        epochs_no_improve = 0
+
+        self._finalized = False
+
+        if self.start_epoch >= int(self.cfg["EPOCHS_FLOW"]):
+            self.gandalf_logger.log_info_stream(
+                f"No epochs to run (start_epoch={self.start_epoch} >= EPOCHS_FLOW={self.cfg['EPOCHS_FLOW']})."
+            )
+            if not self._already_plotted:
+                try:
+                    self.model.load_state_dict(self.best_model_state_dict)
+                    self.run_tests(epoch=max(self.start_epoch, 1), today=today)
+                    self._already_plotted = True
+                except Exception as e:
+                    self.gandalf_logger.log_info_stream(f"run_tests failed: {e}")
+            self._finalize_and_log(ep_for_plots=max(self.start_epoch, 1), reason="no_epochs")
+            return self.best_validation_loss
 
         last_epoch = None
-
         for epoch in range(self.start_epoch, self.cfg["EPOCHS_FLOW"]):
             self.current_epoch = epoch
             last_epoch = epoch
 
-            self.gandalf_logger.log_info_stream(f"Epoch: {epoch+1}/{self.cfg['EPOCHS_FLOW']}")
-            self.gandalf_logger.log_info_stream(f"Train")
+            self.gandalf_logger.log_info_stream(f"Epoch: {epoch + 1}/{self.cfg['EPOCHS_FLOW']}")
+            self.gandalf_logger.log_info_stream("Train")
             train_loss_epoch = self.train(epoch=epoch)
 
-            self.gandalf_logger.log_info_stream(f"Validation")
+            self.gandalf_logger.log_info_stream("Validation")
             validation_loss = self.validate(epoch=epoch)
 
             self.lst_epochs.append(epoch)
@@ -296,7 +335,7 @@ class gaNdalFFlow(object):
 
             if validation_loss < self.best_validation_loss - min_delta:
                 self.best_validation_epoch = epoch
-                self.best_validation_loss = validation_loss
+                self.best_validation_loss = float(validation_loss)
                 self.best_model_state_dict = copy.deepcopy(self.model.state_dict())
                 epochs_no_improve = 0
             else:
@@ -304,7 +343,7 @@ class gaNdalFFlow(object):
 
             if train_loss_epoch < self.best_train_loss - min_delta:
                 self.best_train_epoch = epoch
-                self.best_train_loss = train_loss_epoch
+                self.best_train_loss = float(train_loss_epoch)
 
             if on_epoch_end is not None:
                 try:
@@ -318,29 +357,43 @@ class gaNdalFFlow(object):
 
             self.save_checkpoint(epoch)
 
-        if last_epoch is not None:
-            self.run_tests(epoch=last_epoch + 1, today=today)
-        else:
-            self.gandalf_logger.log_info_stream(
-                "Kein Training durchgeführt (start_epoch >= EPOCHS_FLOW) – skip plots.")
-        self.gandalf_logger.log_info_stream(f"End Training")
-        self.gandalf_logger.log_info_stream(f"Best validation epoch: {self.best_validation_epoch + 1}\t"
-                                               f"best validation loss: {self.best_validation_loss}\t"
-                                               f"learning rate: {self.lr}\t"
-                                               f"num_hidden: {self.nh}\t"
-                                               f"num_blocks: {self.nb}\t"
-                                               f"num_layers: {self.nl}\t"
-                                               f"batch_size: {self.bs}"
-                                               )
+            term_flag = bool(getattr(self, "_terminate_requested", False))
+            early_flag = bool(patience and epochs_no_improve >= patience)
+            last_flag = bool((epoch + 1) >= int(self.cfg["EPOCHS_FLOW"]))
+            should_finish_now = term_flag or early_flag or last_flag
 
-        if self.cfg['SAVE_NN_FLOW'] is True:
-            torch.save(
-                self.best_model_state_dict,
-                f"{self.cfg['PATH_SAVE_NN']}/best_model_state_e_{self.best_validation_epoch + 1}_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE']}.pt"
-            )
-            torch.save(
-                self.model.state_dict(),
-                f"{self.cfg['PATH_SAVE_NN']}/last_model_state_e_{self.cfg['EPOCHS_FLOW']}_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE']}.pt"
+            if should_finish_now:
+                reason = "sigterm" if term_flag else ("early_stop" if early_flag else "last_epoch")
+                last_state_dict = copy.deepcopy(self.model.state_dict())
+
+                if not self._already_plotted:
+                    try:
+                        self.gandalf_logger.log_info_stream(
+                            f"Trigger run_tests at epoch {epoch + 1} (reason={reason})."
+                        )
+                        self.model.load_state_dict(self.best_model_state_dict)
+                        self.run_tests(epoch=epoch + 1, today=today)
+                        self._already_plotted = True
+                    except Exception as e:
+                        self.gandalf_logger.log_info_stream(f"run_tests failed (in-loop): {e}")
+
+                self._finalize_and_log(ep_for_plots=epoch + 1, reason=reason, last_state_dict=last_state_dict)
+                break
+
+        if not self._finalized:
+            try:
+                if not self._already_plotted:
+                    self.model.load_state_dict(self.best_model_state_dict)
+                    ep_for_plots = (last_epoch + 1) if last_epoch is not None else max(self.start_epoch, 1)
+                    self.gandalf_logger.log_info_stream(f"Fallback run_tests after loop at epoch {ep_for_plots}.")
+                    self.run_tests(epoch=ep_for_plots, today=today)
+                    self._already_plotted = True
+            except Exception as e:
+                self.gandalf_logger.log_info_stream(f"run_tests (post-loop) failed: {e}")
+
+            self._finalize_and_log(
+                ep_for_plots=(last_epoch + 1) if last_epoch is not None else max(self.start_epoch, 1),
+                reason="post_loop"
             )
 
         return self.best_validation_loss
@@ -360,8 +413,8 @@ class gaNdalFFlow(object):
             df_train[self.cfg["INPUT_COLS"]] = df_train[self.cfg["INPUT_COLS"]].astype(np.float64)
             df_train[self.cfg["OUTPUT_COLS"]] = df_train[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
-        input_data = torch.tensor(df_train[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
-        output_data = torch.tensor(df_train[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
+        input_data = torch.tensor(df_train[self.cfg["INPUT_COLS"]].values, dtype=self.dtype)
+        output_data = torch.tensor(df_train[self.cfg["OUTPUT_COLS"]].values, dtype=self.dtype)
 
         train_dataset = TensorDataset(input_data, output_data)
         train_loader = DataLoader(train_dataset, batch_size=self.bs, shuffle=True)
@@ -370,17 +423,29 @@ class gaNdalFFlow(object):
             input_data = input_data.to(self.device)
             output_data = output_data.to(self.device)
 
-            self.optimizer.zero_grad()
-            loss = -self.model.log_probs(output_data, input_data).mean()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
-            self.optimizer.step()
+            self.optimizer.zero_grad(set_to_none=True)
+            with torch.amp.autocast('cuda', dtype=self.autocast_dtype, enabled=self.use_amp):
+                loss = -self.model.log_probs(output_data, input_data).mean()
+
+            if self.use_amp:
+                self.cuda_scaler.scale(loss).backward()
+                self.cuda_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
+                self.cuda_scaler.step(self.optimizer)
+                self.cuda_scaler.update()
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1, error_if_nonfinite=False)
+                self.optimizer.step()
 
             bs_curr = output_data.size(0)
             total_samples += bs_curr
             train_loss += loss.item() * bs_curr
-            self.lst_train_loss_per_batch.append(train_loss / total_samples)
+            self.lst_train_loss_per_batch.append(train_loss / max(1, total_samples))
             self.global_step += 1
+
+            if getattr(self, "_terminate_requested", False):
+                break
 
         train_loss = train_loss / len(self.galaxies.train_dataset)
         self.gandalf_logger.log_info_stream(f"Training,\t"
@@ -399,11 +464,11 @@ class gaNdalFFlow(object):
         with torch.no_grad():
             y = torch.tensor(
                 self.galaxies.train_dataset[self.cfg["OUTPUT_COLS"]].values,
-                dtype=torch.float64, device=self.device
+                dtype=self.dtype, device=self.device
             )
             x = torch.tensor(
                 df_train[self.cfg["INPUT_COLS"]].values,
-                dtype=torch.float64, device=self.device
+                dtype=self.dtype, device=self.device
             )
             self.model(y, cond_inputs=x)
         for module in self.model.modules():
@@ -424,8 +489,8 @@ class gaNdalFFlow(object):
             df_valid[self.cfg["INPUT_COLS"]] = df_valid[self.cfg["INPUT_COLS"]].astype(np.float64)
             df_valid[self.cfg["OUTPUT_COLS"]] = df_valid[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
-        input_data = torch.tensor(df_valid[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
-        output_data = torch.tensor(df_valid[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
+        input_data = torch.tensor(df_valid[self.cfg["INPUT_COLS"]].values, dtype=self.dtype)
+        output_data = torch.tensor(df_valid[self.cfg["OUTPUT_COLS"]].values, dtype=self.dtype)
 
         valid_dataset = TensorDataset(input_data, output_data)
         valid_loader = DataLoader(valid_dataset, batch_size=self.bs, shuffle=False)
@@ -435,12 +500,17 @@ class gaNdalFFlow(object):
             output_data = output_data.to(self.device)
 
             with torch.no_grad():
-                loss = -self.model.log_probs(output_data, input_data).mean()
+                with torch.amp.autocast('cuda', dtype=self.autocast_dtype, enabled=self.use_amp):
+                    loss = -self.model.log_probs(output_data, input_data).mean()
 
                 bs_curr = output_data.size(0)
                 val_loss += loss.item() * bs_curr
+
             total_samples += bs_curr
             self.lst_valid_loss_per_batch.append(val_loss / max(1, total_samples))
+
+            if getattr(self, "_terminate_requested", False):
+                break
 
         val_loss = val_loss / len(self.galaxies.valid_dataset)
         self.gandalf_logger.log_info_stream(f"Validation,\t"
@@ -465,24 +535,16 @@ class gaNdalFFlow(object):
             df_balrog[self.cfg["INPUT_COLS"]] = df_balrog[self.cfg["INPUT_COLS"]].astype(np.float64)
             df_balrog[self.cfg["OUTPUT_COLS"]] = df_balrog[self.cfg["OUTPUT_COLS"]].astype(np.float64)
 
-        # for band in self.cfg["BANDS_FLOW"]:
-        #     df_balrog[f"unsheared/mag_err_{band}"] = np.log10(df_balrog[f"unsheared/mag_err_{band}"])
-        #
-        # for col in self.cfg["NF_COLUMNS_OF_INTEREST"]:
-        #     scaler = self.scalers[col]
-        #     mean = scaler.mean_[0]
-        #     scale = scaler.scale_[0]
-        #     df_balrog[col] = (df_balrog[col] - mean) / scale
-
-        input_data = torch.tensor(df_balrog[self.cfg["INPUT_COLS"]].values, dtype=torch.float64)
-        output_data = torch.tensor(df_balrog[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
+        input_data = torch.tensor(df_balrog[self.cfg["INPUT_COLS"]].values, dtype=self.dtype)
+        output_data = torch.tensor(df_balrog[self.cfg["OUTPUT_COLS"]].values, dtype=self.dtype)
 
         df_gandalf = df_balrog.copy()
 
         input_data = input_data.to(self.device)
 
         with torch.no_grad():
-            arr_gandalf_output = self.model.sample(len(input_data), cond_inputs=input_data).detach()
+            with torch.amp.autocast('cuda', dtype=self.autocast_dtype, enabled=self.use_amp):
+                arr_gandalf_output = self.model.sample(len(input_data), cond_inputs=input_data).detach()
 
         output_data_np = arr_gandalf_output.cpu().numpy()
 
@@ -646,3 +708,35 @@ class gaNdalFFlow(object):
                 save_plot=self.cfg["SAVE_PLOT"],
                 save_name=f"{self.cfg[f'PATH_PLOTS_FOLDER']['HIST_W_ERROR']}/hist_plot_{epoch}.pdf"
             )
+
+    def _finalize_and_log(self, ep_for_plots: int, reason: str, last_state_dict=None):
+        if self._finalized:
+            return
+        try:
+            self.gandalf_logger.log_info_stream(f"Finalize training at epoch {ep_for_plots} (reason={reason}).")
+            self.gandalf_logger.log_info_stream("End Training")
+            self.gandalf_logger.log_info_stream(
+                f"Best validation epoch: {self.best_validation_epoch + 1}\t"
+                f"best validation loss: {self.best_validation_loss}\t"
+                f"learning rate: {self.lr}\t"
+                f"num_hidden: {self.nh}\t"
+                f"num_blocks: {self.nb}\t"
+                f"num_layers: {self.nl}\t"
+                f"batch_size: {self.bs}"
+            )
+            if self.cfg.get('SAVE_NN_FLOW', False):
+                try:
+                    torch.save(
+                        self.best_model_state_dict,
+                        f"{self.cfg['PATH_SAVE_NN']}/best_model_state_e_{self.best_validation_epoch + 1}"
+                        f"_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE']}.pt"
+                    )
+                    torch.save(
+                        (last_state_dict if last_state_dict is not None else self.model.state_dict()),
+                        f"{self.cfg['PATH_SAVE_NN']}/last_model_state_e_{self.cfg['EPOCHS_FLOW']}"
+                        f"_lr_{self.lr}_bs_{self.bs}_run_{self.cfg['RUN_DATE']}.pt"
+                    )
+                except Exception as e:
+                    self.gandalf_logger.log_info_stream(f"Saving models failed: {e}")
+        finally:
+            self._finalized = True
