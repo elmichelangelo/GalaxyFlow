@@ -570,10 +570,10 @@ class gaNdalFFlow(object):
 
 
         df_output_true = pd.DataFrame(arr_all_true, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
-        df_output_true = df_output_true[self.cfg["NF_COLUMNS_OF_INTEREST"]]
+        df_output_true = df_output_true[self.cfg["COLUMNS_OF_INTEREST"]]
 
         df_output_gandalf = pd.DataFrame(arr_all, columns=list(self.cfg["INPUT_COLS"]) + list(self.cfg["OUTPUT_COLS"]))
-        df_output_gandalf = df_output_gandalf[self.cfg["NF_COLUMNS_OF_INTEREST"]]
+        df_output_gandalf = df_output_gandalf[self.cfg["COLUMNS_OF_INTEREST"]]
 
         df_output_true = self.galaxies.inverse_scale_data(df_output_true)
         df_output_gandalf = self.galaxies.inverse_scale_data(df_output_gandalf)
