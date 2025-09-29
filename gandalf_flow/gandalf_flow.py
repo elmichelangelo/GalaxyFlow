@@ -554,9 +554,11 @@ class gaNdalFFlow(object):
         df_gandalf = df_balrog.copy()
 
         input_data = input_data.to(self.device)
-
+        dev_type = "cuda" if self.device.type == "cuda" else ("mps" if self.device.type == "mps" else "cpu")
         with torch.no_grad():
-            with torch.amp.autocast('cuda', dtype=self.autocast_dtype, enabled=self.use_amp):
+            with torch.amp.autocast(device_type=dev_type,
+                                    dtype=(self.autocast_dtype if dev_type == "cuda" else None),
+                                    enabled=(self.use_amp if dev_type == "cuda" else False)):
                 arr_gandalf_output = self.model.sample(len(input_data), cond_inputs=input_data).detach()
 
         output_data_np = arr_gandalf_output.cpu().numpy()
