@@ -3281,7 +3281,7 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, s
     plt.legend()
     if cfg["SAVE_PLOT"] is True:
         plt.savefig(savename, bbox_inches='tight', dpi=300)
-    elif cfg["SHOW_PLOT"] is True:
+    if cfg["SHOW_PLOT"] is True:
         plt.show()
     # img_tensor = plot_to_tensor()
     plt.clf()
