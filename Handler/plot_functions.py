@@ -804,23 +804,16 @@ def plot_classification_results(data_frame, cols, show_plot, save_plot, save_nam
     plt.close(fig_classf)
 
 
-def plot_confusion_matrix(data_frame, show_plot, save_plot, save_name, title='Confusion matrix'):
+def plot_confusion_matrix(df_gandalf, df_balrog, show_plot, save_plot, save_name, title='Confusion matrix'):
     """"""
     matrix = confusion_matrix(
-        data_frame['detected_true'].ravel(),
-        data_frame['true_detected'].ravel()
+        df_gandalf['detected'].ravel(),
+        df_balrog['detected'].ravel()
     )
     df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
 
-    matrix_calibrated = confusion_matrix(
-        data_frame['detected_true'].ravel(),
-        data_frame['detected_calibrated'].ravel()
-    )
-    df_cm_cali = pd.DataFrame(matrix_calibrated, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
-
-    fig_matrix, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 8))
+    fig_matrix, ax1 = plt.subplots(1, 1, figsize=(10, 8))
     sns.heatmap(df_cm, annot=True, fmt="g", ax=ax1)
-    sns.heatmap(df_cm_cali, annot=True, fmt="g", ax=ax2)
     plt.title(title)
     if show_plot is True:
         plt.show()

@@ -16,62 +16,82 @@ import os
 
 
 def load_config_and_parser(system_path):
+    now = datetime.now()
     if get_os() == "Mac":
         print("load MAC config-file")
-        config_file_name = "MAC_run_classifier.cfg"
+        config_file_name_classifier = "MAC_run_classifier.cfg"
+        config_file_name_flow = "MAC_run_flow.cfg"
     elif get_os() == "Linux":
         print("load LMU config-file")
-        config_file_name = "LMU_run_classifier.cfg"
+        config_file_name_classifier = "LMU_run_classifier.cfg"
+        config_file_name_flow = "LMU_run_flow.cfg"
     else:
         print("Undefined operating system")
         sys.exit()
 
-    parser = argparse.ArgumentParser(description='Start gaNdalF')
-    parser.add_argument(
+    parser_classifier = argparse.ArgumentParser(description='Start gaNdalF')
+    parser_classifier.add_argument(
         '--config_filename',
         "-cf",
         type=str,
         nargs=1,
         required=False,
-        default=config_file_name,
+        default=config_file_name_classifier,
         help='Name of config file. If not given default.cfg will be used'
     )
-    args = parser.parse_args()
+    args_classifier = parser_classifier.parse_args()
+    if isinstance(args_classifier.config_filename, list):
+        args_classifier.config_filename = args_classifier.config_filename[0]
+    with open(f"{system_path}/conf/{args_classifier.config_filename}", 'r') as fp:
+        print(f"open {f'{system_path}/conf/{args_classifier.config_filename}'}")
+        config_classifier = yaml.safe_load(fp)
+    config_classifier['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
 
-    if isinstance(args.config_filename, list):
-        args.config_filename = args.config_filename[0]
+    parser_flow = argparse.ArgumentParser(description='Start gaNdalF')
+    parser_flow.add_argument(
+        '--config_filename',
+        "-cf",
+        type=str,
+        nargs=1,
+        required=False,
+        default=config_file_name_flow,
+        help='Name of config file. If not given default.cfg will be used'
+    )
+    args_flow = parser_flow.parse_args()
+    if isinstance(args_flow.config_filename, list):
+        args_flow.config_filename = args_flow.config_filename[0]
+    with open(f"{system_path}/conf/{args_flow.config_filename}", 'r') as fp:
+        print(f"open {f'{system_path}/conf/{args_flow.config_filename}'}")
+        config_flow = yaml.safe_load(fp)
+    config_flow['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
 
-    path_config_file = f"{system_path}/conf/{args.config_filename}"
-    with open(path_config_file, 'r') as fp:
-        print(f"open {path_config_file}")
-        config = yaml.safe_load(fp)
-
-    now = datetime.now()
-    config['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-    return config, path_config_file
+    return config_classifier, config_flow
 
 
-def main(cfg, logger):
-    classifier_model = gaNdalF(logger, cfg)
-    df_gandalf, df_balrog = classifier_model.run_flow()
+def main(classifier_cfg, flow_cfg, logger):
+    classifier_model = gaNdalF(logger, classifier_cfg=classifier_cfg, flow_cfg=flow_cfg)
 
-    cfg["PATH_PLOTS"] = f'{cfg["PATH_PLOTS"]}/{cfg["RUN_DATE"]}_CLASSIFIER_PLOTS'
+    df_gandalf, df_balrog = classifier_model.run_classifier()
+
+    classifier_cfg["PATH_PLOTS"] = f'{classifier_cfg["PATH_PLOTS"]}/{classifier_cfg["RUN_DATE"]}_CLASSIFIER_PLOTS'
 
     plot_classifier(
-        cfg=cfg,
+        cfg=classifier_cfg,
         df_gandalf=df_gandalf,
+        df_balrog=df_balrog,
     )
 
 
-def plot_classifier(cfg, df_gandalf):
+def plot_classifier(cfg, df_gandalf, df_balrog):
     if cfg["SAVE_PLOT"] is True:
         os.makedirs(cfg["PATH_PLOTS"], exist_ok=True)
 
     plot_confusion_matrix(
-        data_frame=df_gandalf,
+        df_gandalf=df_gandalf,
+        df_balrog=df_balrog,
         show_plot=cfg['SHOW_PLOT'],
         save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS_FOLDER'][f'CONFUSION_MATRIX']}/confusion_matrix_epoch.png",
+        save_name=f"{cfg['PATH_PLOTS']}/confusion_matrix.png",
         title=f"Confusion Matrix"
     )
 
@@ -80,25 +100,25 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
     sys.path.append(os.path.dirname(__file__))
-    cfg, path_cfg_file = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
+    classifier_cfg, flow_cfg = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
 
     log_lvl = logging.INFO
-    if cfg["LOGGING_LEVEL"] == "DEBUG":
+    if classifier_cfg["LOGGING_LEVEL"] == "DEBUG":
         log_lvl = logging.DEBUG
-    elif cfg["LOGGING_LEVEL"] == "ERROR":
+    elif classifier_cfg["LOGGING_LEVEL"] == "ERROR":
         log_lvl = logging.ERROR
 
     run_flow_logger = LoggerHandler(
         logger_dict={"logger_name": "train flow logger",
-                     "info_logger": cfg['INFO_LOGGER'],
-                     "error_logger": cfg['ERROR_LOGGER'],
-                     "debug_logger": cfg['DEBUG_LOGGER'],
-                     "stream_logger": cfg['STREAM_LOGGER'],
+                     "info_logger": classifier_cfg['INFO_LOGGER'],
+                     "error_logger": classifier_cfg['ERROR_LOGGER'],
+                     "debug_logger": classifier_cfg['DEBUG_LOGGER'],
+                     "stream_logger": classifier_cfg['STREAM_LOGGER'],
                      "stream_logging_level": log_lvl},
-        log_folder_path=f"{cfg['PATH_OUTPUT']}/"
+        log_folder_path=f"{classifier_cfg['PATH_OUTPUT']}/"
     )
 
-    main(cfg=cfg, logger=run_flow_logger)
+    main(classifier_cfg=classifier_cfg, flow_cfg=flow_cfg, logger=run_flow_logger)
     exit()
     model, _ = init_network(
         num_outputs=11,

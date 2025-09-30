@@ -88,17 +88,25 @@ class GalaxyDataset(Dataset):
         sample = self.test_dataset[idx]
         return sample
 
-    def apply_log10(self):
-        for col in self.cfg["LOG10_COLS"]:
-            if self.cfg["TRAINING"] is True:
+    def apply_log10(self, data_frame=None):
+        if data_frame is not None:
+            self.run_dataset = data_frame
+
+        if self.cfg["TRAINING"] is True:
+            for col in self.cfg["LOG10_COLS"]:
                 self.train_dataset[col] = np.log10(self.train_dataset[col])
                 self.valid_dataset[col] = np.log10(self.valid_dataset[col])
                 self.test_dataset[col] = np.log10(self.test_dataset[col])
-            else:
+        else:
+            for col in self.cfg["LOG10_COLS"]:
                 self.run_dataset[col] = np.log10(self.run_dataset[col])
+            return self.run_dataset
 
-    def scale_data(self):
+    def scale_data(self, data_frame=None):
         """"""
+        if data_frame is not None:
+            self.run_dataset = data_frame
+
         if self.scalers is None:
             self.name_scaler = self.cfg[f'FILENAME_STANDARD_SCALER']
             self.scalers = joblib.load(
@@ -107,16 +115,22 @@ class GalaxyDataset(Dataset):
 
         self.dataset_logger.log_info_stream(f"Use {self.name_scaler} to scale data")
 
-        for col in self.cfg["COLUMNS_OF_INTEREST"]:
-            scaler = self.scalers[col]
-            mean = scaler.mean_[0]
-            scale = scaler.scale_[0]
-            if self.cfg["TRAINING"] is True:
+        if self.cfg["TRAINING"] is True:
+            for col in self.cfg["COLUMNS_OF_INTEREST"]:
+                scaler = self.scalers[col]
+                mean = scaler.mean_[0]
+                scale = scaler.scale_[0]
                 self.train_dataset[col] = (self.train_dataset[col] - mean) / scale
                 self.valid_dataset[col] = (self.valid_dataset[col] - mean) / scale
                 self.test_dataset[col] = (self.test_dataset[col] - mean) / scale
-            else:
+        else:
+            for col in self.cfg["COLUMNS_OF_INTEREST"]:
+                scaler = self.scalers[col]
+                mean = scaler.mean_[0]
+                scale = scaler.scale_[0]
                 self.run_dataset[col] = (self.run_dataset[col] - mean) / scale
+
+            return self.run_dataset
 
     def inverse_scale_data(self, data_frame):
         """"""

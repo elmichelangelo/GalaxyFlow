@@ -68,7 +68,7 @@ class gaNdalF(object):
                 fnn.Reverse(num_outputs)
             ]
         model = fnn.FlowSequential(*modules)
-        model = model.to(dtype=torch.float64)
+        model = model.to(dtype=torch.float32)
         for module in model.modules():
             if isinstance(module, torch.nn.Linear):
                 torch.nn.init.orthogonal_(module.weight)
@@ -122,7 +122,7 @@ class gaNdalF(object):
 
         model = nn.Sequential(*layers)
 
-        model = model.to(dtype=torch.float64)
+        model = model.to(dtype=torch.float32)
 
         for module in model.modules():
             if isinstance(module, nn.Linear):
@@ -147,29 +147,31 @@ class gaNdalF(object):
         if data_frame is not None:
             self.classifier_data = data_frame
 
+        input_data = torch.tensor(self.classifier_data[self.classifier_cfg["INPUT_COLS"]].values, dtype=torch.float32)
+        input_data = input_data.to(torch.device('cpu'))
+
         with torch.no_grad():
-            input_data = torch.tensor(data_frame[self.classifier_cfg["INPUT_COLS"]].values, dtype=torch.float32)
-            arr_classf_gandalf_output = self.classifier_data(input_data).squeeze().numpy()
+            arr_classf_gandalf_output = self.classifier_model(input_data).squeeze().numpy()
 
         arr_gandalf_detected = arr_classf_gandalf_output > np.random.rand(self.classifier_cfg['NUMBER_SAMPLES'])
         arr_gandalf_detected = arr_gandalf_detected.astype(int)
 
-        validation_accuracy = accuracy_score(data_frame[self.classifier_cfg["OUTPUT_COLS"]].values, arr_gandalf_detected)
+        validation_accuracy = accuracy_score(self.classifier_data[self.classifier_cfg["OUTPUT_COLS"]].values, arr_gandalf_detected)
 
-        df_gandalf = data_frame.copy()
+        df_gandalf = self.classifier_data.copy()
         df_gandalf.loc[:, "detected"] = arr_gandalf_detected.astype(int)
         df_gandalf.loc[:, "probability detected"] = arr_classf_gandalf_output
 
         self.gandalf_logger.log_info_stream(f"Accuracy sample: {validation_accuracy * 100.0:.2f}%")
-        return df_gandalf, data_frame
+        return df_gandalf, self.classifier_data
 
     def run_flow(self, data_frame=None):
         """"""
         if data_frame is not None:
             self.flow_data = data_frame
 
-        input_data = torch.tensor(self.flow_data[self.flow_cfg["INPUT_COLS"]].values, dtype=torch.float64)
-        output_data = torch.tensor(self.flow_data[self.flow_cfg["OUTPUT_COLS"]].values, dtype=torch.float64)
+        input_data = torch.tensor(self.flow_data[self.flow_cfg["INPUT_COLS"]].values, dtype=torch.float32)
+        output_data = torch.tensor(self.flow_data[self.flow_cfg["OUTPUT_COLS"]].values, dtype=torch.float32)
 
         input_data = input_data.to(torch.device('cpu'))
 
@@ -184,10 +186,10 @@ class gaNdalF(object):
         arr_all_gandalf = np.concatenate([input_data_np_true, output_data_np], axis=1)
 
         df_output_balrog = pd.DataFrame(arr_all_balrog, columns=list(self.flow_cfg["INPUT_COLS"]) + list(self.flow_cfg["OUTPUT_COLS"]))
-        df_output_balrog = df_output_balrog[self.flow_cfg["NF_COLUMNS_OF_INTEREST"]]
+        df_output_balrog = df_output_balrog[self.flow_cfg["COLUMNS_OF_INTEREST"]]
 
         df_output_gandalf = pd.DataFrame(arr_all_gandalf, columns=list(self.flow_cfg["INPUT_COLS"]) + list(self.flow_cfg["OUTPUT_COLS"]))
-        df_output_gandalf = df_output_gandalf[self.flow_cfg["NF_COLUMNS_OF_INTEREST"]]
+        df_output_gandalf = df_output_gandalf[self.flow_cfg["COLUMNS_OF_INTEREST"]]
 
         df_output_balrog = self.flow_galaxies.inverse_scale_data(df_output_balrog)
         df_output_gandalf = self.flow_galaxies.inverse_scale_data(df_output_gandalf)
