@@ -115,8 +115,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         # bins=100,
         range=ranges,
         color='#ff8c00',
-        smooth=.8,
-        smooth1d=.8,
+        smooth=.3,
+        smooth1d=.3,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
@@ -124,7 +124,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         hist_kwargs={'alpha': 1},
         scale_hist=True,
         quantiles=[0.16, 0.5, 0.84],
-        levels=[0.393, 0.865, 0.989],  #, 0.989
+        levels=[0.393, 0.865, 0.989],
         density=True,
         plot_datapoints=True,
         plot_density=True,
@@ -139,8 +139,8 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         # bins=100,
         range=ranges,
         color='#51a6fb',
-        smooth=.8,
-        smooth1d=.8,
+        smooth=.3,
+        smooth1d=.3,
         labels=labels,
         show_titles=True,
         title_fmt=".2f",
@@ -148,7 +148,7 @@ def plot_compare_corner(data_frame_generated, data_frame_true, columns, labels, 
         hist_kwargs={'alpha': 1},
         scale_hist=True,
         quantiles=[0.16, 0.5, 0.84],
-        levels=[0.393, 0.865, 0.989],  #, 0.989
+        levels=[0.393, 0.865, 0.989],
         density=True,
         plot_datapoints=True,
         plot_density=True,
@@ -2897,7 +2897,7 @@ def plot_balrog_histogram_with_error(
             ax=ax_hist,
             bins=bins,
             element="step",
-            stat="count",
+            stat="density",
             color=color_gandalf,
             log_scale=(False, True),
             fill=False,
@@ -2909,7 +2909,7 @@ def plot_balrog_histogram_with_error(
             ax=ax_hist,
             bins=bins,
             element="step",
-            stat="count",
+            stat="density",
             color=color_balrog,
             log_scale=(False, True),
             fill=False,
@@ -3257,8 +3257,8 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, s
         #     plot_log.log_info_stream(f"Skip plotting {k}: invalid range in balrog ({x2_clip.min()}..{x2_clip.max()})")
         #     continue
 
-        sns.histplot(x=df_gandalf[k], bins=100, ax=axes[i], label="gandalf")
-        sns.histplot(x=df_balrog[k], bins=100, ax=axes[i], label="balrog")
+        sns.histplot(x=df_gandalf[k], bins=100, ax=axes[i], label="gandalf", stat="density")
+        sns.histplot(x=df_balrog[k], bins=100, ax=axes[i], label="balrog", stat="density")
         axes[i].set_yscale("log")
         if k in ["unsheared/mag_err_r", "unsheared/mag_err_i", "unsheared/mag_err_z"]:
             axes[i].set_title(f"log10({k})")
