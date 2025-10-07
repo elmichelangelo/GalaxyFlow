@@ -7,7 +7,7 @@
 #SBATCH -o /dss/dsshome1/04/di97tac/logs/cf_test_training_%A.log
 #SBATCH -e /dss/dsshome1/04/di97tac/logs/cf_test_training_err_%A.log
 #SBATCH --qos=mcml
-#SBATCH --partition=mcml-hgx-h100-94x4
+#SBATCH --partition=mcml-dgx-a100-40x8
 #SBATCH --cpus-per-task=4
 #SBATCH --gpus-per-task=1
 
