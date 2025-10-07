@@ -697,7 +697,7 @@ class gaNdalFClassifier(nn.Module):
         # Proper scoring + Kalibrationsmaße (auf unkalibrierten probs)
         brier = float(np.mean((probs - y_true) ** 2)) if y_true.size else 1.0
         nll = neg_log_loss(probs, y_true) if y_true.size else 10.0
-        ece20 = expected_calibration_error(probs, y_true, n_bins=20) if y_true.size else 1.0
+        ece20 = expected_calibration_error(probs, y_true, n_bins=int(self.cfg.get("ECE_N_BINS", 5))) if y_true.size else 1.0
 
         mag_val = df[self.mag_col].values.astype(float)
         edges_for_rate = quantile_edges(mag_val, max(5, int(self.cfg.get("VAL_RATE_N_BINS", 5))))
@@ -793,8 +793,8 @@ class gaNdalFClassifier(nn.Module):
         brier_cal = brier_score_loss(y_true, p_cal)
         nll_raw = neg_log_loss(p_raw, y_true)
         nll_cal = neg_log_loss(p_cal, y_true)
-        ece_raw = expected_calibration_error(p_raw, y_true, 20)
-        ece_cal = expected_calibration_error(p_cal, y_true, 20)
+        ece_raw = expected_calibration_error(p_raw, y_true, int(self.cfg.get("ECE_N_BINS", 5)))
+        ece_cal = expected_calibration_error(p_cal, y_true, int(self.cfg.get("ECE_N_BINS", 5)))
 
         edges_for_rate = quantile_edges(mag_te, max(5, int(self.cfg.get("VAL_RATE_N_BINS", 5))))
         mre_raw = mag_rate_mae(p_raw, y_true, mag_te, edges_for_rate)
