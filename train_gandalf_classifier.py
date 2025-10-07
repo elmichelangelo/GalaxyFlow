@@ -348,7 +348,7 @@ if __name__ == '__main__':
             std=5e-3
         )
 
-        ray.init(local_mode=cfg["DEBUG_MODE"], num_cpus=cfg["RESOURCE_CPU"])
+        ray.init(local_mode=cfg["DEBUG_MODE"], num_cpus=cfg["RESOURCE_CPU"], include_dashboard=cfg["INCLUDE_DASHBOARD"])
         analysis = tune.run(
             partial(train_tune_classifier, base_config=GLOBAL_BASE_CONFIG),
             config=search_space,

@@ -48,7 +48,8 @@ from Handler import (
     LoggerHandler,
     plot_reliability_curve,
     plot_reliability_singlepanel,
-    plot_calibration_by_mag_singlepanel
+    plot_calibration_by_mag_singlepanel,
+    plot_rate_ratio_by_mag_singlepanel
 )
 from gandalf_galaxie_dataset import DESGalaxies
 
@@ -937,6 +938,19 @@ class gaNdalFClassifier(nn.Module):
                 labels=("calibrated", "raw"),
                 n_bins=15,
                 title=f"Reliability, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+            )
+
+            plot_rate_ratio_by_mag_singlepanel(
+                mag=mag_te,
+                probs_raw=p_raw,
+                probs_cal=p_cal,
+                y_true=y_true,
+                edges="quantile",
+                n_bins=max(7, int(self.cfg.get("REWEIGHT_N_BINS", 5))),
+                title=f"Rate ratio by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                show_plot=self.cfg['SHOW_PLOT'],
+                save_plot=self.cfg['SAVE_PLOT'],
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag.pdf"
             )
 
         self.classifier_logger.log_info_stream("run_tests: done")
