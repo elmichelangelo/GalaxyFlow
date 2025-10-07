@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=cf_training
+#SBATCH --job-name=cf_test_training
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=128G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
-#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_classifier_training/cf_training_%A.log
-#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_classifier_training/cf_training_err_%A.log
+#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF_classifier_training/cf_test_training_%A.log
+#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF_classifier_training/cf_test_training_err_%A.log
 #SBATCH --partition=inter
 #SBATCH --gres=gpu:a40:0
 #SBATCH --cpus-per-task=12
