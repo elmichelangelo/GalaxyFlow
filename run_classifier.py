@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from Handler import fnn, get_os, unsheared_shear_cuts, unsheared_mag_cut, LoggerHandler, plot_confusion_matrix
+from Handler import fnn, get_os, unsheared_shear_cuts, unsheared_mag_cut, LoggerHandler, plot_confusion_matrix, plot_fp_fn_features
 from gandalf import gaNdalF
 import argparse
 import logging
@@ -68,6 +68,28 @@ def load_config_and_parser(system_path):
     return config_classifier, config_flow
 
 
+def add_predictions(df, y_true_col="detected", y_proba_col="y_score", threshold=0.5):
+    """"""
+    if y_proba_col not in df.columns:
+        raise ValueError(f"{y_proba_col} missing in DataFrame. Create one.")
+    y_pred = (df[y_proba_col] >= threshold).astype(int)
+    df = df.copy()
+    df["y_pred"] = y_pred
+
+    y_true = df[y_true_col].astype(int)
+    cond_tp = (y_true == 1) & (y_pred == 1)
+    cond_tn = (y_true == 0) & (y_pred == 0)
+    cond_fp = (y_true == 0) & (y_pred == 1)
+    cond_fn = (y_true == 1) & (y_pred == 0)
+
+    df["error_type"] = np.select(
+        [cond_tp, cond_tn, cond_fp, cond_fn],
+        ["TP", "TN", "FP", "FN"],
+        default="UNK"
+    )
+    return df
+
+
 def main(classifier_cfg, flow_cfg, logger):
     classifier_model = gaNdalF(logger, classifier_cfg=classifier_cfg, flow_cfg=flow_cfg)
 
@@ -86,6 +108,8 @@ def plot_classifier(cfg, df_gandalf, df_balrog):
     if cfg["SAVE_PLOT"] is True:
         os.makedirs(cfg["PATH_PLOTS"], exist_ok=True)
 
+    df_gandalf = add_predictions(df_gandalf, y_true_col="detected", y_proba_col="probability detected", threshold=cfg.get("THRESHOLD", 0.5))
+
     plot_confusion_matrix(
         df_gandalf=df_gandalf,
         df_balrog=df_balrog,
@@ -93,6 +117,26 @@ def plot_classifier(cfg, df_gandalf, df_balrog):
         save_plot=cfg['SAVE_PLOT'],
         save_name=f"{cfg['PATH_PLOTS']}/confusion_matrix.png",
         title=f"Confusion Matrix"
+    )
+
+    plot_fp_fn_features(
+        cfg=cfg,
+        plot_log=run_flow_logger,
+        df=df_gandalf,
+        feature_cols=cfg["INPUT_COLS"],
+        title_prefix="FP vs. FN – Gandalf",
+        savename=f"{cfg['PATH_PLOTS']}/fp_fn_df_cols_gandalf.png",
+        y_proba_col="probability detected"
+    )
+
+    plot_fp_fn_features(
+        cfg=cfg,
+        plot_log=run_flow_logger,
+        df=df_gandalf,
+        feature_cols=cfg["PLOT_COLS"],
+        title_prefix="FP vs. FN – Gandalf",
+        savename=f"{cfg['PATH_PLOTS']}/fp_fn_wf_cols_gandalf.png",
+        y_proba_col="probability detected"
     )
 
 

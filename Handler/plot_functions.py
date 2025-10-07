@@ -18,6 +18,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_c
 from sklearn.calibration import calibration_curve
 from scipy.stats import binned_statistic, median_abs_deviation
 from io import BytesIO
+from matplotlib.table import Table
 
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
@@ -804,23 +805,140 @@ def plot_classification_results(data_frame, cols, show_plot, save_plot, save_nam
     plt.close(fig_classf)
 
 
-def plot_confusion_matrix(df_gandalf, df_balrog, show_plot, save_plot, save_name, title='Confusion matrix'):
-    """"""
-    matrix = confusion_matrix(
-        df_gandalf['detected'].ravel(),
-        df_balrog['detected'].ravel()
-    )
-    df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
+# def plot_confusion_matrix(df_gandalf, df_balrog, show_plot, save_plot, save_name, check_raw=False, title='Confusion matrix'):
+#     """"""
+#     if check_raw is True:
+#         matrix = confusion_matrix(
+#             df_gandalf['detected raw'].ravel(),
+#             df_balrog['detected'].ravel()
+#         )
+#     else:
+#         matrix = confusion_matrix(
+#             df_gandalf['detected'].ravel(),
+#             df_balrog['detected'].ravel()
+#         )
+#     df_cm = pd.DataFrame(matrix, columns=["Predicted 0", "Predicted 1"], index=["Actual 0", "Actual 1"])
+#
+#     fig_matrix, ax1 = plt.subplots(1, 1, figsize=(10, 8))
+#     sns.heatmap(df_cm, annot=True, fmt="g", ax=ax1)
+#     plt.title(title)
+#     if show_plot is True:
+#         plt.show()
+#     if save_plot is True:
+#         plt.savefig(save_name, dpi=200)
+#     plt.clf()
+#     plt.close(fig_matrix)
 
-    fig_matrix, ax1 = plt.subplots(1, 1, figsize=(10, 8))
-    sns.heatmap(df_cm, annot=True, fmt="g", ax=ax1)
-    plt.title(title)
-    if show_plot is True:
+
+def plot_confusion_matrix(
+    df_gandalf,
+    df_balrog,
+    show_plot: bool,
+    save_plot: bool,
+    save_name: str,
+    check_raw: bool = False,
+    title: str = "Confusion Matrix",
+):
+    # ---------- Daten ----------
+    y_true = df_balrog["detected"].to_numpy().astype(int).ravel()
+    y_pred = (df_gandalf["detected raw"] if check_raw else df_gandalf["detected"]).to_numpy().astype(int).ravel()
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+
+    # Kennzahlen
+    eps = 1e-12
+    recall      = tp / (tp + fn + eps)
+    miss_rate   = 1.0 - recall
+    specificity = tn / (tn + fp + eps)
+    fallout     = 1.0 - specificity
+
+    # Summen
+    pred_pos = tp + fp
+    pred_neg = tn + fn
+    act_pos  = tp + fn
+    act_neg  = tn + fp
+    total    = tp + fp + fn + tn
+
+    # ---------- Figure/Axes ----------
+    fig, ax = plt.subplots(figsize=(11, 8))
+    ax.set_axis_off()
+
+    # Farben
+    c_core = "#0b7285"   # Petrol (TP/TN)
+    c_mid  = "#f1f3f5"   # FP/FN
+    c_sum  = "#dee2e6"   # Summenfelder
+    c_grid = "#cfd4da"
+
+    # Tabelle als 3x3 Rechteckgitter (2x2 Kern + Summen)
+    L, B, W, H = 0.12, 0.18, 0.76, 0.64   # bbox in Axes-Koordinaten
+    nrows = ncols = 3
+    cw, ch = W / ncols, H / nrows         # Zellbreite/-höhe
+
+    def cell_xywh(r, c):
+        """r=0 ist oberste Zeile (Predicted true), c=0 linke Spalte (Actual true)."""
+        x = L + c * cw
+        y = B + (nrows - 1 - r) * ch   # von oben nach unten
+        return x, y, cw, ch
+
+    def draw_cell(r, c, label, value=None, facecolor="#ffffff", text_color="black", bold=True):
+        x, y, w, h = cell_xywh(r, c)
+        ax.add_patch(mpatches.Rectangle((x, y), w, h, facecolor=facecolor, edgecolor=c_grid, linewidth=1.0, transform=ax.transAxes))
+        # Haupttext (zentriert)
+        txt = label if value is None else f"{label}\n{int(value)}"
+        ax.text(x + w/2, y + h/2, txt,
+                ha="center", va="center",
+                fontsize=12, color=text_color,
+                fontweight=("bold" if bold else "normal"),
+                transform=ax.transAxes)
+
+    def annotate_metric(r, c, text, color, italic=False):
+        # rechts-unten innerhalb der Zelle
+        x, y, w, h = cell_xywh(r, c)
+        ax.text(x + w - 0.01, y + 0.02, text,
+                ha="right", va="bottom",
+                fontsize=10, color=color,
+                style=("italic" if italic else "normal"),
+                transform=ax.transAxes)
+
+    # ---------- Zellen (Zeilen=Predicted, Spalten=Actual) ----------
+    # Row 0: Predicted true
+    draw_cell(0, 0, "True positive", tp, facecolor=c_core, text_color="white")
+    draw_cell(0, 1, "False positive", fp, facecolor=c_mid,  text_color="black")
+    draw_cell(0, 2, f"{pred_pos}", facecolor=c_sum)
+
+    # Row 1: Predicted false
+    draw_cell(1, 0, "False negative", fn, facecolor=c_mid,  text_color="black")
+    draw_cell(1, 1, "True negative",  tn, facecolor=c_core, text_color="white")
+    draw_cell(1, 2, f"{pred_neg}", facecolor=c_sum)
+
+    # Row 2: Summenzeile (Actual totals)
+    draw_cell(2, 0, f"{act_pos}", facecolor=c_sum)
+    draw_cell(2, 1, f"{act_neg}", facecolor=c_sum)
+    draw_cell(2, 2, "Total\n{}".format(total), facecolor=c_sum)
+
+    # ---------- Kennzahlen in die Kernzellen ----------
+    annotate_metric(0, 0, f"{recall*100:.2f}%  Recall", "white")
+    annotate_metric(1, 1, f"{specificity*100:.2f}%  Specificity", "white")
+    annotate_metric(0, 1, f"{fallout*100:.2f}%  Fallout", "#0b7285", italic=True)
+    annotate_metric(1, 0, f"{miss_rate*100:.2f}%  Miss rate", "#0b7285", italic=True)
+
+    # ---------- Achsenbeschriftungen außerhalb der Tabelle ----------
+    # Spaltenköpfe (nur über den 2 Kernspalten)
+    ax.text(L + cw*0.5, B + H + 0.04, "Actual true\n(yes)",  ha="center", va="bottom", fontsize=11, transform=ax.transAxes)
+    ax.text(L + cw*1.5, B + H + 0.04, "Actual false\n(no)", ha="center", va="bottom", fontsize=11, transform=ax.transAxes)
+
+    # Zeilenlabels links (für die 2 Kernzeilen)
+    ax.text(L - 0.06, B + ch*2.5, "Predicted true\n(yes)",  ha="left", va="center", fontsize=11, rotation=90, transform=ax.transAxes)
+    ax.text(L - 0.06, B + ch*1.5, "Predicted false\n(no)", ha="left", va="center", fontsize=11, rotation=90, transform=ax.transAxes)
+
+    # ---------- Titel & Untertitel ----------
+    ax.text(L, B + H + 0.12, title, fontsize=12, fontweight="bold", ha="left", transform=ax.transAxes)
+
+    # ---------- Render ----------
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
         plt.show()
-    if save_plot is True:
-        plt.savefig(save_name, dpi=200)
-    plt.clf()
-    plt.close(fig_matrix)
+    plt.close(fig)
 
 
 def plot_calibration_curve_gandalf(true_detected, probability, n_bins=10, show_plot=True, save_plot=False,
@@ -966,6 +1084,26 @@ def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precis
     fig_recal_curve = plt.figure()
     plt.plot(recall, precision, color='darkorange', lw=2)
     plt.plot(recall_calib, precision_calib, color='darkgreen', lw=2)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title(title)
+    if show_plot is True:
+        plt.show()
+    if save_plot is True:
+        plt.savefig(save_name, dpi=200)
+    plt.clf()
+    plt.close(fig_recal_curve)
+
+
+def plot_recall_curve_gandalf(df_gandalf, df_balrog, show_plot, save_plot, save_name, title='Precision-Recall Curve'):
+    """"""
+    precision, recall, thresholds = precision_recall_curve(
+        df_gandalf['detected'].ravel(),
+        df_balrog['detected'].ravel()
+    )
+
+    fig_recal_curve = plt.figure()
+    plt.plot(recall, precision, color='darkorange', lw=2)
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title(title)
@@ -3234,29 +3372,6 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, s
         plot_log.log_info_stream(f"{k}: gandalf infs={np.isinf(df_gandalf[k]).sum()}, balrog infs={np.isinf(df_balrog[k]).sum()}")
         plot_log.log_info_stream(f"{k}: gandalf unique={df_gandalf[k].nunique()}, balrog unique={df_balrog[k].nunique()}")
 
-        # x1 = df_gandalf[k].replace([np.inf, -np.inf], np.nan).dropna()
-        # x2 = df_balrog[k].replace([np.inf, -np.inf], np.nan).dropna()
-        # plot_log.log_info_stream(f"{k}: min={x1.min()}, max={x1.max()}, finite={np.isfinite(x1).all()}, len={len(x1)}")
-        #
-        # V_MIN, V_MAX = -1e5, 1e5
-        #
-        # # Clippen pro Feature, du kannst das für jede Variable auch individuell machen!
-        # x1_clip = x1[np.isfinite(x1)]
-        # x2_clip = x2[np.isfinite(x2)]
-        # x1_clip = x1_clip[(x1_clip >= V_MIN) & (x1_clip <= V_MAX)]
-        # x2_clip = x2_clip[(x2_clip >= V_MIN) & (x2_clip <= V_MAX)]
-        #
-        # if len(x1_clip) == 0 or len(x2_clip) == 0:
-        #     plot_log.log_info_stream(f"Skip plotting {k}: no data after clipping")
-        #     continue
-        #
-        # if np.isclose(x1_clip.max(), x1_clip.min()) or not np.isfinite([x1_clip.min(), x1_clip.max()]).all():
-        #     plot_log.log_info_stream(f"Skip plotting {k}: invalid range in gandalf ({x1_clip.min()}..{x1_clip.max()})")
-        #     continue
-        # if np.isclose(x2_clip.max(), x2_clip.min()) or not np.isfinite([x2_clip.min(), x2_clip.max()]).all():
-        #     plot_log.log_info_stream(f"Skip plotting {k}: invalid range in balrog ({x2_clip.min()}..{x2_clip.max()})")
-        #     continue
-
         sns.histplot(x=df_gandalf[k], bins=100, ax=axes[i], label="gandalf", stat="density")
         sns.histplot(x=df_balrog[k], bins=100, ax=axes[i], label="balrog", stat="density")
         axes[i].set_yscale("log")
@@ -3276,10 +3391,78 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, s
         plt.savefig(savename, bbox_inches='tight', dpi=300)
     if cfg["SHOW_PLOT"] is True:
         plt.show()
-    # img_tensor = plot_to_tensor()
     plt.clf()
     plt.close(fig)
-    # return img_tensor
+
+
+def plot_fp_fn_features(cfg, plot_log, df, feature_cols, title_prefix, savename, y_proba_col="y_score"):
+    """"""
+
+    dfe = df[df["error_type"].isin(["FP", "FN"])].copy()
+    if dfe.empty:
+        plot_log.log_info_stream("Keine FP/FN vorhanden – nichts zu plotten.")
+        return
+
+    for k in feature_cols:
+        n_nan = dfe[k].isna().sum()
+        n_inf = np.isinf(dfe[k]).sum()
+        plot_log.log_info_stream(f"{k}: NaNs={n_nan}, Infs={n_inf}, unique={dfe[k].nunique()}")
+        dfe[k] = dfe[k].replace([np.inf, -np.inf], np.nan)
+
+    n_features = len(feature_cols)
+    ncols = min(n_features, 3)
+    nrows = int(np.ceil(n_features / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    axes = np.atleast_1d(axes).flatten()
+
+    for i, k in enumerate(feature_cols):
+        # optional: gemeinsame Bins stabilisieren
+        # bins = np.histogram_bin_edges(dfe[k].dropna(), bins=100)
+        sns.histplot(
+            data=dfe, x=k, hue="error_type", hue_order=["FP", "FN"],
+            bins=100, stat="density", element="step", fill=False, ax=axes[i]
+        )
+        axes[i].set_yscale("log")
+        if k in ["unsheared/mag_err_r", "unsheared/mag_err_i", "unsheared/mag_err_z"]:
+            axes[i].set_title(f"log10({k})")
+            axes[i].set_xlabel(f"log10({k})")
+        else:
+            axes[i].set_title(k)
+            axes[i].set_xlabel(k)
+
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    n_fp = (dfe["error_type"] == "FP").sum()
+    n_fn = (dfe["error_type"] == "FN").sum()
+    rate_fp = n_fp / len(df)
+    rate_fn = n_fn / len(df)
+    fig.suptitle(f"{title_prefix}\nFP={n_fp} ({rate_fp:.3%}), FN={n_fn} ({rate_fn:.3%})", fontsize=16)
+    fig.tight_layout(rect=[0, 0.06, 1, 0.95])
+    plt.legend()
+
+    if cfg.get("SAVE_PLOT", False):
+        plt.savefig(savename, bbox_inches='tight', dpi=300)
+    if cfg.get("SHOW_PLOT", False):
+        plt.show()
+    plt.clf()
+    plt.close(fig)
+
+    fig2, ax2 = plt.subplots(figsize=(6, 4))
+    sns.histplot(
+        data=dfe, x=y_proba_col, hue="error_type", hue_order=["FP", "FN"],
+        bins=100, stat="density", element="step", fill=False, ax=ax2
+    )
+    ax2.set_yscale("log")
+    ax2.set_title("Score-Verteilung für FP vs. FN")
+    ax2.set_xlabel(f"{y_proba_col} (Classifier-Score)")
+    if cfg.get("SAVE_PLOT", False):
+        base, ext = os.path.splitext(savename)
+        plt.savefig(f"{base}_score{ext}", bbox_inches='tight', dpi=300)
+    if cfg.get("SHOW_PLOT", False):
+        plt.show()
+    plt.clf()
+    plt.close(fig2)
 
 
 def plot_single_feature_dist(df, columns, title_prefix, save_name, epoch=None):
@@ -3309,3 +3492,327 @@ def plot_single_feature_dist(df, columns, title_prefix, save_name, epoch=None):
     plt.clf()
     plt.close(fig)
     return img_tensor
+
+
+
+def _ece(probs, y_true, n_bins=15):
+    probs = np.asarray(probs, float).ravel()
+    y = np.asarray(y_true, int).ravel()
+    bins = np.linspace(0, 1, n_bins+1)
+    idx = np.clip(np.digitize(probs, bins, right=True)-1, 0, n_bins-1)
+    ece = 0.0
+    for b in range(n_bins):
+        m = (idx == b)
+        if not np.any(m):
+            continue
+        conf = probs[m].mean()
+        acc  = y[m].mean()
+        ece += (m.mean()) * abs(acc - conf)
+    return float(ece)
+
+
+def plot_reliability_curve(
+    df_gandalf,
+    df_balrog,
+    show_plot: bool,
+    save_plot: bool,
+    save_name: str,
+    prob_cols=("detected probability", "detected probability raw"),
+    labels=("calibrated", "raw"),
+    n_bins: int = 15,
+    title: str = "Reliability diagram",
+):
+    y_true = df_balrog["detected"].to_numpy().astype(int).ravel()
+
+    # Sammle vorhandene Kurven (falls z.B. nur 'calibrated' existiert)
+    curves = []
+    for col, lab in zip(prob_cols, labels):
+        if col in df_gandalf.columns:
+            curves.append((col, lab))
+
+    if not curves:
+        raise ValueError("Keiner der angegebenen prob_cols ist in df_gandalf vorhanden.")
+
+    bins = np.linspace(0, 1, n_bins+1)
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    ax.plot([0, 1], [0, 1], linestyle="--", linewidth=1.5, color="#6c757d", label="Perfect")
+
+    colors = ["#0b7285", "#adb5bd", "#228be6", "#e8590c"]  # genug Varianten
+    for i, (col, lab) in enumerate(curves):
+        p = df_gandalf[col].to_numpy(float).ravel()
+        # pro Bin: mean confidence + empirical accuracy
+        idx = np.clip(np.digitize(p, bins, right=True)-1, 0, n_bins-1)
+        bin_conf = np.zeros(n_bins); bin_acc = np.zeros(n_bins); bin_cnt = np.zeros(n_bins, int)
+        for b in range(n_bins):
+            m = (idx == b)
+            if np.any(m):
+                bin_conf[b] = p[m].mean()
+                bin_acc[b]  = y_true[m].mean()
+                bin_cnt[b]  = m.sum()
+            else:
+                bin_conf[b] = np.nan
+                bin_acc[b]  = np.nan
+
+        # Kurve (verbinde nur echte Punkte)
+        ok = np.isfinite(bin_conf) & np.isfinite(bin_acc)
+        ax.plot(bin_conf[ok], bin_acc[ok],
+                marker="o", linewidth=2.0, markersize=5,
+                label=f"{lab} (ECE={_ece(p, y_true, n_bins):.3f})",
+                color=colors[i % len(colors)])
+
+        # kleine (optionale) vertikale Bars für Bin-Counts am unteren Rand
+        ax2 = ax.inset_axes([0.1, -0.28 - i*0.08, 0.8, 0.07])  # Stapel-Barcharts unterhalb
+        ax2.bar(bin_centers, bin_cnt, width=(bins[1]-bins[0])*0.9, edgecolor="none",
+                color=colors[i % len(colors)])
+        ax2.set_xlim(0, 1); ax2.set_xticks([0, 0.5, 1]); ax2.set_yticks([])
+        ax2.set_ylabel(f"{lab}\ncount", rotation=0, ha="right", va="center", labelpad=12, fontsize=9)
+        for spine in ["top","right","left"]:
+            ax2.spines[spine].set_visible(False)
+
+    ax.set_title(title, fontsize=16, fontweight="bold", loc="left")
+    ax.set_xlabel("Mean predicted probability (confidence)")
+    ax.set_ylabel("Empirical accuracy")
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.legend(loc="lower right", frameon=False)
+
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+
+def _quantile_edges(x, n_bins):
+    q = np.linspace(0, 1, n_bins+1)
+    e = np.quantile(x, q)
+    for i in range(1, len(e)):
+        if e[i] <= e[i-1]:
+            e[i] = e[i-1] + 1e-8
+    return e
+
+
+def plot_calibration_by_mag(
+    df_gandalf,
+    df_balrog,
+    mag_col: str,
+    show_plot: bool,
+    save_plot: bool,
+    save_name: str,
+    prob_cols=("detected probability", "detected probability raw"),
+    labels=("calibrated", "raw"),
+    n_bins: int = 6,
+    title: str = "Calibration by magnitude",
+):
+    y_true = df_balrog["detected"].to_numpy().astype(int).ravel()
+    mag    = df_gandalf[mag_col].to_numpy(float).ravel()
+
+    curves = []
+    for col, lab in zip(prob_cols, labels):
+        if col in df_gandalf.columns:
+            curves.append((col, lab))
+    if not curves:
+        raise ValueError("Keiner der angegebenen prob_cols ist in df_gandalf vorhanden.")
+
+    edges = _quantile_edges(mag, n_bins)
+    labels_bins = [f"[{edges[i]:.2f}, {edges[i+1]:.2f}]" for i in range(n_bins)]
+
+    # pro prob-Variante: Bias & |Bias|
+    out = []
+    for col, lab in curves:
+        p = df_gandalf[col].to_numpy(float).ravel()
+        bias = []; absa = []; counts = []
+        for i in range(n_bins):
+            m = (mag >= edges[i]) & (mag <= edges[i+1])
+            if not np.any(m):
+                bias.append(np.nan); absa.append(np.nan); counts.append(0)
+            else:
+                b = p[m].mean() - y_true[m].mean()
+                bias.append(b); absa.append(abs(b)); counts.append(int(m.sum()))
+        out.append((lab, np.array(bias), np.array(absa), np.array(counts)))
+
+    # Plot: Balken für Bias (positiv/negativ), Marker für |Bias|, unteres Panel mit Counts
+    fig = plt.figure(figsize=(11, 7))
+    gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0.15)
+    ax = fig.add_subplot(gs[0]); axc = fig.add_subplot(gs[1], sharex=ax)
+
+    x = np.arange(n_bins)
+    width = 0.38 if len(out) == 2 else 0.6
+    colors = ["#0b7285", "#adb5bd", "#228be6", "#e8590c"]
+
+    for i, (lab, bias, absa, counts) in enumerate(out):
+        dx = (-width/2 if len(out)==2 else 0) + i*width if len(out)>1 else 0
+        ax.bar(x+dx, bias, width=width, color=colors[i % len(colors)], alpha=0.9, label=f"{lab} bias (mean(p)-mean(y))")
+        ax.plot(x+dx, absa, marker="o", linestyle="none", color="black", label=(f"{lab} |bias|" if i==0 else None))
+
+        # Counts im unteren Panel
+        axc.bar(x+dx, counts, width=width, color=colors[i % len(colors)], alpha=0.9, label=(lab if i==0 else None))
+
+    ax.axhline(0.0, color="#6c757d", linestyle="--", linewidth=1)
+    ax.set_ylabel("Calibration bias per mag bin")
+    ax.set_title(title, fontsize=16, fontweight="bold", loc="left")
+    ax.legend(loc="upper right", frameon=False)
+    ax.grid(axis="y", linestyle=":", alpha=0.5)
+
+    axc.set_ylabel("count")
+    axc.set_xlabel(mag_col + " (quantile bins)")
+    axc.set_xticks(x)
+    axc.set_xticklabels(labels_bins, rotation=15)
+    for spine in ["top","right"]:
+        axc.spines[spine].set_visible(False)
+
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+def _reliability_stats(probs, y_true, n_bins=20):
+    probs = np.asarray(probs, float).ravel()
+    y_true = np.asarray(y_true, int).ravel()
+    edges = np.linspace(0, 1, n_bins+1)
+    mids  = 0.5*(edges[:-1] + edges[1:])
+    acc   = np.zeros(n_bins); conf = np.zeros(n_bins); n = np.zeros(n_bins, int)
+    for i in range(n_bins):
+        m = (probs >= edges[i]) & (probs < edges[i+1]) if i < n_bins-1 else (probs >= edges[i]) & (probs <= edges[i+1])
+        if m.any():
+            conf[i] = probs[m].mean()
+            acc[i]  = y_true[m].mean()
+            n[i]    = m.sum()
+        else:
+            conf[i] = 0.0; acc[i] = 0.0; n[i] = 0
+    # ECE mit Standard-Gewichtung nach Bin-Anteil
+    w = n / max(1, n.sum())
+    ece = float(np.sum(w * np.abs(acc - conf)))
+    return dict(edges=edges, mids=mids, conf=conf, acc=acc, n=n, ece=ece)
+
+def plot_reliability_singlepanel(
+    probs_cal, probs_raw, y_true,
+    n_bins=20, title="Reliability", show_plot=False, save_plot=True, save_name="reliability_single.png"
+):
+    cal = _reliability_stats(probs_cal, y_true, n_bins=n_bins)
+    raw = _reliability_stats(probs_raw, y_true, n_bins=n_bins)
+
+    # Balkenbreite so, dass beide Varianten nebeneinander passen
+    w = 0.9 / 2
+    x = cal["mids"]
+
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.plot([0,1], [0,1], ls="--", lw=1.5, color="0.6", label="Perfect")
+
+    # Empirische Accuracy je Bin als Balken; Position anhand der Binmitte
+    ax.bar(x - w/2, cal["acc"], width=w, label=f"calibrated (ECE={cal['ece']:.3f})", color="#0b7285")
+    ax.bar(x + w/2, raw["acc"], width=w, label=f"raw (ECE={raw['ece']:.3f})", color="#adb5bd")
+
+    # Counts als Text über den Balken (optional: nur zeigen, wenn n>0)
+    for i in range(len(x)):
+        if cal["n"][i] > 0:
+            ax.text(x[i] - w/2, cal["acc"][i] + 0.02, str(cal["n"][i]), ha="center", va="bottom", fontsize=9, color="#0b7285")
+        if raw["n"][i] > 0:
+            ax.text(x[i] + w/2, raw["acc"][i] + 0.02, str(raw["n"][i]), ha="center", va="bottom", fontsize=9, color="#495057")
+
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1.02)
+    ax.set_xlabel("Mean predicted probability (confidence)")
+    ax.set_ylabel("Empirical accuracy")
+    ax.set_title(title, fontsize=14, fontweight="bold")
+    ax.legend(loc="lower right")
+    ax.grid(True, axis="y", alpha=0.2)
+
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+def _quantile_edges_strict(x, n_bins):
+    edges = np.quantile(x, np.linspace(0, 1, n_bins+1))
+    # Falls gleiche Kanten durch Ties: minimal auseinanderziehen
+    for i in range(1, len(edges)):
+        if edges[i] <= edges[i-1]:
+            edges[i] = edges[i-1] + 1e-8
+    return edges
+
+def _human_k(n):
+    return f"{n/1000:.1f}k" if n >= 1000 else str(int(n))
+
+def plot_calibration_by_mag_singlepanel(
+    mag,                # 1D array der Magnituden (oder Feature, nach dem gebinnt wird)
+    p_cal,              # kalibrierte Wahrscheinlichkeiten
+    p_raw,              # rohe Wahrscheinlichkeiten
+    y_true,             # 0/1-Labels
+    n_bins=7,
+    title="Calibration by magnitude",
+    xlabel="BDF_MAG_DERED_CALIB_I (quantile bins)",
+    show_plot=False,
+    save_plot=True,
+    save_name="calib_by_mag_single.png",
+    show_abs_marker=True,    # schwarze Punkte = |Bias| über den teal-Balken
+):
+    mag = np.asarray(mag, float).ravel()
+    p_cal = np.asarray(p_cal, float).ravel()
+    p_raw = np.asarray(p_raw, float).ravel()
+    y_true = np.asarray(y_true, int).ravel()
+
+    edges = _quantile_edges_strict(mag, n_bins)
+    labels = [f"[{edges[i]:.2f}, {edges[i+1]:.2f}]" for i in range(n_bins)]
+
+    bias_cal, bias_raw, counts = [], [], []
+    for i in range(n_bins):
+        lo, hi = edges[i], edges[i+1]
+        m = (mag >= lo) & (mag <= hi) if i == n_bins-1 else (mag >= lo) & (mag < hi)
+        if not np.any(m):
+            bias_cal.append(0.0); bias_raw.append(0.0); counts.append(0)
+            continue
+        counts.append(int(m.sum()))
+        bias_cal.append(float(p_cal[m].mean() - y_true[m].mean()))
+        bias_raw.append(float(p_raw[m].mean() - y_true[m].mean()))
+
+    bias_cal = np.asarray(bias_cal)
+    bias_raw = np.asarray(bias_raw)
+    counts   = np.asarray(counts)
+
+    x = np.arange(n_bins)
+    w = 0.38  # halbe Gesamtbreite je Bin (nebeneinander)
+
+    fig, ax = plt.subplots(figsize=(12, 6.5))
+
+    # Nulllinie
+    ax.axhline(0.0, color="0.4", lw=1.2, ls="--", alpha=0.6, zorder=0)
+
+    # Balken
+    b1 = ax.bar(x - w/2, bias_cal, width=w, color="#0b7285",
+                label="calibrated bias (mean(p) - mean(y))", zorder=2)
+    b2 = ax.bar(x + w/2, bias_raw, width=w, color="#cfd4da",
+                label="raw bias (mean(p) - mean(y))", zorder=1)
+
+    # Optional: |Bias|-Marker über den kalibrierten Balken
+    if show_abs_marker:
+        ax.scatter(x - w/2, np.abs(bias_cal), s=25, color="black",
+                   label="calibrated |bias|", zorder=3)
+
+    # Counts direkt in den Plot (über dem höheren der beiden Balken pro Bin)
+    y_span = max(0.01, 1.2 * max(np.max(np.abs(bias_cal)), np.max(np.abs(bias_raw)), 0.01))
+    ax.set_ylim(-y_span, y_span)
+
+    for i in range(n_bins):
+        y_top = max(bias_cal[i], bias_raw[i], 0.0)
+        ax.text(x[i], y_top + 0.03*y_span, f"n={_human_k(counts[i])}",
+                ha="center", va="bottom", fontsize=10, color="#495057", rotation=0)
+
+    # Achsen/Label/Title
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15)
+    ax.set_ylabel("Calibration bias per mag bin")
+    ax.set_xlabel(xlabel)
+    ax.set_title(title, fontsize=14, fontweight="bold")
+    ax.grid(True, axis="y", alpha=0.15)
+    ax.legend(loc="upper left")
+
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
