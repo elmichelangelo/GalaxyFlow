@@ -324,7 +324,11 @@ class gaNdalFClassifier(nn.Module):
             },
             log_folder_path=f"{self.cfg['PATH_LOGS']}/",
         )
-        dev = str(self.cfg.get("DEVICE_CLASSF", "auto")).lower()
+        dev = str(self.cfg.get("DEVICE", "auto")).lower()
+
+        if int(self.cfg.get("RESOURCE_GPU", 0)) == 0 and dev == "cuda":
+            dev = "cpu"
+
         if dev == "auto":
             if torch.cuda.is_available(): dev = "cuda"
             elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available(): dev = "mps"
@@ -590,8 +594,14 @@ class gaNdalFClassifier(nn.Module):
         else:
             dataset = TensorDataset(x, y)
 
-        pin = (self.device.type == "cuda"); nw = max(1, os.cpu_count() // 2)
-        loader = DataLoader(dataset, batch_size=self.bs, shuffle=True, num_workers=nw, pin_memory=pin, persistent_workers=True)
+        nw_cfg = self.cfg.get("NUM_WORKERS", "auto")
+        nw = (os.cpu_count() // 2) if str(nw_cfg).lower() == "auto" else int(nw_cfg)
+        pin = bool(self.cfg.get("PIN_MEMORY", True)) and (self.device.type == "cuda")
+        persist = bool(self.cfg.get("PERSISTENT_WORKERS", True))
+        loader = DataLoader(
+            dataset, batch_size=self.bs, shuffle=True,
+            num_workers=max(1, nw), pin_memory=pin, persistent_workers=persist
+        )
 
         if self.scheduler is None:
             sched = str(self.cfg.get("SCHEDULER", None)).lower()
