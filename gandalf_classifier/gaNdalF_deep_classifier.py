@@ -34,6 +34,7 @@ import ast
 import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader, TensorDataset
+from torch.cuda.amp import GradScaler, autocast
 
 from sklearn.metrics import accuracy_score, f1_score, brier_score_loss
 
@@ -353,7 +354,7 @@ class gaNdalFClassifier(nn.Module):
         self.scheduler = None; self._scheduler_batchwise = False
 
         self.use_amp = bool(self.cfg.get("AMP", True)) and (self.device.type == "cuda")
-        self.cuda_scaler = torch.amp.GradScaler("cuda", enabled=self.use_amp)
+        self.cuda_scaler = GradScaler(enabled=self.use_amp)
 
         # calibration state
         self.temperature_value = 1.0; self.scaled_model = None; self.mag_platt = None
@@ -636,11 +637,18 @@ class gaNdalFClassifier(nn.Module):
                 xb, yb = batch; wb = None
 
             xb = xb.to(self.device, non_blocking=pin); yb = yb.to(self.device, non_blocking=pin)
-            logits = self.model(xb).squeeze()
-            loss_vec = self.loss_function(logits, yb)
-            loss = (loss_vec * wb).mean() if self.rew_enable else loss_vec.mean()
+            with autocast(enabled=self.use_amp):
+                logits = self.model(xb).squeeze()
+                loss_vec = self.loss_function(logits, yb)
+                loss = (loss_vec * wb).mean() if self.rew_enable else loss_vec.mean()
 
-            loss.backward(); self.optimizer.step()
+            if self.use_amp:
+                self.cuda_scaler.scale(loss).backward()
+                self.cuda_scaler.step(self.optimizer)
+                self.cuda_scaler.update()
+            else:
+                loss.backward()
+                self.optimizer.step()
 
             if self.scheduler is not None and self._scheduler_batchwise:
                 self.scheduler.step()
@@ -680,7 +688,8 @@ class gaNdalFClassifier(nn.Module):
         with torch.no_grad():
             for xb, yb in loader:
                 xb = xb.to(self.device, non_blocking=pin); yb = yb.to(self.device, non_blocking=pin)
-                logits = self.model(xb).squeeze()
+                with autocast(enabled=self.use_amp):
+                    logits = self.model(xb).squeeze()
                 loss = self.loss_function(logits, yb).mean()
                 val_loss += loss.item() * yb.size(0); seen += yb.size(0)
                 all_probs.append(torch.sigmoid(logits).float().cpu().numpy().ravel())
@@ -772,7 +781,8 @@ class gaNdalFClassifier(nn.Module):
 
         self.model.eval()
         with torch.no_grad():
-            logits_raw = self.model(x).squeeze()
+            with autocast(enabled=self.use_amp):
+                logits_raw = self.model(x).squeeze()
             p_raw = torch.sigmoid(logits_raw).cpu().numpy().ravel()
             logits_T = logits_raw / max(self.temperature_value, 1e-6)
             p_T = torch.sigmoid(logits_T).cpu().numpy().ravel()
