@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=cf_test_training
+#SBATCH --job-name=cf_new_training
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=256G
-#SBATCH -o /dss/dsshome1/04/di97tac/logs/cf_test_training_%A.log
-#SBATCH -e /dss/dsshome1/04/di97tac/logs/cf_test_training_err_%A.log
+#SBATCH -o /dss/dsshome1/04/di97tac/logs/cf_new_training_%A.log
+#SBATCH -e /dss/dsshome1/04/di97tac/logs/cf_new_training_err_%A.log
 #SBATCH --qos=mcml
 #SBATCH --partition=mcml-dgx-a100-40x8
 #SBATCH --cpus-per-task=4
