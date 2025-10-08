@@ -3818,89 +3818,80 @@ def plot_calibration_by_mag_singlepanel(
     plt.close(fig)
 
 
-def _rate_ratio_stats(mag, probs, y_true, edges):
+def _rate_ratio_curve(mag, probs, y_true, bins):
     mag = np.asarray(mag, float).ravel()
     p   = np.asarray(probs, float).ravel()
     y   = np.asarray(y_true, float).ravel()
-    assert mag.size == p.size == y.size
-
-    rows = []
-    centers = 0.5*(edges[:-1] + edges[1:])
-    for lo, hi, c in zip(edges[:-1], edges[1:], centers):
-        m = (mag >= lo) & (mag <= hi)
+    idx = np.clip(np.digitize(mag, bins, right=True)-1, 0, len(bins)-2)
+    n_bins = len(bins)-1
+    centers = 0.5*(bins[:-1] + bins[1:])
+    ratio = np.zeros(n_bins); err = np.zeros(n_bins)
+    n = np.zeros(n_bins, int)
+    for b in range(n_bins):
+        m = (idx == b)
         if not np.any(m):
-            rows.append((c, 0, 0, np.nan, np.nan)); continue
+            ratio[b] = np.nan; err[b] = np.nan; continue
         sum_p = float(p[m].sum())
         sum_y = float(y[m].sum())
+        n[b]  = m.sum()
         if sum_y > 0 and sum_p > 0:
-            R = sum_p / sum_y
-            # Fehlerfortpflanzung für Ratio zweier Poisson-Zähler
-            err = R * np.sqrt(1.0/max(sum_p,1e-12) + 1.0/max(sum_y,1e-12))
+            ratio[b] = sum_p / sum_y
+            err[b]   = ratio[b] * np.sqrt(1.0/max(sum_p,1e-12) + 1.0/max(sum_y,1e-12))
         else:
-            R, err = np.nan, np.nan
-        rows.append((c, m.sum(), sum_p, sum_y, R, err))
-    centers, n, sum_p, sum_y, ratio, err = map(np.array, zip(*rows))
-    return dict(centers=centers, n=n, sum_p=sum_p, sum_y=sum_y, ratio=ratio, err=err)
+            ratio[b] = np.nan; err[b] = np.nan
+    return dict(centers=centers, ratio=ratio, err=err, n=n)
 
-def plot_rate_ratio_by_mag_singlepanel(
-    mag, probs_raw, probs_cal, y_true,
-    edges="quantile", n_bins=8,
-    title="Rate ratio vs. magnitude",
-    xlabel="Magnitude (binned)",
-    show_plot=False, save_plot=True, save_name="rate_ratio_by_mag.pdf",
-    annotate_counts=True
+
+def plot_rate_ratio_curve(
+    mag, probs_cal, probs_raw, y_true,
+    n_bins=8, edges="quantile",
+    title="Rate ratio by magnitude",
+    xlabel="Magnitude",
+    show_plot=False, save_plot=True, save_name="rate_ratio_by_mag_curve.pdf"
 ):
-    # Bin-Grenzen
     mag = np.asarray(mag, float).ravel()
-    if isinstance(edges, str) and edges.lower()=="quantile":
-        qs = np.linspace(0,1,n_bins+1)
-        edges = np.quantile(mag, qs)
-        for i in range(1,len(edges)):
-            if edges[i] <= edges[i-1]:
-                edges[i] = edges[i-1] + 1e-8
+
+    # Bin edges
+    if isinstance(edges, str) and edges.lower() == "quantile":
+        qs = np.linspace(0, 1, n_bins + 1)
+        bins = np.quantile(mag, qs)
+        for i in range(1, len(bins)):
+            if bins[i] <= bins[i - 1]:
+                bins[i] = bins[i - 1] + 1e-8
     else:
-        edges = np.asarray(edges, float)
-        n_bins = len(edges)-1
+        bins = np.asarray(edges, float)
+        n_bins = len(bins) - 1
 
-    S_raw = _rate_ratio_stats(mag, probs_raw, y_true, edges)
-    S_cal = _rate_ratio_stats(mag, probs_cal, y_true, edges)
+    cal = _rate_ratio_curve(mag, probs_cal, y_true, bins)
+    raw = _rate_ratio_curve(mag, probs_raw, y_true, bins)
 
-    x  = S_cal["centers"]
-    w  = 0.9/2  # zwei Reihen nebeneinander (raw & cal)
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.axhline(1.0, ls="--", lw=1.2, color="#6c757d", label="No bias")
 
-    fig, ax = plt.subplots(figsize=(10,7))
-    ax.axhline(1.0, ls="--", lw=1.5, color="0.6", label="No bias")
+    colors = ["#0b7285", "#adb5bd"]
+    for data, lab, col in zip([cal, raw], ["calibrated", "raw"], colors):
+        ok = np.isfinite(data["ratio"])
+        ax.errorbar(
+            data["centers"][ok], data["ratio"][ok],
+            yerr=data["err"][ok], fmt="o-", capsize=3, lw=2, ms=5,
+            label=lab, color=col
+        )
 
-    # bars mit yerr
-    ax.bar(x - w/2, S_cal["ratio"], width=w, yerr=S_cal["err"], capsize=3,
-           label="calibrated", color="#0b7285")
-    ax.bar(x + w/2, S_raw["ratio"], width=w, yerr=S_raw["err"], capsize=3,
-           label="raw", color="#adb5bd")
-
-    # optionale Counts über die Bars
-    if annotate_counts:
-        for i in range(len(x)):
-            if np.isfinite(S_cal["ratio"][i]):
-                ax.text(x[i]-w/2, S_cal["ratio"][i] + (S_cal["err"][i] if np.isfinite(S_cal["err"][i]) else 0) + 0.03,
-                        f"N={int(S_cal['n'][i])}\nΣp={S_cal['sum_p'][i]:.1f}\nΣy={int(S_cal['sum_y'][i])}",
-                        ha="center", va="bottom", fontsize=8, color="#0b7285")
-            if np.isfinite(S_raw["ratio"][i]):
-                ax.text(x[i]+w/2, S_raw["ratio"][i] + (S_raw["err"][i] if np.isfinite(S_raw["err"][i]) else 0) + 0.03,
-                        f"N={int(S_raw['n'][i])}\nΣp={S_raw['sum_p'][i]:.1f}\nΣy={int(S_raw['sum_y'][i])}",
-                        ha="center", va="bottom", fontsize=8, color="#495057")
-
-    # hübsche x-Ticks als Intervall-Labels
-    ax.set_xticks(0.5*(edges[:-1]+edges[1:]))
-    ax.set_xticklabels([f"[{lo:.2f},{hi:.2f}]" for lo,hi in zip(edges[:-1], edges[1:])], rotation=30)
-    ax.set_xlim(edges[0], edges[-1])
+    # Achsen und Beschriftung
+    ax.set_xlim(bins[0], bins[-1])
     ax.set_ylim(bottom=0)
-
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Σp / Σy  (rate ratio)")
-    ax.set_title(title, fontsize=14, fontweight="bold")
-    ax.legend(loc="best")
+    ax.set_ylabel("Σp / Σy (rate ratio)")
+    ax.set_title(title, fontsize=14, fontweight="bold", loc="left")
+    ax.legend(loc="best", frameon=False)
     ax.grid(True, axis="y", alpha=0.2)
 
+    # Sekundäre x-Achse für Binbereiche
+    xticks = 0.5*(bins[:-1]+bins[1:])
+    ax.set_xticks(xticks)
+    ax.set_xticklabels([f"[{lo:.2f},{hi:.2f}]" for lo, hi in zip(bins[:-1], bins[1:])], rotation=30)
+
+    plt.tight_layout()
     if save_plot:
         plt.savefig(save_name, dpi=200, bbox_inches="tight")
     if show_plot:

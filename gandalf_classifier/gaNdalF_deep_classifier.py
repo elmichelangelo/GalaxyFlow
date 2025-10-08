@@ -49,7 +49,7 @@ from Handler import (
     plot_reliability_curve,
     plot_reliability_singlepanel,
     plot_calibration_by_mag_singlepanel,
-    plot_rate_ratio_by_mag_singlepanel
+    plot_rate_ratio_curve
 )
 from gandalf_galaxie_dataset import DESGalaxies
 
@@ -896,38 +896,7 @@ class gaNdalFClassifier(nn.Module):
                     "probability_histogram", "calib_by_mag")
             )
 
-            plot_calibration_by_mag(
-                df_gandalf=df_out,
-                df_balrog=df_test,  # Ground truth!
-                mag_col=self.cfg.get("MAG_COL", "BDF_MAG_DERED_CALIB_I"),
-                show_plot=self.cfg['SHOW_PLOT'],
-                save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/calib_by_mag.pdf",
-                prob_cols=("detected probability", "detected probability raw"),
-                labels=("calibrated", "raw"),
-                n_bins=6,
-                title=f"Calibration by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}"
-            )
-
         if self.cfg['PLOT_PROBABILITY_HIST'] is True:
-            # plot_probability_hist(
-            #     data_frame=df_out, show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-            #     save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/probability_histogram{epoch}.png",
-            #     title=f"probability histogram, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-            # )
-
-            plot_reliability_singlepanel(
-                probs_cal=p_cal,
-                probs_raw=p_raw,
-                y_true=y_true,
-                n_bins=20,
-                title=f"Reliability, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-                show_plot=self.cfg['SHOW_PLOT'],
-                save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/reliability_single.pdf".replace(
-                    "precision_recall", "reliability")
-            )
-
             plot_reliability_curve(
                 df_gandalf=df_out,
                 df_balrog=df_test,  # Ground truth!
@@ -940,17 +909,17 @@ class gaNdalFClassifier(nn.Module):
                 title=f"Reliability, lr={self.lr}, bs={self.bs}, epoch={epoch}"
             )
 
-            plot_rate_ratio_by_mag_singlepanel(
+            plot_rate_ratio_curve(
                 mag=mag_te,
-                probs_raw=p_raw,
                 probs_cal=p_cal,
+                probs_raw=p_raw,
                 y_true=y_true,
-                edges="quantile",
                 n_bins=max(7, int(self.cfg.get("REWEIGHT_N_BINS", 5))),
                 title=f"Rate ratio by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                xlabel=self.mag_col + " (quantile bins)",
                 show_plot=self.cfg['SHOW_PLOT'],
                 save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag.pdf"
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag_curve.pdf"
             )
 
         self.classifier_logger.log_info_stream("run_tests: done")
