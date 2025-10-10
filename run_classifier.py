@@ -1,6 +1,17 @@
 import torch
 import torch.optim as optim
-from Handler import fnn, get_os, unsheared_shear_cuts, unsheared_mag_cut, LoggerHandler, plot_confusion_matrix, plot_fp_fn_features
+from Handler import (
+    fnn,
+    get_os,
+    unsheared_shear_cuts,
+    unsheared_mag_cut,
+    LoggerHandler,
+    plot_confusion_matrix,
+    plot_fp_fn_features,
+    plot_rate_ratio_by_mag,
+    plot_roc_curve_gandalf,
+    plot_calibration_by_mag_singlepanel
+)
 from gandalf import gaNdalF
 import argparse
 import logging
@@ -96,7 +107,8 @@ def main(classifier_cfg, flow_cfg, logger):
     df_gandalf, df_balrog = classifier_model.run_classifier()
 
     classifier_cfg["PATH_PLOTS"] = f'{classifier_cfg["PATH_PLOTS"]}/{classifier_cfg["RUN_DATE"]}_CLASSIFIER_PLOTS'
-
+    df_gandalf = classifier_model.classifier_galaxies.inverse_scale_data(df_gandalf)
+    df_balrog = classifier_model.classifier_galaxies.inverse_scale_data(df_balrog)
     plot_classifier(
         cfg=classifier_cfg,
         df_gandalf=df_gandalf,
@@ -119,24 +131,38 @@ def plot_classifier(cfg, df_gandalf, df_balrog):
         title=f"Confusion Matrix"
     )
 
-    plot_fp_fn_features(
-        cfg=cfg,
-        plot_log=run_flow_logger,
-        df=df_gandalf,
-        feature_cols=cfg["INPUT_COLS"],
-        title_prefix="FP vs. FN – Gandalf",
-        savename=f"{cfg['PATH_PLOTS']}/fp_fn_df_cols_gandalf.png",
-        y_proba_col="probability detected"
+    plot_roc_curve_gandalf(
+        df_gandalf=df_gandalf,
+        df_balrog=df_balrog,
+        show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
+        save_name=f"{cfg['PATH_PLOTS']}/roc_curve.pdf",
+        title=f"Receiver Operating Characteristic (ROC) Curve",
     )
 
-    plot_fp_fn_features(
-        cfg=cfg,
-        plot_log=run_flow_logger,
-        df=df_gandalf,
-        feature_cols=cfg["PLOT_COLS"],
-        title_prefix="FP vs. FN – Gandalf",
-        savename=f"{cfg['PATH_PLOTS']}/fp_fn_wf_cols_gandalf.png",
-        y_proba_col="probability detected"
+    plot_calibration_by_mag_singlepanel(
+        mag=df_gandalf["BDF_MAG_DERED_CALIB_I"].to_numpy(float),
+        p_cal=None,
+        p_raw=df_gandalf["probability detected"].to_numpy(float),
+        y_true=df_balrog["detected"].to_numpy().astype(int).ravel(),
+        n_bins=max(7, int(cfg.get("REWEIGHT_N_BINS", 5))),  # oder feste Zahl
+        title=f"Calibration by magnitude",
+        xlabel="BDF_MAG_DERED_CALIB_I" + " (quantile bins)",
+        show_plot=cfg['SHOW_PLOT'],
+        save_plot=cfg['SAVE_PLOT'],
+        save_name=f"{cfg['PATH_PLOTS']}/calib_by_mag_single.pdf".replace(
+            "probability_histogram", "calib_by_mag")
+    )
+
+    plot_rate_ratio_by_mag(
+        mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
+        y_true=df_balrog["detected"].to_numpy().astype(int).ravel(),
+        probs_raw=df_gandalf["probability detected raw"].to_numpy(float),
+        probs_cal=df_gandalf["probability detected"].to_numpy(float),
+        calibrated=True,
+        bin_width=1,
+        mag_label="BDF_MAG_DERED_CALIB_Z",
+        show_density_ratio=False,
+        save_name=f"{cfg['PATH_PLOTS']}/rate_ratio_raw_only.pdf"
     )
 
 

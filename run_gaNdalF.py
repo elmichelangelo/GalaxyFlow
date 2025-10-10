@@ -1,5 +1,20 @@
 from datetime import datetime
-from Handler import fnn, get_os, unsheared_shear_cuts, unsheared_mag_cut, LoggerHandler, calc_color, plot_confusion_matrix, plot_features, plot_binning_statistics_combined, plot_balrog_histogram_with_error, plot_compare_corner
+from Handler import (
+    fnn,
+    get_os,
+    unsheared_shear_cuts,
+    unsheared_mag_cut,
+    LoggerHandler,
+    calc_color,
+    plot_roc_curve_gandalf,
+    plot_calibration_by_mag_singlepanel,
+    plot_rate_ratio_by_mag,
+    plot_confusion_matrix,
+    plot_features,
+    plot_binning_statistics_combined,
+    plot_balrog_histogram_with_error,
+    plot_compare_corner
+)
 from gandalf import gaNdalF
 import argparse
 import matplotlib.pyplot as plt
@@ -78,6 +93,25 @@ def plot_classifier(cfg, df_gandalf, df_balrog):
         save_plot=cfg['SAVE_PLOT'],
         save_name=f"{cfg['PATH_PLOTS']}/confusion_matrix.png",
         title=f"Confusion Matrix"
+    )
+
+    plot_roc_curve_gandalf(
+        df_gandalf=df_gandalf,
+        df_balrog=df_balrog,
+        show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
+        save_name=f"{cfg['PATH_PLOTS']}/roc_curve.pdf",
+        title=f"Receiver Operating Characteristic (ROC) Curve",
+    )
+
+    plot_rate_ratio_by_mag(
+        mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
+        y_true=df_balrog["detected"].to_numpy().astype(int).ravel(),
+        probs_raw=df_gandalf["probability detected"].to_numpy(float),
+        calibrated=False,
+        bin_width=1,
+        mag_label="BDF_MAG_DERED_CALIB_Z",
+        show_density_ratio=False,
+        save_name=f"{cfg['PATH_PLOTS']}/rate_ratio_raw_only.pdf"
     )
 
 
@@ -223,13 +257,15 @@ def main(classifier_cfg, flow_cfg, logger):
     classifier_cfg["PATH_PLOTS"] = f'{classifier_cfg["PATH_PLOTS"]}/{classifier_cfg["RUN_DATE"]}_RUN_PLOTS'
     flow_cfg["PATH_PLOTS"] = classifier_cfg["PATH_PLOTS"]
 
+    df_gandalf = model.classifier_galaxies.inverse_scale_data(df_gandalf)
+    df_balrog = model.classifier_galaxies.inverse_scale_data(df_balrog)
+
     plot_classifier(
         cfg=classifier_cfg,
         df_gandalf=df_gandalf,
         df_balrog=df_balrog,
     )
 
-    df_gandalf = model.classifier_galaxies.inverse_scale_data(df_gandalf)
     df_gandalf = model.flow_galaxies.apply_log10(df_gandalf)
     df_gandalf = model.flow_galaxies.scale_data(df_gandalf)
     df_gandalf = df_gandalf[df_gandalf["detected"]==1]

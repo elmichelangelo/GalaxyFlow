@@ -3752,7 +3752,8 @@ def plot_calibration_by_mag_singlepanel(
     show_abs_marker=True,    # schwarze Punkte = |Bias| über den teal-Balken
 ):
     mag = np.asarray(mag, float).ravel()
-    p_cal = np.asarray(p_cal, float).ravel()
+    if p_cal is not None:
+        p_cal = np.asarray(p_cal, float).ravel()
     p_raw = np.asarray(p_raw, float).ravel()
     y_true = np.asarray(y_true, int).ravel()
 
@@ -3767,10 +3768,12 @@ def plot_calibration_by_mag_singlepanel(
             bias_cal.append(0.0); bias_raw.append(0.0); counts.append(0)
             continue
         counts.append(int(m.sum()))
-        bias_cal.append(float(p_cal[m].mean() - y_true[m].mean()))
+        if p_cal is not None:
+            bias_cal.append(float(p_cal[m].mean() - y_true[m].mean()))
         bias_raw.append(float(p_raw[m].mean() - y_true[m].mean()))
 
-    bias_cal = np.asarray(bias_cal)
+    if p_cal is not None:
+        bias_cal = np.asarray(bias_cal)
     bias_raw = np.asarray(bias_raw)
     counts   = np.asarray(counts)
 
@@ -3783,22 +3786,30 @@ def plot_calibration_by_mag_singlepanel(
     ax.axhline(0.0, color="0.4", lw=1.2, ls="--", alpha=0.6, zorder=0)
 
     # Balken
-    b1 = ax.bar(x - w/2, bias_cal, width=w, color="#0b7285",
-                label="calibrated bias (mean(p) - mean(y))", zorder=2)
+    if p_cal is not None:
+        b1 = ax.bar(x - w/2, bias_cal, width=w, color="#0b7285",
+                    label="calibrated bias (mean(p) - mean(y))", zorder=2)
     b2 = ax.bar(x + w/2, bias_raw, width=w, color="#cfd4da",
                 label="raw bias (mean(p) - mean(y))", zorder=1)
 
     # Optional: |Bias|-Marker über den kalibrierten Balken
-    if show_abs_marker:
-        ax.scatter(x - w/2, np.abs(bias_cal), s=25, color="black",
-                   label="calibrated |bias|", zorder=3)
+    if p_cal is not None:
+        if show_abs_marker:
+            ax.scatter(x - w/2, np.abs(bias_cal), s=25, color="black",
+                       label="calibrated |bias|", zorder=3)
 
     # Counts direkt in den Plot (über dem höheren der beiden Balken pro Bin)
-    y_span = max(0.01, 1.2 * max(np.max(np.abs(bias_cal)), np.max(np.abs(bias_raw)), 0.01))
+    if p_cal is not None:
+        y_span = max(0.01, 1.2 * max(np.max(np.abs(bias_cal)), np.max(np.abs(bias_raw)), 0.01))
+    else:
+        y_span = max(0.01, 1.2 * max(np.max(np.abs(bias_raw)), 0.01))
     ax.set_ylim(-y_span, y_span)
 
     for i in range(n_bins):
-        y_top = max(bias_cal[i], bias_raw[i], 0.0)
+        if p_cal is not None:
+            y_top = max(bias_cal[i], bias_raw[i], 0.0)
+        else:
+            y_top = max(bias_raw[i], 0.0)
         ax.text(x[i], y_top + 0.03*y_span, f"n={_human_k(counts[i])}",
                 ha="center", va="bottom", fontsize=10, color="#495057", rotation=0)
 
@@ -3890,6 +3901,161 @@ def plot_rate_ratio_curve(
     xticks = 0.5*(bins[:-1]+bins[1:])
     ax.set_xticks(xticks)
     ax.set_xticklabels([f"[{lo:.2f},{hi:.2f}]" for lo, hi in zip(bins[:-1], bins[1:])], rotation=30)
+
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+def _safe_bins_equal_width(mag, n_bins=None, bin_width=None, mag_min=None, mag_max=None):
+    mag = np.asarray(mag, float).ravel()
+    lo = np.min(mag) if mag_min is None else float(mag_min)
+    hi = np.max(mag) if mag_max is None else float(mag_max)
+    if bin_width is not None:
+        nb = max(1, int(np.ceil((hi - lo) / float(bin_width))))
+        edges = lo + np.arange(nb + 1) * float(bin_width)
+        if edges[-1] < hi: edges = np.append(edges, hi)
+    else:
+        nb = int(n_bins) if n_bins is not None else 15
+        edges = np.linspace(lo, hi, nb + 1)
+    return edges
+
+def _rate_ratio_equal_bins(mag, probs, y_true, edges, error_mode="binomial_B", n_boot=500, rng=None):
+    """
+    error_mode:
+      - "binomial_B": Var(A)=0, Var(B)=sum p(1-p)  [empfohlen]
+      - "binomial_both": Var(A)=sum p(1-p), Var(B)=sum p(1-p)
+      - "poisson_both": Var(A)=A, Var(B)=B         [grobe Heuristik]
+      - "bootstrap": nonparametrisch über Objekte
+    """
+    mag = np.asarray(mag, float).ravel()
+    p   = np.asarray(probs, float).ravel()
+    y   = np.asarray(y_true, float).ravel()
+    n_bins = len(edges) - 1
+    centers = 0.5*(edges[:-1] + edges[1:])
+    ratio = np.full(n_bins, np.nan); err = np.full(n_bins, np.nan); n_in_bin = np.zeros(n_bins, int)
+
+    idx = np.clip(np.digitize(mag, edges, right=True) - 1, 0, n_bins - 1)
+    if rng is None:
+        rng = np.random.default_rng(123)
+
+    for b in range(n_bins):
+        msk = (idx == b)
+        if not np.any(msk): continue
+        pb = p[msk]; yb = y[msk]
+        A = float(pb.sum())
+        B = float(yb.sum())
+        n_in_bin[b] = int(msk.sum())
+        if A <= 0 or B <= 0:
+            continue
+        r = A / B
+
+        if error_mode == "binomial_B":
+            varB = float(np.sum(pb * (1.0 - pb)))
+            sigma_r = r * np.sqrt(varB) / B
+
+        elif error_mode == "binomial_both":
+            varA = float(np.sum(pb * (1.0 - pb)))
+            varB = float(np.sum(pb * (1.0 - pb)))
+            sigma_r = r * np.sqrt(varA / (A*A) + varB / (B*B))
+
+        elif error_mode == "poisson_both":
+            sigma_r = r * np.sqrt(1.0 / max(A, 1e-12) + 1.0 / max(B, 1e-12))
+
+        elif error_mode == "bootstrap":
+            # Resample Objekte im Bin
+            k = len(pb)
+            boots = []
+            for _ in range(n_boot):
+                jj = rng.integers(0, k, size=k)
+                A_b = float(pb[jj].sum())
+                B_b = float(yb[jj].sum())
+                if A_b > 0 and B_b > 0:
+                    boots.append(A_b / B_b)
+            sigma_r = float(np.std(boots, ddof=1)) if boots else np.nan
+
+        else:
+            raise ValueError(f"unknown error_mode={error_mode}")
+
+        ratio[b], err[b] = r, sigma_r
+
+    return dict(centers=centers, ratio=ratio, err=err, n=n_in_bin)
+
+def _density_ratio_equal_bins(mag, probs, y_true, edges):
+    mag = np.asarray(mag, float).ravel()
+    p = np.asarray(probs, float).ravel()
+    y = np.asarray(y_true, float).ravel()
+    hist_p, _ = np.histogram(mag, bins=edges, weights=p, density=True)
+    hist_y, _ = np.histogram(mag, bins=edges, weights=y, density=True)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        dens_ratio = hist_p / hist_y
+        dens_ratio[~np.isfinite(dens_ratio)] = np.nan
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    return dict(centers=centers, dens_ratio=dens_ratio)
+
+def plot_rate_ratio_by_mag(
+        mag, y_true, probs_raw, probs_cal=None,
+        calibrated=True,  # <<<<<< Toggle here
+        mag_label="BDF_MAG_DERED_CALIB_I",
+        n_bins=None, bin_width=0.25, mag_min=None, mag_max=None,
+        show_density_ratio=True,
+        title="Rate ratio by magnitude (Σp / Σy)",
+        show_plot=False, save_plot=True, save_name="rate_ratio_by_mag_equal_bins.pdf"
+):
+    edges = _safe_bins_equal_width(mag, n_bins=n_bins, bin_width=bin_width, mag_min=mag_min, mag_max=mag_max)
+
+    raw = _rate_ratio_equal_bins(mag, probs_raw, y_true, edges, error_mode="binomial_B")
+    if calibrated and probs_cal is not None:
+        cal = _rate_ratio_equal_bins(mag, probs_cal, y_true, edges, error_mode="binomial_B")
+
+    if show_density_ratio:
+        raw_d = _density_ratio_equal_bins(mag, probs_raw, y_true, edges)
+        if calibrated and probs_cal is not None:
+            cal_d = _density_ratio_equal_bins(mag, probs_cal, y_true, edges)
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.axhline(1.0, ls="--", lw=1.2, color="#6c757d", label="No bias")
+
+    # raw always shown
+    ok = np.isfinite(raw["ratio"])
+    ax.errorbar(
+        raw["centers"][ok], raw["ratio"][ok],
+        yerr=raw["err"][ok], fmt="o-", capsize=3, lw=2, ms=5,
+        label="raw (rate ratio)", color="#adb5bd"
+    )
+
+    # calibrated optional
+    if calibrated and probs_cal is not None:
+        ok = np.isfinite(cal["ratio"])
+        ax.errorbar(
+            cal["centers"][ok], cal["ratio"][ok],
+            yerr=cal["err"][ok], fmt="o-", capsize=3, lw=2, ms=5,
+            label="calibrated (rate ratio)", color="#0b7285"
+        )
+
+    # optional dashed shape-only ratio
+    if show_density_ratio:
+        ok = np.isfinite(raw_d["dens_ratio"])
+        ax.plot(raw_d["centers"][ok], raw_d["dens_ratio"][ok],
+                lw=1.25, ls="--", color="#adb5bd", alpha=0.8, label="raw (density ratio)")
+        if calibrated and probs_cal is not None:
+            ok = np.isfinite(cal_d["dens_ratio"])
+            ax.plot(cal_d["centers"][ok], cal_d["dens_ratio"][ok],
+                    lw=1.25, ls="--", color="#0b7285", alpha=0.8, label="calibrated (density ratio)")
+
+    ax.set_xlim(edges[0], edges[-1])
+    ax.set_ylim(bottom=0)
+    ax.set_xlabel(mag_label)
+    ax.set_ylabel("ratio")
+    ax.set_title(title, fontsize=14, fontweight="bold", loc="left")
+    ax.legend(loc="best", frameon=False)
+    ax.grid(True, axis="y", alpha=0.2)
+
+    xticks = 0.5 * (edges[:-1] + edges[1:])
+    ax.set_xticks(xticks)
+    ax.set_xticklabels([f"{c:.2f}" for c in xticks], rotation=30)
 
     plt.tight_layout()
     if save_plot:

@@ -44,12 +44,11 @@ from Handler import (
     plot_confusion_matrix,
     plot_roc_curve_gandalf,
     plot_recall_curve_gandalf,
-    plot_calibration_by_mag,
     LoggerHandler,
     plot_reliability_curve,
-    plot_reliability_singlepanel,
     plot_calibration_by_mag_singlepanel,
-    plot_rate_ratio_curve
+    plot_rate_ratio_curve,
+    plot_rate_ratio_by_mag
 )
 from gandalf_galaxie_dataset import DESGalaxies
 
@@ -366,6 +365,11 @@ class gaNdalFClassifier(nn.Module):
     # ---------------- utils ----------------
     def init_dataset(self):
         galaxies = DESGalaxies(dataset_logger=self.classifier_logger, cfg=self.cfg)
+        if self.cfg.get("SPLIT_MAGS", False):
+            galaxies.train_dataset = galaxies.train_dataset[galaxies.train_dataset["BDF_MAG_ERR_DERED_CALIB_Z"] > 23.50]
+            galaxies.valid_dataset = galaxies.valid_dataset[galaxies.valid_dataset["BDF_MAG_ERR_DERED_CALIB_Z"] > 23.50]
+            galaxies.test_dataset = galaxies.test_dataset[galaxies.test_dataset["BDF_MAG_ERR_DERED_CALIB_Z"] > 23.50]
+
         galaxies.scale_data()
         return galaxies
 
@@ -641,7 +645,10 @@ class gaNdalFClassifier(nn.Module):
             with autocast(enabled=self.use_amp):
                 logits = self.model(xb).squeeze()
                 loss_vec = self.loss_function(logits, yb)
-                loss = (loss_vec * wb).mean() if self.rew_enable else loss_vec.mean()
+                if self.rew_enable:
+                    loss = (loss_vec * wb).sum() / (wb.sum() + 1e-12)
+                else:
+                    loss = loss_vec.mean()
 
             if self.use_amp:
                 self.cuda_scaler.scale(loss).backward()
@@ -920,6 +927,18 @@ class gaNdalFClassifier(nn.Module):
                 show_plot=self.cfg['SHOW_PLOT'],
                 save_plot=self.cfg['SAVE_PLOT'],
                 save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag_curve.pdf"
+            )
+
+            plot_rate_ratio_by_mag(
+                mag=mag_te,
+                y_true=y_true,
+                probs_raw=p_raw,
+                probs_cal=p_cal,
+                calibrated=True,  # default
+                bin_width=0.25,
+                mag_label="BDF_MAG_DERED_CALIB_I",
+                show_density_ratio=True,
+                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag.pdf"
             )
 
         self.classifier_logger.log_info_stream("run_tests: done")
