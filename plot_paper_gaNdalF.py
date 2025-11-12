@@ -299,29 +299,31 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
     df_gandalf_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_GANDALF']}")
 
     detection_rate_balrog = df_balrog_clf["detected"].mean()
-    detection_rate_gandalf = df_gandalf_clf["detected"].mean()
+    detection_rate_gandalf = df_gandalf_clf["sampled detected"].mean()
 
     n_detected_balrog = df_balrog_clf["detected"].sum()
-    n_detected_gandalf = df_gandalf_clf["detected"].sum()
+    n_detected_gandalf = df_gandalf_clf["sampled detected"].sum()
 
     print(f"Balrog detection rate: {detection_rate_balrog:.4f} ({n_detected_balrog} / {len(df_balrog_clf)})")
     print(f"gaNdalF detection rate: {detection_rate_gandalf:.4f} ({n_detected_gandalf} / {len(df_gandalf_clf)})")
 
-    df_balrog_clf_deep_cut = apply_deep_cuts(
-        path_master_cat=path_master_cat,
-        data_frame=df_balrog_clf
-    )
-    df_gandalf_clf_deep_cut = apply_deep_cuts(
-        path_master_cat=path_master_cat,
-        data_frame=df_gandalf_clf
-    )
+    df_balrog_clf_deep_cut = df_balrog_clf
+    df_gandalf_clf_deep_cut = df_gandalf_clf
+    # df_balrog_clf_deep_cut = apply_deep_cuts(
+    #     path_master_cat=path_master_cat,
+    #     data_frame=df_balrog_clf
+    # )
+    # df_gandalf_clf_deep_cut = apply_deep_cuts(
+    #     path_master_cat=path_master_cat,
+    #     data_frame=df_gandalf_clf
+    # )
 
     if cfg["PLT_FIG_1"] is True:
         plot_multivariate_clf(
             df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1],
-            df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 1],
+            df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled detected'] == 1],
             df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0],
-            df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['detected'] == 0],
+            df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled detected'] == 0],
             columns={
                     "BDF_MAG_DERED_CALIB_R": {
                         "label": "BDF Mag R",

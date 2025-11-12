@@ -102,6 +102,14 @@ def add_predictions(df, y_true_col="detected", y_proba_col="y_score", threshold=
 
 
 def main(classifier_cfg, flow_cfg, logger):
+    if not classifier_cfg.get("RUN_CLASSIFIER", False):
+        logger.log_info_stream("RUN_CLASSIFIER was False; enabling it")
+    classifier_cfg["RUN_CLASSIFIER"] = True
+
+    if not flow_cfg.get("RUN_FLOW", False):
+        logger.log_info_stream("RUN_FLOW was True; disabling it")
+    flow_cfg["RUN_FLOW"] = False
+
     classifier_model = gaNdalF(logger, classifier_cfg=classifier_cfg, flow_cfg=flow_cfg)
 
     df_gandalf, df_balrog = classifier_model.run_classifier()
@@ -120,16 +128,39 @@ def plot_classifier(cfg, df_gandalf, df_balrog):
     if cfg["SAVE_PLOT"] is True:
         os.makedirs(cfg["PATH_PLOTS"], exist_ok=True)
 
-    df_gandalf = add_predictions(df_gandalf, y_true_col="detected", y_proba_col="probability detected", threshold=cfg.get("THRESHOLD", 0.5))
+    # df_gandalf = add_predictions(
+    #     df_gandalf, y_true_col="y_true", y_proba_col="probability detected",
+    #     threshold=cfg.get("THRESHOLD", 0.5)
+    # )
+
+    # df_gandalf["true detected"]
+    # df_gandalf["threshold detected"]
+    # df_gandalf["sampled detected"]
+    # df_gandalf["probability detected raw"]
+    # df_gandalf["probability detected"]
 
     plot_confusion_matrix(
         df_gandalf=df_gandalf,
-        df_balrog=df_balrog,
+        # df_balrog=df_balrog,
+        y_true_col="true detected",
+        y_pred_col="threshold detected",
         show_plot=cfg['SHOW_PLOT'],
         save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/confusion_matrix.png",
-        title=f"Confusion Matrix"
+        save_name=f"{cfg['PATH_PLOTS']}/thr_confusion_matrix.png",
+        title=f"Confusion Matrix with threshold"
     )
+
+    plot_confusion_matrix(
+        df_gandalf=df_gandalf,
+        # df_balrog=df_balrog,
+        y_true_col="true detected",
+        y_pred_col="sampled detected",
+        show_plot=cfg['SHOW_PLOT'],
+        save_plot=cfg['SAVE_PLOT'],
+        save_name=f"{cfg['PATH_PLOTS']}/smpl_confusion_matrix.png",
+        title=f"Confusion Matrix with sample"
+    )
+    exit()
 
     plot_roc_curve_gandalf(
         df_gandalf=df_gandalf,

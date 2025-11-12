@@ -13,6 +13,7 @@ import pickle
 import torch
 from torch import nn
 import os
+from scipy.stats import ks_2samp
 # plt.style.use('seaborn-white')
 
 
@@ -97,6 +98,8 @@ class gaNdalF(object):
             dataset_logger=self.gandalf_logger,
             cfg=self.flow_cfg,
         )
+        for k in self.flow_cfg["INPUT_COLS"]:
+            print(k, galaxies.run_dataset[k].min(), galaxies.run_dataset[k].max())
         galaxies.apply_log10()
         galaxies.scale_data()
         return galaxies
@@ -106,6 +109,12 @@ class gaNdalF(object):
             dataset_logger=self.gandalf_logger,
             cfg=self.classifier_cfg,
         )
+        # df_check = galaxies.run_dataset.copy()
+        # for k in self.flow_cfg["INPUT_COLS"] + self.flow_cfg["OUTPUT_COLS"] + ["detected"]:
+        #     print(k, df_check[k].min(), df_check[k].max())
+        # df_check = df_check[df_check["detected"]==1]
+        # for k in self.flow_cfg["INPUT_COLS"] + self.flow_cfg["OUTPUT_COLS"] + ["detected"]:
+        #     print(k, df_check[k].min(), df_check[k].max())
         galaxies.scale_data()
         return galaxies
 
@@ -145,7 +154,7 @@ class gaNdalF(object):
         """Load temperature + mag-aware Platt from joblib artifact if present."""
         try:
             cal_path = os.path.join(
-                self.classifier_cfg["PATH_TRAINED_NN"], "calibration_artifacts.pkl"
+                self.classifier_cfg["PATH_TRAINED_NN"], self.classifier_cfg["FILENAME_CALIBRATION_ARTIFACTS"]
             )
             if os.path.exists(cal_path):
                 cal = joblib.load(cal_path)
@@ -199,6 +208,7 @@ class gaNdalF(object):
         device = torch.device(device_str if torch.cuda.is_available() or device_str == "cpu" else "cpu")
 
         state_dict_path = f"{self.classifier_cfg['PATH_TRAINED_NN']}/{self.classifier_cfg['FILENAME_NN_CLASSIFIER']}"
+
         # Lade nur das state_dict (auf CPU)
         sd = torch.load(state_dict_path, map_location="cpu", weights_only=True)
 
@@ -243,21 +253,36 @@ class gaNdalF(object):
         model.eval()
         return model
 
-    def run_classifier(self, data_frame=None, calibrated: bool = True):
+    def run_classifier(self, dataset:str="test", threshold:float=None):
         """
         If calibrated=True, returns AND samples from calibrated probabilities.
         Otherwise uses raw probs.
         """
-        if data_frame is not None:
-            self.classifier_data = data_frame
+        if dataset == "test":
+            self.classifier_data = self.classifier_galaxies.run_dataset
+        elif dataset == "valid":
+            self.classifier_data = self.classifier_galaxies.valid_dataset
+        elif dataset == "train":
+            self.classifier_data = self.classifier_galaxies.train_dataset
+        else:
+            raise ValueError("Unkonwn dataset")
+
+        # if self.classifier_cfg["CHECK_INPUT_PLOT"] is True:
+        #     self.flow_cfg['PATH_PLOTS'] = self.classifier_cfg['PATH_PLOTS']
+        #     os.makedirs(self.classifier_cfg['PATH_PLOTS'], exist_ok=True)
+        #     plot_features_single(
+        #         cfg=self.classifier_cfg,
+        #         df_gandalf=self.classifier_data,
+        #         columns=self.classifier_cfg["INPUT_COLS"],
+        #         title_prefix=f"Classifier Input Columns",
+        #         savename=f"{self.classifier_cfg['PATH_PLOTS']}/feature_input_classifier.pdf"
+        #     )
 
         device = torch.device(str(self.classifier_cfg.get("DEVICE", "cpu")).lower())
         mag_col = self.classifier_cfg.get("MAG_COL", "BDF_MAG_DERED_CALIB_I")
 
         X_np = self.classifier_data[self.classifier_cfg["INPUT_COLS"]].to_numpy(dtype=np.float32, copy=False)
         mag_np = self.classifier_data[mag_col].to_numpy(dtype=np.float32, copy=False)
-        y_true_np = self.classifier_data[self.classifier_cfg["OUTPUT_COLS"]].to_numpy(dtype=np.int32,
-                                                                                      copy=False).ravel()
 
         X_t = torch.from_numpy(X_np)
         mag_t = torch.from_numpy(mag_np)
@@ -303,22 +328,29 @@ class gaNdalF(object):
         p_cal = np.concatenate(probs_cal_chunks).astype(np.float32)
 
         # which probs should drive the Bernoulli?
-        p_for_sampling = p_cal if calibrated else p_raw
+        p_for_sampling = p_cal if self.classifier_cfg.get("CALIB_CLASSIFIER", True) else p_raw
+
+        thr = threshold
+        if thr is None:
+            thr = getattr(self, "thr_best", None)  # aus _load_calibration gesetzt, s.u.
+        if thr is None:
+            thr = 0.5
+
+        y_true = self.classifier_data[self.classifier_cfg["OUTPUT_COLS"]].to_numpy(int).ravel()
+        y_pred = ((p_for_sampling if self.classifier_cfg.get("CALIB_CLASSIFIER", True) else p_raw) >= thr).astype(int)
 
         rng = np.random.default_rng(int(self.classifier_cfg.get('BERNOULLI_SEED', 123)))
-        detected = (p_for_sampling > rng.random(p_for_sampling.shape[0])).astype(np.int32)
-
-        acc = accuracy_score(y_true_np, detected)
+        y_sampled = ((p_for_sampling if self.classifier_cfg.get("CALIB_CLASSIFIER", True) else p_raw) > rng.random(p_raw.shape[0])).astype(int)
 
         df_gandalf = self.classifier_data.copy()
-        df_gandalf["detected"] = detected
+        df_gandalf["true detected"] = y_true
+        df_gandalf["threshold detected"] = y_pred
+        df_gandalf["sampled detected"] = y_sampled
         df_gandalf["probability detected raw"] = p_raw
-        df_gandalf["probability detected"] = p_cal  # calibrated
+        df_gandalf["probability detected"] = p_for_sampling
 
-        self.gandalf_logger.log_info_stream(
-            f"Accuracy sample ({'cal' if calibrated else 'raw'}): {acc * 100:.2f}%  | T={self.T_cal:.3f}  "
-            f"| mag_platt={'on' if self.mag_platt is not None else 'off'}"
-        )
+        acc = accuracy_score(y_true, y_pred)
+        self.gandalf_logger.log_info_stream(f"Accuracy (deterministic, thr={thr:.3f}): {acc * 100:.2f}%")
         return df_gandalf, self.classifier_data
 
     def run_flow(self, data_frame=None):
@@ -326,31 +358,40 @@ class gaNdalF(object):
         if data_frame is not None:
             self.flow_data = data_frame
 
-        input_data = torch.tensor(self.flow_data[self.flow_cfg["INPUT_COLS"]].values, dtype=torch.float32)
-        output_data = torch.tensor(self.flow_data[self.flow_cfg["OUTPUT_COLS"]].values, dtype=torch.float32)
+        # if self.flow_cfg["CHECK_INPUT_PLOT"] is True:
+        #     os.makedirs(self.flow_cfg['PATH_PLOTS'], exist_ok=True)
+        #     plot_features_single(
+        #         cfg=self.flow_cfg,
+        #         df_gandalf=self.flow_data,
+        #         columns=self.flow_cfg["INPUT_COLS"],
+        #         title_prefix=f"Flow Input w/o Classifier",
+        #         savename=f"{self.flow_cfg['PATH_PLOTS']}/feature_input_flow_wo_classifier.pdf"
+        #     )
 
+        df_gandalf_input = self.flow_data.copy()
+        df_gandalf_input.loc[:, self.flow_cfg["OUTPUT_COLS"]] = np.nan
+        df_gandalf_input["gandalf_id"] = np.arange(len(df_gandalf_input))
+        try:
+            flow_detected = df_gandalf_input[df_gandalf_input[self.flow_cfg["DETECTION_TYPE"]]==1].copy()
+        except KeyError:
+            print(f"using detected instead if {self.flow_cfg["DETECTION_TYPE"]} due to key error")
+            flow_detected = df_gandalf_input[df_gandalf_input["detected"] == 1].copy()
+
+        input_data = torch.tensor(flow_detected[self.flow_cfg["INPUT_COLS"]].values, dtype=torch.float32)
         input_data = input_data.to(torch.device('cpu'))
 
+        self.flow_model.eval()
         with torch.no_grad():
-            arr_gandalf_output = self.flow_model.sample(len(input_data), cond_inputs=input_data).detach()
+           arr_gandalf_output = self.flow_model.sample(len(input_data), cond_inputs=input_data).detach()
 
-        output_data_np = arr_gandalf_output.cpu().numpy()
+        arr_gandalf = np.concatenate([flow_detected["gandalf_id"].values.reshape(-1, 1), arr_gandalf_output.cpu().numpy()], axis=1)
+        df_generated = pd.DataFrame(arr_gandalf, columns=["gandalf_id"] + list(self.flow_cfg["OUTPUT_COLS"]))
+        df_gandalf_input.drop(self.flow_cfg["OUTPUT_COLS"], axis=1, inplace=True)
+        df_gandalf = pd.merge(df_gandalf_input, df_generated, on='gandalf_id', how="left")
+        df_gandalf = self.flow_galaxies.inverse_scale_data(df_gandalf)
+        self.flow_data = self.flow_galaxies.inverse_scale_data(self.flow_data)
 
-        input_data_np_true = input_data.cpu().numpy()
-        output_data_np_true = output_data.cpu().numpy()
-        arr_all_balrog = np.concatenate([input_data_np_true, output_data_np_true], axis=1)
-        arr_all_gandalf = np.concatenate([input_data_np_true, output_data_np], axis=1)
-
-        df_output_balrog = pd.DataFrame(arr_all_balrog, columns=list(self.flow_cfg["INPUT_COLS"]) + list(self.flow_cfg["OUTPUT_COLS"]))
-        df_output_balrog = df_output_balrog[self.flow_cfg["COLUMNS_OF_INTEREST"]]
-
-        df_output_gandalf = pd.DataFrame(arr_all_gandalf, columns=list(self.flow_cfg["INPUT_COLS"]) + list(self.flow_cfg["OUTPUT_COLS"]))
-        df_output_gandalf = df_output_gandalf[self.flow_cfg["COLUMNS_OF_INTEREST"]]
-
-        df_output_balrog = self.flow_galaxies.inverse_scale_data(df_output_balrog)
-        df_output_gandalf = self.flow_galaxies.inverse_scale_data(df_output_gandalf)
-
-        return df_output_gandalf, df_output_balrog
+        return df_gandalf, self.flow_data
 
     def save_data(self, data_frame, file_name, protocol=2, tmp_samples=False):
         """"""

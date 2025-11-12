@@ -20,6 +20,7 @@ from datetime import datetime
 from ray import tune
 import random
 import logging
+from contextlib import nullcontext
 import signal
 
 class gaNdalFFlow(object):
@@ -199,23 +200,160 @@ class gaNdalFFlow(object):
         return galaxies
 
     def init_network(self, num_outputs, num_input):
+        arch = str(self.cfg.get("FLOW_ARCH", "made")).lower()
+        if arch == "rqs":
+            return self._init_rqs_coupling_network(num_outputs, num_input)
+        else:
+            return self._init_made_network(num_outputs, num_input)  # dein bisheriger Code
+
+    def _autocast_ctx(self):
+        # Nur auf CUDA + AMP aktivieren, sonst Nullkontext
+        if (self.device.type == "cuda") and self.use_amp:
+            return torch.amp.autocast(device_type="cuda", dtype=self.autocast_dtype)
+        return nullcontext()
+
+    def _init_made_network(self, num_outputs, num_input):
+        # --- dein bisheriger init_network-Code für MADE/MAF ---
         modules = []
         for _ in range(self.nb):
             modules += [
-                fnn.MADE(num_inputs=num_outputs, num_hidden=self.nh, num_cond_inputs=num_input, act=self.act, num_layers=self.nl),
+                fnn.MADE(num_inputs=num_outputs, num_hidden=self.nh, num_cond_inputs=num_input,
+                         act=self.act, num_layers=self.nl),
                 fnn.BatchNormFlow(num_outputs),
                 fnn.Reverse(num_outputs)
             ]
-        model = fnn.FlowSequential(*modules)
-        model = model.to(dtype=self.dtype)
+        model = fnn.FlowSequential(*modules).to(dtype=self.dtype).to(self.device)
         for module in model.modules():
             if isinstance(module, torch.nn.Linear):
                 torch.nn.init.orthogonal_(module.weight)
                 if hasattr(module, 'bias') and module.bias is not None:
                     module.bias.data.fill_(0)
+        optimizer = optim.AdamW(model.parameters(), lr=self.lr)
+        return model, optimizer
 
-        model.to(self.device)
-        optimizer = optim.AdamW(model.parameters(), lr=self.lr, )
+    def _init_rqs_coupling_network(self, num_outputs, num_input):
+        from nflows import flows, distributions, transforms
+        from nflows.nn import nets
+        import torch.nn.functional as F
+
+        D = int(num_outputs)
+        C = int(num_input)
+
+        n_bins = int(self.cfg.get("RQS_NUM_BINS", 10))
+        tail_bound = float(self.cfg.get("RQS_TAIL_BOUND", 3.0))
+        use_inv1x1 = bool(self.cfg.get("RQS_USE_INV1X1", self.cfg.get("RQS_USE_INV1x1", True)))
+        norm_kind = str(self.cfg.get("RQS_NORM", "actnorm")).lower()
+
+        def _block(mask_even: bool):
+            tfs = []
+            if norm_kind == "actnorm":
+                tfs.append(transforms.normalization.ActNorm(D))
+            elif norm_kind in ("batchnorm", "batch_norm"):
+                tfs.append(transforms.normalization.BatchNorm(D))
+            else:
+                pass
+
+            # 2) Feature-Mixing zwischen Couplings:
+            if use_inv1x1:
+                # nflows: invertible 1x1 linear via LU (Glow-Äquivalent)
+                if hasattr(transforms, "lu") and hasattr(transforms.lu, "LULinear"):
+                    tfs.append(transforms.lu.LULinear(D))
+                else:
+                    # robuste Fallback-Option, funktioniert in allen nflows-Versionen
+                    tfs.append(transforms.permutations.RandomPermutation(D))
+            else:
+                tfs.append(transforms.permutations.RandomPermutation(D))
+
+            # 3) alternierende Maske
+            m = torch.arange(D) % 2
+            mask = (m == 0) if mask_even else (m == 1)
+
+            def _make_net(in_features, out_features):
+                return nets.ResidualNet(
+                    in_features=in_features,
+                    out_features=out_features,
+                    hidden_features=int(self.nh),
+                    context_features=C,
+                    num_blocks=int(self.nl),
+                    activation=F.relu,
+                    dropout_probability=0.0,
+                    use_batch_norm=False
+                )
+
+            tfs.append(
+                transforms.coupling.PiecewiseRationalQuadraticCouplingTransform(
+                    mask=mask,
+                    transform_net_create_fn=_make_net,
+                    num_bins=n_bins,
+                    tails="linear",
+                    tail_bound=tail_bound,
+                    apply_unconditional_transform=False
+                )
+            )
+            return tfs
+
+        all_transforms = []
+        for b in range(int(self.nb)):
+            all_transforms += _block(mask_even=(b % 2 == 0))
+            # all_transforms += _block(mask_even=(b % 2 == 1))
+
+        transform = transforms.CompositeTransform(all_transforms)
+        base = distributions.StandardNormal(shape=[D])
+        nf = flows.Flow(transform, base)
+
+        class _NflowsWrapper(torch.nn.Module):
+            def __init__(self, flow, sample_chunk: int = 8192):
+                super().__init__()
+                self.flow = flow
+                self.num_inputs = D
+                self.sample_chunk = int(sample_chunk)
+
+            def forward(self, y, cond_inputs=None, mode='direct'):
+                # Kompatibel zu deinem Trainer-Interface
+                return y, torch.zeros(y.size(0), 1, device=y.device, dtype=y.dtype)
+
+            def log_probs(self, y, cond_inputs=None):
+                lp = self.flow.log_prob(inputs=y, context=cond_inputs)  # [N]
+                return lp.unsqueeze(1)
+
+            @torch.no_grad()
+            def sample(self, num_samples=None, noise=None, cond_inputs=None):
+                dev = next(self.flow.parameters()).device
+                D = int(self.num_inputs)
+
+                if cond_inputs is None:
+                    s = self.flow.sample(int(num_samples))
+                    if s.dim() == 2 and s.shape[0] == D:  # [D, N] -> [N, D]
+                        s = s.t()
+                    return s
+
+                ctx = cond_inputs.to(dev, dtype=torch.float32)
+                N = int(ctx.shape[0])
+
+                out = torch.empty(N, D, dtype=torch.float32, device="cpu")
+                ch = self.sample_chunk if self.sample_chunk > 0 else N
+
+                for start in range(0, N, ch):
+                    end = min(start + ch, N)
+                    c = ctx[start:end]
+                    u = self.flow.sample(end - start, context=c)
+
+                    # auf [chunk, D] normalisieren
+                    if u.dim() == 1:
+                        u = u.view(-1, D) if u.numel() != D else u.view(1, D)
+                    elif u.shape == (D, end - start):
+                        u = u.t()
+                    elif u.shape != (end - start, D):
+                        raise RuntimeError(
+                            f"Unexpected shape {tuple(u.shape)} for chunk {start}:{end}, expected {(end - start, D)}.")
+
+                    out[start:end].copy_(u.to('cpu', dtype=torch.float32))
+
+                return out
+
+        sample_chunk = int(self.cfg.get("SAMPLE_CHUNK", 8192))
+        model = _NflowsWrapper(nf, sample_chunk=sample_chunk).to(dtype=torch.float32).to(self.device)
+        optimizer = optim.AdamW(model.parameters(), lr=self.lr)
         return model, optimizer
 
     def _checkpoint_path(self):
@@ -431,9 +569,7 @@ class gaNdalFFlow(object):
             output_data = output_data.to(self.device)
 
             self.optimizer.zero_grad(set_to_none=True)
-            with torch.amp.autocast(device_type=dev_type,
-                                    dtype=(self.autocast_dtype if dev_type == "cuda" else None),
-                                    enabled=(self.use_amp if dev_type == "cuda" else False)):
+            with self._autocast_ctx():
                 loss = -self.model.log_probs(output_data, input_data).mean()
 
             if self.use_amp:
@@ -511,9 +647,7 @@ class gaNdalFFlow(object):
             output_data = output_data.to(self.device)
 
             with torch.no_grad():
-                with torch.amp.autocast(device_type=dev_type,
-                                        dtype=(self.autocast_dtype if dev_type == "cuda" else None),
-                                        enabled=(self.use_amp if dev_type == "cuda" else False)):
+                with self._autocast_ctx():
                     loss = -self.model.log_probs(output_data, input_data).mean()
 
                 bs_curr = output_data.size(0)
@@ -542,7 +676,13 @@ class gaNdalFFlow(object):
 
         self.gandalf_logger.log_info_stream("Plot test")
         self.model.eval()
-        df_balrog = self.galaxies.test_dataset
+        df_balrog_full = self.galaxies.test_dataset
+        N_eval = int(self.cfg.get("TEST_EVAL_SAMPLES", 100_000))
+        seed = int(self.cfg.get("SAMPLE_SEED", 42))
+        if len(df_balrog_full) > N_eval:
+            df_balrog = df_balrog_full.sample(n=N_eval, random_state=seed).reset_index(drop=True)
+        else:
+            df_balrog = df_balrog_full.reset_index(drop=True)
 
         if self.cfg["DROPPED"] is True:
             df_balrog[self.cfg["INPUT_COLS"]] = df_balrog[self.cfg["INPUT_COLS"]].astype(np.float64)
@@ -556,9 +696,7 @@ class gaNdalFFlow(object):
         input_data = input_data.to(self.device)
         dev_type = "cuda" if self.device.type == "cuda" else ("mps" if self.device.type == "mps" else "cpu")
         with torch.no_grad():
-            with torch.amp.autocast(device_type=dev_type,
-                                    dtype=(self.autocast_dtype if dev_type == "cuda" else None),
-                                    enabled=(self.use_amp if dev_type == "cuda" else False)):
+            with self._autocast_ctx():
                 arr_gandalf_output = self.model.sample(len(input_data), cond_inputs=input_data).detach()
 
         output_data_np = arr_gandalf_output.cpu().numpy()

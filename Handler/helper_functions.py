@@ -16,6 +16,20 @@ def calc_color(data_frame, colors, column_name):
     return data_frame
 
 
+def compute_injection_counts(det_catalog, id_col, count_col):
+    '''
+    Expects det_catalog to be a pandas DF
+    '''
+    # `true_id` is the DF id
+    unique, ucounts = np.unique(det_catalog[id_col], return_counts=True)
+
+    freq = pd.DataFrame()
+    freq[id_col] = unique
+    freq[count_col] = ucounts
+
+    return det_catalog.merge(freq, on=id_col, how='left')
+
+
 def sample_columns(df_balrog, df_gandalf, column_name):
     values_in = df_balrog[column_name]
     df_gandalf[column_name] = None

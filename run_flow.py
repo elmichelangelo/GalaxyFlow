@@ -1,6 +1,19 @@
 import torch
 import torch.optim as optim
-from Handler import fnn, get_os, unsheared_shear_cuts, unsheared_mag_cut, LoggerHandler, plot_features, plot_binning_statistics_combined, plot_balrog_histogram_with_error, plot_compare_corner, calc_color
+from Handler import (
+    fnn,
+    get_os,
+    unsheared_shear_cuts,
+    unsheared_mag_cut,
+    LoggerHandler,
+    plot_features,
+    plot_binning_statistics_combined,
+    plot_balrog_histogram_with_error,
+    plot_features_single,
+    plot_balrog_histogram_with_error_and_detection,
+    plot_compare_corner,
+    calc_color
+)
 from gandalf import gaNdalF
 import argparse
 import logging
@@ -71,6 +84,16 @@ def load_config_and_parser(system_path):
 def main(classifier_cfg, flow_cfg, logger):
     flow_model = gaNdalF(logger, classifier_cfg=classifier_cfg, flow_cfg=flow_cfg)
     df_gandalf, df_balrog = flow_model.run_flow()
+
+    if flow_cfg["CHECK_INPUT_PLOT"] is True:
+        os.makedirs(flow_cfg['PATH_PLOTS'], exist_ok=True)
+        plot_features_single(
+            cfg=flow_cfg,
+            df_gandalf=df_gandalf,
+            columns=flow_cfg["INPUT_COLS"],
+            title_prefix=f"Flow Input w/o Classifier",
+            savename=f"{flow_cfg['PATH_PLOTS']}/feature_input_flow_w_o_classifier.pdf"
+        )
 
     flow_cfg["PATH_PLOTS"] = f'{flow_cfg["PATH_PLOTS"]}/{flow_cfg["RUN_DATE"]}_FLOW_PLOTS'
 
@@ -171,55 +194,76 @@ def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
         ranges=[(-4, 4), (-4, 4)]
     )
 
-    plot_balrog_histogram_with_error(
+    if prefix == "":
+        lst_ranges = [
+            [-1.5, 4],  # mag r-i
+            [-1.5, 4],  # mag i-z
+            [15, 38],  # mag r
+            [18, 38],  # mag i
+            [15, 38],  # mag z
+            None,  # mag err r
+            None,  # mag err i
+            None,  # mag err z
+            [-1.2, 1.2],  # e_1
+            [-1.2, 1.2],  # e_2
+            [1, 2000],  # snr
+            [0.5, 200],  # size ratio
+            [0, 100]  # T
+        ]
+        lst_binwidths = [
+            0.25,  # mag r-i
+            0.25,  # mag i-z
+            0.25,  # mag r
+            0.25,  # mag i
+            0.25,  # mag z
+            0.25,  # mag err r
+            0.25,  # mag err i
+            0.25,  # mag err z
+            0.1,  # e_1
+            0.1,  # e_2
+            50,  # snr
+            1.5,  # size ratio
+            0.5,  # T
+        ]
+    else:
+        lst_ranges = [
+            [-1.5, 4],  # mag r-i
+            [-4, 1.5],  # mag i-z
+            [15, 26],  # mag r
+            [18, 23.5],  # mag i
+            [15, 26],  # mag z
+            None,  # mag err r
+            None,  # mag err i
+            None,  # mag err z
+            [-1.2, 1.2],  # e_1
+            [-1.2, 1.2],  # e_2
+            [10, 1000],  # snr
+            [0.5, 30],  # size ratio
+            [0, 10]  # T
+        ]
+        lst_binwidths = [
+            0.25,  # mag r-i
+            0.25,  # mag i-z
+            0.25,  # mag r
+            0.25,  # mag i
+            0.25,  # mag z
+            0.25,  # mag err r
+            0.25,  # mag err i
+            0.25,  # mag err z
+            0.1,  # e_1
+            0.1,  # e_2
+            50,  # snr
+            1.5,  # size ratio
+            0.5,  # T
+        ]
+
+    plot_balrog_histogram_with_error_and_detection(
         df_gandalf=df_gandalf,
         df_balrog=df_balrog,
         columns=cfg["HIST_PLOT_COLS"],
-        labels=[
-            "mag r-i",
-            "mag i-z",
-            "mag r",
-            "mag i",
-            "mag z",
-            "log10(mag err r)",
-            "log10(mag err i)",
-            "log10(mag err z)",
-            "e_1",
-            "e_2",
-            "snr",
-            "size ratio",
-            "T"
-        ],
-        ranges=[
-            [-0.5, 1.5],  # mag r-i
-            [-0.5, 1.5],  # mag i-z
-            [18, 24.5],  # mag r
-            [18, 24.5],  # mag i
-            [18, 24.5],  # mag z
-            None,  # mag err r
-            None,  # mag err i
-            None,  # mag err z
-            None,  # e_1
-            None,  # e_2
-            [2, 100],  # snr
-            [-0.5, 5],  # size ratio
-            [0, 3.5]  # T
-        ],
-        binwidths=[
-            0.08,  # mag r-i
-            0.08,  # mag i-z
-            None,  # mag r
-            None,  # mag i
-            None,  # mag z
-            None,  # mag err r
-            None,  # mag err i
-            None,  # mag err z
-            None,  # e_1
-            None,  # e_2
-            2,  # snr
-            0.2,  # size ratio
-            0.2,  # T
-        ],
+        labels=cfg["HIST_PLOT_LABELS"],
+        ranges=lst_ranges,
+        binwidths=lst_binwidths,
         title=r"gaNdalF vs. Balrog: Property Distribution Comparison",
         show_plot=cfg["SHOW_PLOT"],
         save_plot=cfg["SAVE_PLOT"],

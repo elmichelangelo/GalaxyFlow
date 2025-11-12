@@ -832,16 +832,18 @@ def plot_classification_results(data_frame, cols, show_plot, save_plot, save_nam
 
 def plot_confusion_matrix(
     df_gandalf,
-    df_balrog,
+    # df_balrog,
     show_plot: bool,
     save_plot: bool,
     save_name: str,
+    y_true_col:str="true detected",
+    y_pred_col:str="threshold detected",
     check_raw: bool = False,
     title: str = "Confusion Matrix",
 ):
     # ---------- Daten ----------
-    y_true = df_balrog["detected"].to_numpy().astype(int).ravel()
-    y_pred = (df_gandalf["detected raw"] if check_raw else df_gandalf["detected"]).to_numpy().astype(int).ravel()
+    y_true = df_gandalf[y_true_col].to_numpy().astype(int).ravel()
+    y_pred = df_gandalf[y_pred_col].to_numpy().astype(int).ravel()
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
 
     # Kennzahlen
@@ -1022,11 +1024,19 @@ def plot_roc_curve(data_frame, show_plot, save_plot, save_name, title='Receiver 
     plt.close(fig_roc_curve)
 
 
-def plot_roc_curve_gandalf(df_balrog, df_gandalf, show_plot, save_plot, save_name, title='Receiver Operating Characteristic (ROC) Curve'):
+def plot_roc_curve_gandalf(
+        # df_balrog,
+        df_gandalf,
+        show_plot,
+        save_plot,
+        save_name,
+        y_true_col:str="true detected",
+        y_pred_col:str="threshold detected",
+        title='Receiver Operating Characteristic (ROC) Curve'):
     """"""
     fpr, tpr, thresholds = roc_curve(
-        df_balrog['detected'].to_numpy(),
-        df_gandalf['detected'].to_numpy()
+        df_gandalf[y_true_col].to_numpy(),
+        df_gandalf[y_pred_col].to_numpy()
     )
     roc_auc = auc(fpr, tpr)
 
@@ -2873,13 +2883,13 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
     for i, col in enumerate(columns.keys()):
         df_detected = pd.DataFrame({
             f"{col}": df_gandalf_detected_sample[col].to_list() + df_balrog_detected_sample[col].to_list(),
-            f"BDF_MAG_DERED_CALIB_I": df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list() + df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list(),
+            f"BDF_MAG_DERED_CALIB_R": df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list() + df_balrog_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list(),
             f"Catalog": ["gaNdalF" for _ in range(len(df_gandalf_detected_sample[col]))] + ["Balrog" for _ in range(len(df_balrog_detected_sample[col]))],
         })
 
         df_not_detected = pd.DataFrame({
             f"{col}": df_gandalf_not_detected_sample[col].to_list() + df_balrog_not_detected_sample[col].to_list(),
-            f"BDF_MAG_DERED_CALIB_I": df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list() + df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list(),
+            f"BDF_MAG_DERED_CALIB_R": df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list() + df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list(),
             f"Catalog": ["gaNdalF" for _ in range(len(df_gandalf_not_detected_sample[col]))] + ["Balrog" for _ in range(len(df_balrog_not_detected_sample[col]))],
         })
 
@@ -2899,7 +2909,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         try:
             sns.kdeplot(
                 data=df_detected,
-                x=f"BDF_MAG_DERED_CALIB_I",
+                x=f"BDF_MAG_DERED_CALIB_R",
                 y=f"{col}",
                 hue="Catalog",
                 ax=ax,
@@ -2918,7 +2928,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         try:
             sns.kdeplot(
                 data=df_not_detected,
-                x=f"BDF_MAG_DERED_CALIB_I",
+                x=f"BDF_MAG_DERED_CALIB_R",
                 y=f"{col}",
                 hue="Catalog",
                 ax=ax,
@@ -2939,10 +2949,10 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
 
         # Add axis labels only to the bottom row subplots
         if train_plot is True:
-            ax.set_xlabel('BDF Mag I')  # , fontsize=font_size_label
+            ax.set_xlabel('BDF Mag R')  # , fontsize=font_size_label
         else:
             if i >= len(axes) - num_cols:
-                ax.set_xlabel('BDF Mag I') # , fontsize=font_size_label
+                ax.set_xlabel('BDF Mag R') # , fontsize=font_size_label
 
         # Remove any unused subplots
     if train_plot is False:
@@ -2978,20 +2988,21 @@ def plot_balrog_histogram_with_error(
     df_gandalf, df_balrog, columns, labels, ranges, binwidths,
     title, show_plot, save_plot, save_name
 ):
-    # import matplotlib as mpl
+    import matplotlib as mpl
     # # Use LaTeX fonts in matplotlib
-    # mpl.rcParams['text.usetex'] = True
-    # mpl.rcParams['font.family'] = 'serif'
-    # mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    # mpl.rcParams['axes.labelsize'] = 24
-    # mpl.rcParams['font.size'] = 28
-    # mpl.rcParams['legend.fontsize'] = 24
-    # mpl.rcParams['xtick.labelsize'] = 20
-    # mpl.rcParams['ytick.labelsize'] = 20
+    mpl.rcParams['text.usetex'] = True
+    mpl.rcParams['font.family'] = 'serif'
+    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+    mpl.rcParams['axes.labelsize'] = 24
+    mpl.rcParams['font.size'] = 28
+    mpl.rcParams['legend.fontsize'] = 12
+    mpl.rcParams['xtick.labelsize'] = 20
+    mpl.rcParams['ytick.labelsize'] = 12
 
     # Define colors and levels
     color_gandalf = 'darkgreen'
     color_balrog = 'purple'
+    alpha_fill = 0.35
 
     # Determine subplot grid
     ncols = 3
@@ -3034,11 +3045,13 @@ def plot_balrog_histogram_with_error(
             x=col,
             ax=ax_hist,
             bins=bins,
-            element="step",
+            fill=True,
+            # element="step",
+            alpha=alpha_fill,
             stat="density",
             color=color_gandalf,
-            log_scale=(False, True),
-            fill=False,
+            # log_scale=(False, True),
+            edgecolor=None,
             label="gaNdalF"
         )
         sns.histplot(
@@ -3046,30 +3059,40 @@ def plot_balrog_histogram_with_error(
             x=col,
             ax=ax_hist,
             bins=bins,
-            element="step",
+            fill=True,
+            # element="step",
+            alpha=alpha_fill,
             stat="density",
             color=color_balrog,
-            log_scale=(False, True),
-            fill=False,
+            # log_scale=(False, True),
+            edgecolor=None,
             label="Balrog"
         )
+        ax_hist.set_yscale('log')
 
         # Compute counts
-        counts_gandalf, _ = np.histogram(df_gandalf[col], bins=bins)
-        counts_balrog, _ = np.histogram(df_balrog[col], bins=bins)
+        cG, _ = np.histogram(df_gandalf[col], bins=bins)
+        cB, _ = np.histogram(df_balrog[col], bins=bins)
 
-        epsilons = 1e-10
-        # Calculate percent difference and uncertainty
-        counts_gandalf = counts_gandalf.astype(float)# + epsilons
-        counts_balrog = counts_balrog.astype(float)# + epsilons
+        # Totals
+        NB = len(df_balrog)
+        NG = len(df_gandalf)
+
+        # Normalisierte Bin-Anteile (probability per bin)
+        qB = cB.astype(float) / NB
+        qG = cG.astype(float) / NG
 
         with np.errstate(divide='ignore', invalid='ignore'):
-            percent_error = 100 * (counts_balrog - counts_gandalf) / counts_balrog
-            sigma_E = 100 * np.sqrt(counts_balrog + counts_gandalf) / counts_balrog
+            percent_error = 100.0 * (qB - qG) / qB
+            sigma_E = 100.0 * np.sqrt(
+                ((qG ** 2) / (qB ** 4)) * (cB.astype(float) / (NB ** 2)) +
+                (1.0 / (qB ** 2)) * (cG.astype(float) / (NG ** 2))
+            )
 
         # Handle division by zero
-        percent_error[counts_gandalf == 0] = np.nan
-        sigma_E[counts_gandalf == 0] = np.nan
+        mask = (qB == 0)
+        percent_error[mask] = np.nan
+        sigma_E[mask] = np.nan
 
         # Bin centers
         bin_centers = bins[:-1] + binwidth / 2
@@ -3084,9 +3107,22 @@ def plot_balrog_histogram_with_error(
         median_percent_error = np.nanmedian(percent_error)
         ax_error.axhline(
             median_percent_error,
+            color='darkred',
+            linestyle='--'
+        )
+        ax_error.axhline(
+            0,
             color='black',
-            linestyle='--',
-            label=rf'Median \% Error = {median_percent_error:.3f}'
+        )
+        ax_error.axhline(
+            -10,
+            color='grey',
+            linestyle='--'
+        )
+        ax_error.axhline(
+            10,
+            color='grey',
+            linestyle='--'
         )
 
         # Set limits
@@ -3094,14 +3130,24 @@ def plot_balrog_histogram_with_error(
         ax_error.set_xlim(range_min, range_max)
 
         # Formatting
-        ax_error.set_ylabel('% Error')  # , fontsize=font_size_labels
-        ax_error.set_xlabel(labels[idx])  # , fontsize=font_size_labels
-        ax_hist.set_ylabel('Counts')  # , fontsize=font_size_labels
+        # ax_error.set_ylabel('% Error')  # , fontsize=font_size_labels
+        if col_idx == 0:
+            ax_hist.set_ylabel(r"$\mathrm{Density}$", fontsize=12, labelpad=6)
+            ax_hist.tick_params(axis='y', labelsize=10)
 
-        handles_err = [ax_error.axhline(median_percent_error, color='black', linestyle='--',
-                                        label = rf'Med. \% Err. = {median_percent_error:.3f}')
-                       ]
-        ax_error.legend(handles=handles_err, loc="upper right", ncol=1, frameon=True, fontsize=14)  # bbox_to_anchor=(0.99, 0.97),
+            ax_error.set_ylabel(
+                r"$f_i = 100\,\frac{\hat p_{B,i}-\hat p_{G,i}}{\hat p_{B,i}}$",
+                fontsize=10, labelpad=6
+            )
+            ax_hist.set_ylabel('Density')  # , fontsize=font_size_labels
+        else:
+            ax_error.set_ylabel("")
+            ax_hist.set_ylabel("")
+        ax_error.set_xlabel(labels[idx])  # , fontsize=font_size_labels
+        # handles_err = [ax_error.axhline(median_percent_error, color='black', linestyle='--',
+        #                                 label = rf'Med. \% Err. = {median_percent_error:.3f}')
+        #                ]
+        # ax_error.legend(handles=handles_err, loc="upper right", ncol=1, frameon=True, fontsize=14)  # bbox_to_anchor=(0.99, 0.97),
 
         # Hide x-axis labels on the top histogram
         plt.setp(ax_hist.get_xticklabels(), visible=False)
@@ -3129,7 +3175,253 @@ def plot_balrog_histogram_with_error(
         )
 
         # Adjust error plot y-limits if desired
-        ax_error.set_ylim(-15, 15)
+        ax_error.set_ylim(-50, 50)
+
+    # Create custom legend handles (outside loop, only once per figure)
+    handles_fig = [
+        mpatches.Patch(color=color_gandalf, label='gaNdalF'),
+        mpatches.Patch(color=color_balrog, label='Balrog')
+    ]
+
+    # Move legend to the top right of the figure
+    fig.legend(handles=handles_fig, loc="upper right", bbox_to_anchor=(0.98, 0.96), ncol=1,
+               frameon=True)  # Ensure frame is visible
+    # Adjust layout and add title
+    plt.suptitle(title, y=0.99)  # fontsize=font_size_title,
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+
+    # Show or save plot
+    if save_plot:
+        plt.savefig(save_name, dpi=300, bbox_inches='tight')
+    if show_plot:
+        plt.show()
+
+    # Clear the figure
+    plt.clf()
+    plt.close(fig)
+
+
+def plot_balrog_histogram_with_error_and_detection(
+    df_gandalf, df_balrog, columns, labels, ranges, binwidths,
+    title, show_plot, save_plot, save_name
+):
+    import matplotlib as mpl
+    # # Use LaTeX fonts in matplotlib
+    mpl.rcParams['text.usetex'] = True
+    mpl.rcParams['font.family'] = 'serif'
+    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+    mpl.rcParams['axes.labelsize'] = 24
+    mpl.rcParams['font.size'] = 28
+    mpl.rcParams['legend.fontsize'] = 12
+    mpl.rcParams['xtick.labelsize'] = 20
+    mpl.rcParams['ytick.labelsize'] = 12
+
+    # Define colors and levels
+    color_gandalf = 'darkgreen'
+    color_balrog = 'purple'
+    alpha_fill = 0.35
+
+    # Determine subplot grid
+    ncols = 3
+    nrows = (len(columns) + ncols - 1) // ncols
+
+    # Create main figure and GridSpec
+    fig = plt.figure(figsize=(16, 5 * nrows))  # Adjust vertical size as needed
+    main_gs = GridSpec(nrows, ncols, figure=fig)
+
+    for idx, col in enumerate(columns):
+        row_idx = idx // ncols
+        col_idx = idx % ncols
+
+        # Create a nested GridSpec for each subplot with no vertical space between hist and error
+        inner_gs = GridSpecFromSubplotSpec(
+            2, 1,
+            subplot_spec=main_gs[row_idx, col_idx],
+            height_ratios=[3,1],
+            hspace=0
+        )
+
+        ax_hist = fig.add_subplot(inner_gs[0])
+        ax_error = fig.add_subplot(inner_gs[1], sharex=ax_hist)
+
+        binwidth = binwidths[idx] if binwidths[idx] is not None else 0.2
+
+        # Set range for histogram
+        if ranges[idx] is not None:
+            range_min, range_max = ranges[idx]
+        else:
+            range_min = min(df_gandalf[col].min(), df_balrog[col].min())
+            range_max = max(df_gandalf[col].max(), df_balrog[col].max())
+
+        # Create common bins
+        bins = np.arange(range_min, range_max + binwidth, binwidth)
+
+        # Plot histograms
+        sns.histplot(
+            data=df_gandalf,
+            x=col,
+            ax=ax_hist,
+            bins=bins,
+            fill=True,
+            # element="step",
+            alpha=alpha_fill,
+            stat="density",
+            color=color_gandalf,
+            # log_scale=(False, True),
+            edgecolor=None,
+            label="gaNdalF"
+        )
+        sns.histplot(
+            data=df_balrog,
+            x=col,
+            ax=ax_hist,
+            bins=bins,
+            fill=True,
+            # element="step",
+            alpha=alpha_fill,
+            stat="density",
+            color=color_balrog,
+            # log_scale=(False, True),
+            edgecolor=None,
+            label="Balrog"
+        )
+        ax_hist.set_yscale('log')
+
+        # Compute counts
+        cG, _ = np.histogram(df_gandalf[col], bins=bins)
+        cB, _ = np.histogram(df_balrog[col], bins=bins)
+
+        # Totals
+        NB = len(df_balrog)
+        NG = len(df_gandalf)
+
+        # Normalisierte Bin-Anteile (probability per bin)
+        qB = cB.astype(float) / NB
+        qG = cG.astype(float) / NG
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            percent_error = 100.0 * (qB - qG) / qB
+            sigma_E = 100.0 * np.sqrt(
+                ((qG ** 2) / (qB ** 4)) * (cB.astype(float) / (NB ** 2)) +
+                (1.0 / (qB ** 2)) * (cG.astype(float) / (NG ** 2))
+            )
+
+        # Handle division by zero
+        mask = (qB == 0)
+        percent_error[mask] = np.nan
+        sigma_E[mask] = np.nan
+
+        # Bin centers
+        bin_centers = bins[:-1] + binwidth / 2
+
+        # Plot error bars
+        ax_error.errorbar(
+            bin_centers, percent_error, yerr=sigma_E,
+            fmt='o', color='black', ecolor='black', capsize=2, markersize=2, clip_on=True
+        )
+
+        # Calculate Median, ignoring NaNs
+        median_percent_error = np.nanmedian(percent_error)
+        ax_error.axhline(
+            median_percent_error,
+            color='darkred',
+            linestyle='--'
+        )
+        ax_error.axhline(
+            0,
+            color='black',
+        )
+        ax_error.axhline(
+            -10,
+            color='grey',
+            linestyle='--'
+        )
+        ax_error.axhline(
+            10,
+            color='grey',
+            linestyle='--'
+        )
+
+        # Set limits
+        ax_hist.set_xlim(range_min, range_max)
+        ax_error.set_xlim(range_min, range_max)
+
+        # Formatting
+        # ax_error.set_ylabel('% Error')  # , fontsize=font_size_labels
+        if col_idx == 0:
+            ax_hist.set_ylabel(r"$\mathrm{Density}$", fontsize=12, labelpad=6)
+            ax_hist.tick_params(axis='y', labelsize=10)
+
+            ax_error.set_ylabel(
+                r"$f_i = 100\,\frac{\hat p_{B,i}-\hat p_{G,i}}{\hat p_{B,i}}$",
+                fontsize=10, labelpad=6
+            )
+            ax_hist.set_ylabel('Density')  # , fontsize=font_size_labels
+        else:
+            ax_error.set_ylabel("")
+            ax_hist.set_ylabel("")
+        ax_error.set_xlabel(labels[idx])  # , fontsize=font_size_labels
+        # handles_err = [ax_error.axhline(median_percent_error, color='black', linestyle='--',
+        #                                 label = rf'Med. \% Err. = {median_percent_error:.3f}')
+        #                ]
+        # ax_error.legend(handles=handles_err, loc="upper right", ncol=1, frameon=True, fontsize=14)  # bbox_to_anchor=(0.99, 0.97),
+
+        # Hide x-axis labels on the top histogram
+        plt.setp(ax_hist.get_xticklabels(), visible=False)
+        ax_hist.tick_params(
+            axis='x',
+            labelbottom=False
+        )
+
+        # Add grid
+        ax_hist.grid(True)
+        ax_error.grid(True)
+
+        # Set symmetric y-axis ticks on both sides
+        ax_hist.tick_params(
+            axis='y',
+            direction='in',  # Ticks pointing inside
+            left=True,  # Ticks on the left
+            right=True  # Ticks on the right
+        )
+        ax_error.tick_params(
+            axis='y',
+            direction='in',  # Ticks pointing inside
+            left=True,  # Ticks on the left
+            right=True  # Ticks on the right
+        )
+
+        # Adjust error plot y-limits if desired
+        ax_error.set_ylim(-50, 50)
+
+        # --- Detected-Counts pro Bin ---
+        cG_det, _ = np.histogram(df_gandalf.loc[df_gandalf["detected"] == 1, col], bins=bins)
+        cB_det, _ = np.histogram(df_balrog.loc[df_balrog["detected"] == 1, col], bins=bins)
+
+        NG = len(df_gandalf)
+        NB = len(df_balrog)
+
+        # Global normalisierte "Detektionsdichte" pro Bin
+        qG_det = cG_det.astype(float) / NG
+        qB_det = cB_det.astype(float) / NB
+
+        # Ratio, sauber maskiert
+        with np.errstate(divide='ignore', invalid='ignore'):
+            R = np.where(qB_det > 0, qG_det / qB_det, np.nan)
+
+        bin_centers = bins[:-1] + 0.5 * (bins[1] - bins[0])
+
+        # Overlay auf rechter Achse
+        ax_ratio = ax_hist.twinx()
+        ax_ratio.plot(bin_centers, R, marker='o', linewidth=1.0, markersize=3,
+                      label='Detected ratio (G/B)', color='black')
+        ax_ratio.axhline(1.0, linestyle='--', linewidth=1.0, color='gray')
+        ax_ratio.set_ylabel(r'Ratio detected (gaNdalF / Balrog)', fontsize=10)
+
+        # Auto-Skalierung: nicht zu eng, nicht zu wild
+        if np.isfinite(R).any():
+            r_hi = np.nanpercentile(R, 99)
+            ax_ratio.set_ylim(0, max(2.0, 1.2 * r_hi))
 
     # Create custom legend handles (outside loop, only once per figure)
     handles_fig = [
@@ -3394,6 +3686,73 @@ def plot_features(cfg, plot_log, df_gandalf, df_balrog, columns, title_prefix, s
     plt.clf()
     plt.close(fig)
 
+
+def plot_features_single(cfg, df_gandalf, columns, title_prefix, savename):
+    n_features = len(columns)
+    ncols = min(n_features, 3)
+    nrows = int(np.ceil(n_features / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    axes = axes.flatten()
+    for i, k in enumerate(columns):
+        sns.histplot(x=df_gandalf[k], bins=100, ax=axes[i], label="gandalf", stat="density")
+        axes[i].set_yscale("log")
+        if k in ["unsheared/mag_err_r", "unsheared/mag_err_i", "unsheared/mag_err_z"]:
+            axes[i].set_title(f"log10({k})")
+            axes[i].set_xlabel(f"log10({k})")
+        else:
+            axes[i].set_title(k)
+            axes[i].set_xlabel(k)
+
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+    fig.suptitle(f"{title_prefix}", fontsize=16)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.legend()
+    if cfg["SAVE_PLOT"] is True:
+        plt.savefig(savename, bbox_inches='tight', dpi=300)
+    if cfg["SHOW_PLOT"] is True:
+        plt.show()
+    plt.clf()
+    plt.close(fig)
+
+def plot_features_compare(cfg, df_gandalf, df_gandalf2, columns, title_prefix, savename):
+    df_1 = df_gandalf.copy()
+    df_2 = df_gandalf2.copy()
+
+    n_features = len(columns)
+    ncols = min(n_features, 3)
+    nrows = int(np.ceil(n_features / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    axes = axes.flatten()
+    df_1["BDF_MAG_ERR_DERED_CALIB_R"] = np.log10(df_1["BDF_MAG_ERR_DERED_CALIB_R"])
+    df_1["BDF_MAG_ERR_DERED_CALIB_I"] = np.log10(df_1["BDF_MAG_ERR_DERED_CALIB_I"])
+    df_1["BDF_MAG_ERR_DERED_CALIB_Z"] = np.log10(df_1["BDF_MAG_ERR_DERED_CALIB_Z"])
+
+    df_2["BDF_MAG_ERR_DERED_CALIB_R"] = np.log10(df_2["BDF_MAG_ERR_DERED_CALIB_R"])
+    df_2["BDF_MAG_ERR_DERED_CALIB_I"] = np.log10(df_2["BDF_MAG_ERR_DERED_CALIB_I"])
+    df_2["BDF_MAG_ERR_DERED_CALIB_Z"] = np.log10(df_2["BDF_MAG_ERR_DERED_CALIB_Z"])
+    for i, k in enumerate(columns):
+        sns.histplot(x=df_1[k], bins=100, ax=axes[i], label="gandalf w/ classifier", stat="density")
+        sns.histplot(x=df_2[k], bins=100, ax=axes[i], label="gandalf w/o classifier", stat="density")
+        axes[i].set_yscale("log")
+        if k in ["BDF_MAG_ERR_DERED_CALIB_R", "BDF_MAG_ERR_DERED_CALIB_I", "BDF_MAG_ERR_DERED_CALIB_Z"]:
+            axes[i].set_title(f"log10({k})")
+            axes[i].set_xlabel(f"log10({k})")
+        else:
+            axes[i].set_title(k)
+            axes[i].set_xlabel(k)
+
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+    fig.suptitle(f"{title_prefix}", fontsize=16)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.legend()
+    if cfg["SAVE_PLOT"] is True:
+        plt.savefig(savename, bbox_inches='tight', dpi=300)
+    if cfg["SHOW_PLOT"] is True:
+        plt.show()
+    plt.clf()
+    plt.close(fig)
 
 def plot_fp_fn_features(cfg, plot_log, df, feature_cols, title_prefix, savename, y_proba_col="y_score"):
     """"""

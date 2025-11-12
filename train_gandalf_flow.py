@@ -60,12 +60,12 @@ def train_tune(tune_config, base_config):
     config['PATH_OUTPUT'] = ray_trial_dir
     config['PATH_OUTPUT_CKPT'] = ray_trial_dir
 
-    config['TRIAL_ID'] = hparam_hash(
-        int(config['batch_size']),
-        float(config['learning_rate']),
-        int(config['number_hidden']),
-        int(config['number_blocks']),
-        int(config['number_layers'])
+    config["TRIAL_ID"] = hparam_hash(
+        config["batch_size"], config["learning_rate"],
+        config["number_hidden"], config["number_blocks"], config["number_layers"],
+        arch=config.get("FLOW_ARCH", "rqs"),
+        bins=config.get("RQS_NUM_BINS"), tb=config.get("RQS_TAIL_BOUND"),
+        conv=config.get("RQS_USE_INV1X1")
     )
 
     train_flow = gaNdalFFlow(
@@ -143,26 +143,28 @@ def load_config_and_parser(system_path):
     config['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
     return config, path_config_file
 
-def hparam_hash(bs, lr, nh, nb, nl):
-    """
-    """
+def hparam_hash(bs, lr, nh, nb, nl, arch="rqs", bins=None, tb=None, conv=None):
     payload = {
+        "arch": arch,
         "bs": int(bs),
         "lr": float(lr),
         "nh": int(nh),
         "nb": int(nb),
         "nl": int(nl)
     }
+    if arch == "rqs":
+        payload.update({"bins": bins, "tb": tb, "conv": int(bool(conv))})
     s = json.dumps(payload, sort_keys=True)
     return hashlib.sha1(s.encode()).hexdigest()[:10]
 
 def my_trial_name_creator(trial):
-    bs = int(trial.config["batch_size"])
-    lr = float(trial.config["learning_rate"])
-    nh = int(trial.config["number_hidden"])
-    nb = int(trial.config["number_blocks"])
-    nl = int(trial.config["number_layers"])
-    return f"trial_{hparam_hash(bs, lr, nh, nb, nl)}"
+    cfg = trial.config
+    return "trial_" + hparam_hash(
+        cfg["batch_size"], cfg["learning_rate"],
+        cfg["number_hidden"], cfg["number_blocks"], cfg["number_layers"],
+        arch=cfg.get("FLOW_ARCH","rqs"),
+        bins=cfg.get("RQS_NUM_BINS"), tb=cfg.get("RQS_TAIL_BOUND"),
+        conv=cfg.get("RQS_USE_INV1X1"))
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
@@ -232,6 +234,15 @@ if __name__ == '__main__':
             "number_hidden": tune.choice(number_hidden),
             "number_blocks": tune.choice(number_blocks),
             "number_layers": tune.choice(number_layers),
+
+            # Neu:
+            "FLOW_ARCH": "rqs",  # tune.choice(["rqs", "made"]),
+            # RQS only – wähle kleine Spaces zum Start:
+            "RQS_NUM_BINS": 8,  #tune.choice([8, 10, 12]),
+            "RQS_TAIL_BOUND": 3.0,  # tune.choice([3.0, 4.0, 5.0]),
+            "RQS_USE_INV1X1": False, # tune.choice([True, False]),
+
+            # bestehend …
             "INFO_LOGGER": cfg["INFO_LOGGER"],
             "ERROR_LOGGER": cfg["ERROR_LOGGER"],
             "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
@@ -261,7 +272,7 @@ if __name__ == '__main__':
             time_attr="epoch",
             mode="min",
             max_t=cfg["EPOCHS_FLOW"],
-            grace_period=10,
+            grace_period=1,
             reduction_factor=4,
             stop_last_trials=False
         )
@@ -273,13 +284,13 @@ if __name__ == '__main__':
             grace_period=10,
             std=1e-4
         )
-
+        ray.init(local_mode=cfg["DEBUG_MODE"], num_cpus=cfg["RESOURCE_CPU"], include_dashboard=cfg["INCLUDE_DASHBOARD"])
         analysis = tune.run(
             partial(train_tune, base_config=GLOBAL_BASE_CONFIG),
             config=search_space,
             search_alg=optuna_search,
             scheduler=asha,
-            stop=plateau,
+            stop=None,  # plateau,
             num_samples=cfg['OPTUNA_RUNS'],
             max_concurrent_trials=cfg['MAX_TRAILS'],
             resources_per_trial=resources,
