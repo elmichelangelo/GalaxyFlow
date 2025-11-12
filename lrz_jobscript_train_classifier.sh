@@ -9,6 +9,6 @@
 #SBATCH --qos=mcml
 #SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --cpus-per-task=12
-#SBATCH --gpus-per-task=3
+#SBATCH --gpus-per-task=1
 
 srun --container-image='/dss/dssfs02/lwp-dss-0001/pn76fa/pn76fa-dss-0000/di97tac/gandalf_container.sqsh' --container-mounts=/dss/dssfs02/lwp-dss-0001/pn76fa/pn76fa-dss-0000/di97tac/:/mnt/project -n1 python /dss/dsshome1/04/di97tac/development/GalaxyFlow/train_gandalf_classifier.py -cf LRZ_train_classifier.cfg
