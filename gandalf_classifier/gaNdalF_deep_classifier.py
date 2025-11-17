@@ -30,140 +30,15 @@ from Handler import (
     plot_reliability_curve,
     plot_calibration_by_mag_singlepanel,
     plot_rate_ratio_curve,
-    plot_rate_ratio_by_mag
+    plot_rate_ratio_by_mag,
+    expected_calibration_error,
+    mag_rate_mae,
+    neg_log_loss,
+    quantile_edges
 )
+
+from gandalf_calibration_model.gaNdalF_calibration_model import MagAwarePlatt, ModelWithTemperature
 from gandalf_galaxie_dataset import DESGalaxies
-
-
-# ============================== Helpers ======================================
-
-def expected_calibration_error(probs, y_true, n_bins=20):
-    probs = np.asarray(probs, float).ravel()
-    y_true = np.asarray(y_true, float).ravel()
-    bins = np.linspace(0.0, 1.0, n_bins + 1)
-    idx = np.digitize(probs, bins, right=True) - 1
-    idx = np.clip(idx, 0, n_bins - 1)
-    ece = 0.0
-    for b in range(n_bins):
-        m = (idx == b)
-        if not np.any(m):
-            continue
-        conf = probs[m].mean()
-        acc  = y_true[m].mean()
-        ece += (m.mean()) * abs(acc - conf)
-    return float(ece)
-
-def mag_rate_mae(probs, y_true, mag, edges):
-    """Gewichtete mittlere Absolutabweisung zwischen mean(p) und mean(y) je Mag-Bin."""
-    probs = np.asarray(probs, float).ravel()
-    y_true = np.asarray(y_true, float).ravel()
-    mag = np.asarray(mag, float).ravel()
-    mae, wsum = 0.0, 0
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        m = (mag >= lo) & (mag <= hi)
-        if not np.any(m):
-            continue
-        mae += m.sum() * abs(probs[m].mean() - y_true[m].mean())
-        wsum += m.sum()
-    return float(mae / wsum) if wsum else 0.0
-
-def neg_log_loss(probs, y_true, eps=1e-8):
-    probs = np.clip(np.asarray(probs, float).ravel(), eps, 1.0 - eps)
-    y_true = np.asarray(y_true, float).ravel()
-    return float(-np.mean(y_true * np.log(probs) + (1.0 - y_true) * np.log(1.0 - probs)))
-
-
-def quantile_edges(x: np.ndarray, n_bins: int):
-    q = np.linspace(0, 1, n_bins + 1)
-    edges = np.quantile(x, q)
-    for i in range(1, len(edges)):
-        if edges[i] <= edges[i-1]:
-            edges[i] = edges[i-1] + 1e-8
-    return edges
-
-
-# =========================== Mag-aware Platt =================================
-
-class MagAwarePlatt:
-    """2D Platt: Logistic Regression auf [logit(p), mag, mag^2]."""
-    def __init__(self):
-        self.coef_ = None  # (3,)
-        self.intercept_ = None  # scalar
-
-    @staticmethod
-    def _safe_logit(p: np.ndarray, eps: float = 1e-6) -> np.ndarray:
-        p = np.clip(p, eps, 1.0 - eps)
-        return np.log(p / (1.0 - p))
-
-    @staticmethod
-    def _sigmoid(z: np.ndarray) -> np.ndarray:
-        return 1.0 / (1.0 + np.exp(-z))
-
-    def fit(self, p: np.ndarray, mag: np.ndarray, y: np.ndarray, max_iter: int = 200, lr: float = 0.1):
-        p = p.astype(float).ravel()
-        mag = mag.astype(float).ravel()
-        y = y.astype(int).ravel()
-        x1 = self._safe_logit(p); x2 = mag; x3 = mag ** 2
-        X = np.c_[x1, x2, x3]
-        w = np.zeros(3, dtype=float); b = 0.0
-        for _ in range(max_iter):
-            z = X @ w + b
-            yhat = self._sigmoid(z)
-            err = yhat - y
-            grad_w = X.T @ err / X.shape[0]
-            grad_b = err.mean()
-            w -= lr * grad_w; b -= lr * grad_b
-        self.coef_ = w; self.intercept_ = b
-        return self
-
-    def transform(self, p: np.ndarray, mag: np.ndarray) -> np.ndarray:
-        x1 = self._safe_logit(np.asarray(p, float))
-        x2 = np.asarray(mag, float)
-        x3 = x2 ** 2
-        z = np.c_[x1, x2, x3] @ self.coef_ + self.intercept_
-        return self._sigmoid(z)
-
-    def state_dict(self):
-        return {"coef_": self.coef_, "intercept_": self.intercept_}
-
-    def load_state_dict(self, d):
-        self.coef_ = np.asarray(d["coef_"], float)
-        self.intercept_ = float(d["intercept_"])
-
-# =========================== Temperature wrapper =============================
-
-class ModelWithTemperature(nn.Module):
-    def __init__(self, model, logger):
-        super().__init__()
-        self.model = model
-        self.temperature = nn.Parameter(torch.ones(1) * 1.0)
-        self.logger = logger
-
-    def forward(self, x): return self.model(x) / self.temperature
-
-    def set_temperature(self, valid_loader, device):
-        self.to(device)
-        nll = nn.BCEWithLogitsLoss().to(device)
-        opt = optim.LBFGS([self.temperature], lr=0.01, max_iter=50)
-
-        logits_list, labels_list = [], []
-        with torch.no_grad():
-            for xb, yb in valid_loader:
-                xb, yb = xb.to(device), yb.to(device)
-                logits_list.append(self.model(xb)); labels_list.append(yb)
-        logits = torch.cat(logits_list); labels = torch.cat(labels_list)
-
-        def eval():
-            opt.zero_grad()
-            loss = nll(logits / self.temperature, labels)
-            loss.backward(); return loss
-
-        opt.step(eval)
-        self.logger.log_info_stream(f"Optimal temperature: {self.temperature.item():.3f}")
-        return self
-
-
-# =============================== Main model ==================================
 
 class gaNdalFClassifier(nn.Module):
     def __init__(self, cfg, batch_size, learning_rate, hidden_sizes, dropout_prob, batch_norm):

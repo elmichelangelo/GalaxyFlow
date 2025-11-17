@@ -8,6 +8,51 @@ import pandas as pd
 warnings.filterwarnings("error")"""
 
 
+def expected_calibration_error(probs, y_true, n_bins=20):
+    probs = np.asarray(probs, float).ravel()
+    y_true = np.asarray(y_true, float).ravel()
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+    idx = np.digitize(probs, bins, right=True) - 1
+    idx = np.clip(idx, 0, n_bins - 1)
+    ece = 0.0
+    for b in range(n_bins):
+        m = (idx == b)
+        if not np.any(m):
+            continue
+        conf = probs[m].mean()
+        acc  = y_true[m].mean()
+        ece += (m.mean()) * abs(acc - conf)
+    return float(ece)
+
+def mag_rate_mae(probs, y_true, mag, edges):
+    """Gewichtete mittlere Absolutabweisung zwischen mean(p) und mean(y) je Mag-Bin."""
+    probs = np.asarray(probs, float).ravel()
+    y_true = np.asarray(y_true, float).ravel()
+    mag = np.asarray(mag, float).ravel()
+    mae, wsum = 0.0, 0
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (mag >= lo) & (mag <= hi)
+        if not np.any(m):
+            continue
+        mae += m.sum() * abs(probs[m].mean() - y_true[m].mean())
+        wsum += m.sum()
+    return float(mae / wsum) if wsum else 0.0
+
+def neg_log_loss(probs, y_true, eps=1e-8):
+    probs = np.clip(np.asarray(probs, float).ravel(), eps, 1.0 - eps)
+    y_true = np.asarray(y_true, float).ravel()
+    return float(-np.mean(y_true * np.log(probs) + (1.0 - y_true) * np.log(1.0 - probs)))
+
+
+def quantile_edges(x: np.ndarray, n_bins: int):
+    q = np.linspace(0, 1, n_bins + 1)
+    edges = np.quantile(x, q)
+    for i in range(1, len(edges)):
+        if edges[i] <= edges[i-1]:
+            edges[i] = edges[i-1] + 1e-8
+    return edges
+
+
 def calc_color(data_frame, colors, column_name):
     """"""
     for color in string_to_tuple(str(colors)):
