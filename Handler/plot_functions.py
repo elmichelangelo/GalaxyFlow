@@ -3203,7 +3203,7 @@ def plot_balrog_histogram_with_error(
 
 def plot_balrog_histogram_with_error_and_detection(
     df_gandalf, df_balrog, columns, labels, ranges, binwidths,
-    title, show_plot, save_plot, save_name
+    title, show_plot, save_plot, save_name, detection_name="detected"
 ):
     import matplotlib as mpl
     # # Use LaTeX fonts in matplotlib
@@ -3228,6 +3228,8 @@ def plot_balrog_histogram_with_error_and_detection(
     # Create main figure and GridSpec
     fig = plt.figure(figsize=(16, 5 * nrows))  # Adjust vertical size as needed
     main_gs = GridSpec(nrows, ncols, figure=fig)
+
+    ratio_handle = None
 
     for idx, col in enumerate(columns):
         row_idx = idx // ncols
@@ -3413,10 +3415,13 @@ def plot_balrog_histogram_with_error_and_detection(
 
         # Overlay auf rechter Achse
         ax_ratio = ax_hist.twinx()
-        ax_ratio.plot(bin_centers, R, marker='o', linewidth=1.0, markersize=3,
-                      label='Detected ratio (G/B)', color='black')
+        line_ratio, = ax_ratio.plot(bin_centers, R, marker='o', linewidth=1.0, markersize=3,
+                      label=f'{detection_name} ratio (G/B)', color='black')
         ax_ratio.axhline(1.0, linestyle='--', linewidth=1.0, color='gray')
-        ax_ratio.set_ylabel(r'Ratio detected (gaNdalF / Balrog)', fontsize=10)
+        ax_ratio.set_ylabel(f'Ratio {detection_name} (gaNdalF / Balrog)', fontsize=10)
+
+        if ratio_handle is None:
+            ratio_handle = line_ratio
 
         # Auto-Skalierung: nicht zu eng, nicht zu wild
         if np.isfinite(R).any():
@@ -3428,6 +3433,8 @@ def plot_balrog_histogram_with_error_and_detection(
         mpatches.Patch(color=color_gandalf, label='gaNdalF'),
         mpatches.Patch(color=color_balrog, label='Balrog')
     ]
+    if ratio_handle is not None:
+        handles_fig.append(ratio_handle)
 
     # Move legend to the top right of the figure
     fig.legend(handles=handles_fig, loc="upper right", bbox_to_anchor=(0.98, 0.96), ncol=1,

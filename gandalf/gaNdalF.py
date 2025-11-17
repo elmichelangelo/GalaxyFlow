@@ -43,34 +43,6 @@ class MagAwarePlatt:
         self.intercept_ = float(d["intercept_"])
 
 
-# --- ResMLP-Bausteine (wie im Training) ---
-class ResBlock(nn.Module):
-    def __init__(self, d, dp=0.2):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(d)
-        self.fc1   = nn.Linear(d, d)
-        self.act   = nn.GELU()
-        self.drop  = nn.Dropout(dp)
-        self.norm2 = nn.LayerNorm(d)
-        self.fc2   = nn.Linear(d, d)
-
-    def forward(self, x):
-        h = self.fc1(self.norm1(x)); h = self.act(h); h = self.drop(h)
-        h = self.fc2(self.norm2(h))
-        return x + h
-
-class ResMLP(nn.Module):
-    def __init__(self, in_dim, width=256, depth=4, dp=0.2, out_dim=1):
-        super().__init__()
-        self.inp    = nn.Linear(in_dim, width)
-        self.blocks = nn.ModuleList([ResBlock(width, dp) for _ in range(depth)])
-        self.head   = nn.Linear(width, out_dim)
-    def forward(self, x):
-        h = self.inp(x)
-        for b in self.blocks: h = b(h)
-        return self.head(h)
-
-
 class gaNdalF(object):
     """"""
     def __init__(self, gandalf_logger, flow_cfg, classifier_cfg):
@@ -89,9 +61,9 @@ class gaNdalF(object):
             self.classifier_galaxies = self.init_classifier_dataset()
             self.classifier_model = self.init_classifier_model()
             self.classifier_data = self.classifier_galaxies.run_dataset
-            self.T_cal = 1.0  # default: identity
-            self.mag_platt = None  # default: no mag-aware correction
-            self._load_calibration()  # try to load artifacts saved at training
+            self.T_cal = 1.0
+            self.mag_platt = None
+            self._load_calibration()
 
     def init_flow_dataset(self):
         galaxies = DESGalaxies(
@@ -109,12 +81,6 @@ class gaNdalF(object):
             dataset_logger=self.gandalf_logger,
             cfg=self.classifier_cfg,
         )
-        # df_check = galaxies.run_dataset.copy()
-        # for k in self.flow_cfg["INPUT_COLS"] + self.flow_cfg["OUTPUT_COLS"] + ["detected"]:
-        #     print(k, df_check[k].min(), df_check[k].max())
-        # df_check = df_check[df_check["detected"]==1]
-        # for k in self.flow_cfg["INPUT_COLS"] + self.flow_cfg["OUTPUT_COLS"] + ["detected"]:
-        #     print(k, df_check[k].min(), df_check[k].max())
         galaxies.scale_data()
         return galaxies
 
@@ -173,25 +139,7 @@ class gaNdalF(object):
             self.T_cal = 1.0
             self.mag_platt = None
 
-    def _detect_arch_from_state_dict(self, sd: dict) -> str:
-        # ResMLP hat Keys wie 'inp.weight', 'blocks.0.*', 'head.weight'
-        has_res_keys = any(k.startswith("inp.") or k.startswith("blocks.") or k.startswith("head.") for k in sd.keys())
-        if has_res_keys:
-            return "resmlp"
-        # Klassischer Sequential-MLP hat numerische Module: '0.weight', '3.bias', ...
-        has_seq_keys = any(re.match(r"^\d+\.(weight|bias)$", k) for k in sd.keys())
-        return "mlp" if has_seq_keys else "unknown"
-
-    def _resmlp_dims_from_state_dict(self, sd: dict, input_dim: int, output_dim: int):
-        width = sd["inp.weight"].shape[0]  # (width, input_dim)
-        # Tiefe = Anzahl vorhandener Blöcke
-        depth = 0
-        while f"blocks.{depth}.fc1.weight" in sd:
-            depth += 1
-        return int(width), int(depth)
-
     def _hidden_sizes_from_filename(self, fname: str):
-        # zieht hs=[...] aus deinem Dateinamen (falls vorhanden)
         m = re.search(r"_hs_(\[.*?\])_", fname)
         if m:
             try:
@@ -209,45 +157,30 @@ class gaNdalF(object):
 
         state_dict_path = f"{self.classifier_cfg['PATH_TRAINED_NN']}/{self.classifier_cfg['FILENAME_NN_CLASSIFIER']}"
 
-        # Lade nur das state_dict (auf CPU)
         sd = torch.load(state_dict_path, map_location="cpu", weights_only=True)
 
-        arch = self._detect_arch_from_state_dict(sd)
+        hs = self._hidden_sizes_from_filename(self.classifier_cfg.get("FILENAME_NN_CLASSIFIER", "")) or list(self.classifier_cfg["HIDDEN_SIZES"])
 
-        if arch == "resmlp":
-            # Parameter aus state_dict ableiten
-            width, depth = self._resmlp_dims_from_state_dict(sd, input_dim, output_dim)
-            dp = float(self.classifier_cfg.get("RES_DROPOUT", 0.2))  # hat keine Gewichte; Wert egal für Laden
-            model = ResMLP(in_dim=input_dim, width=width, depth=depth, dp=dp, out_dim=output_dim)
-            model.load_state_dict(sd, strict=True)
+        dp = float(self.classifier_cfg.get("DROPOUT_PROB", 0.0))
+        ubn = bool(self.classifier_cfg.get("BATCH_NORM", True))
+        act_name = self.classifier_cfg.get("ACTIVATION_FUNCTION", "ReLU")
+        ActClass = getattr(nn, act_name) if isinstance(act_name, str) else act_name
 
-        elif arch == "mlp":
-            # Versuche zuerst hs aus Dateinamen zu lesen, sonst aus cfg
-            hs = self._hidden_sizes_from_filename(self.classifier_cfg.get("FILENAME_NN_CLASSIFIER", "")) \
-                 or list(self.classifier_cfg["HIDDEN_SIZES"])
-            dp = float(self.classifier_cfg.get("DROPOUT_PROB", 0.0))
-            ubn = bool(self.classifier_cfg.get("BATCH_NORM", True))
-            act_name = self.classifier_cfg.get("ACTIVATION_FUNCTION", "ReLU")
-            ActClass = getattr(nn, act_name) if isinstance(act_name, str) else act_name
+        layers, in_features = [], input_dim
 
-            layers, in_features = [], input_dim
-            for h in hs:
-                layers.append(nn.Linear(in_features, int(h)))
-                if ubn:
-                    layers.append(nn.BatchNorm1d(int(h)))
-                layers.append(ActClass() if isinstance(ActClass, type) else ActClass())
-                if dp > 0.0:
-                    layers.append(nn.Dropout(dp))
-                in_features = int(h)
-            layers.append(nn.Linear(in_features, output_dim))
-            model = nn.Sequential(*layers)
+        for h in hs:
+            h = int(h)
+            layers.append(nn.Linear(in_features, h, bias=not ubn))
+            if ubn:
+                layers.append(nn.BatchNorm1d(h))
+            layers.append(ActClass() if isinstance(ActClass, type) else ActClass())
+            if dp > 0.0:
+                layers.append(nn.Dropout(dp))
+            in_features = h
 
-            # Laden
-            model.load_state_dict(sd, strict=True)
-
-        else:
-            raise RuntimeError(
-                "Unbekannte Architektur im state_dict – weder ResMLP- noch Sequential-MLP-Schlüssel erkannt.")
+        layers.append(nn.Linear(in_features, output_dim, bias=True))
+        model = nn.Sequential(*layers)
+        model.load_state_dict(sd, strict=True)
 
         model.to(dtype=torch.float32, device=device)
         model.eval()
@@ -266,17 +199,6 @@ class gaNdalF(object):
             self.classifier_data = self.classifier_galaxies.train_dataset
         else:
             raise ValueError("Unkonwn dataset")
-
-        # if self.classifier_cfg["CHECK_INPUT_PLOT"] is True:
-        #     self.flow_cfg['PATH_PLOTS'] = self.classifier_cfg['PATH_PLOTS']
-        #     os.makedirs(self.classifier_cfg['PATH_PLOTS'], exist_ok=True)
-        #     plot_features_single(
-        #         cfg=self.classifier_cfg,
-        #         df_gandalf=self.classifier_data,
-        #         columns=self.classifier_cfg["INPUT_COLS"],
-        #         title_prefix=f"Classifier Input Columns",
-        #         savename=f"{self.classifier_cfg['PATH_PLOTS']}/feature_input_classifier.pdf"
-        #     )
 
         device = torch.device(str(self.classifier_cfg.get("DEVICE", "cpu")).lower())
         mag_col = self.classifier_cfg.get("MAG_COL", "BDF_MAG_DERED_CALIB_I")
@@ -357,16 +279,6 @@ class gaNdalF(object):
         """"""
         if data_frame is not None:
             self.flow_data = data_frame
-
-        # if self.flow_cfg["CHECK_INPUT_PLOT"] is True:
-        #     os.makedirs(self.flow_cfg['PATH_PLOTS'], exist_ok=True)
-        #     plot_features_single(
-        #         cfg=self.flow_cfg,
-        #         df_gandalf=self.flow_data,
-        #         columns=self.flow_cfg["INPUT_COLS"],
-        #         title_prefix=f"Flow Input w/o Classifier",
-        #         savename=f"{self.flow_cfg['PATH_PLOTS']}/feature_input_flow_wo_classifier.pdf"
-        #     )
 
         df_gandalf_input = self.flow_data.copy()
         df_gandalf_input.loc[:, self.flow_cfg["OUTPUT_COLS"]] = np.nan

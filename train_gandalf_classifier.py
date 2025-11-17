@@ -232,38 +232,6 @@ if __name__ == '__main__':
     if cfg['HPARAM_SEARCH'] is False:
         pass
     else:
-        # arch = str(GLOBAL_BASE_CONFIG.get("ARCH", "mlp")).lower()
-
-        # if arch == "resmlp":
-        #     res_width_choices = GLOBAL_BASE_CONFIG.get("RES_WIDTH", [256, 384, 512])
-        #     res_depth_choices = GLOBAL_BASE_CONFIG.get("RES_DEPTH", [3, 4, 6])
-        #     res_drop_choices = GLOBAL_BASE_CONFIG.get("RES_DROPOUT", [0.1, 0.2, 0.3])
-        #
-        #     search_space = {
-        #         "batch_size": tune.choice(cfg["BATCH_SIZE"]),  # z.B. [1024, 2048, 4096, 8192]
-        #         "learning_rate": tune.choice(cfg["LEARNING_RATE"]),  # tune.loguniform(cfg["LEARNING_RATE"][0], cfg["LEARNING_RATE"][1]),
-        #         "RES_WIDTH": tune.choice(res_width_choices),
-        #         "RES_DEPTH": tune.choice(res_depth_choices),
-        #         "RES_DROPOUT": tune.choice(res_drop_choices),
-        #
-        #         # feste Schalter (optional in die Suche aufnehmen, wenn gewünscht)
-        #         "ARCH": "resmlp",
-        #         "SCHEDULER": cfg.get("SCHEDULER", None),
-        #
-        #         # Rest wie gehabt (nur keine HS/DP mehr variieren)
-        #         "batch_norm": cfg.get("BATCH_NORM", True),  # wird im ResMLP eh ignoriert (du nutzt LayerNorm)
-        #         "INFO_LOGGER": cfg["INFO_LOGGER"],
-        #         "ERROR_LOGGER": cfg["ERROR_LOGGER"],
-        #         "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
-        #         "STREAM_LOGGER": cfg["STREAM_LOGGER"],
-        #         "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
-        #         "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
-        #         "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
-        #         "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
-        #         "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
-        #         "RUN_DATE": cfg['RUN_DATE'],
-        #     }
-        # else:
         hidden_sizes = cfg["HIDDEN_SIZES"]
         hidden_sizes = [tuple(h) if isinstance(h, list) else h for h in hidden_sizes]
         dropout_prob = cfg["DROPOUT_PROB"]
@@ -272,14 +240,10 @@ if __name__ == '__main__':
 
         search_space = {
             "batch_size": tune.choice(cfg["BATCH_SIZE"]),
-            "learning_rate": tune.loguniform(lr_lo, lr_hi),  # tune.loguniform(lr_lo, lr_hi),
+            "learning_rate": tune.loguniform(lr_lo, lr_hi),
             "hidden_sizes": tune.choice(hidden_sizes),
             "dropout_prob": tune.choice(dropout_prob),
             "batch_norm": tune.choice(batch_norm),
-
-            # "ARCH": cfg["ARCH"],
-            # "SCHEDULER": cfg.get("SCHEDULER", None),
-
             "INFO_LOGGER": cfg["INFO_LOGGER"],
             "ERROR_LOGGER": cfg["ERROR_LOGGER"],
             "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
@@ -291,16 +255,6 @@ if __name__ == '__main__':
             "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
             "RUN_DATE": cfg['RUN_DATE'],
         }
-
-        # if arch == "resmlp":
-        #     param_cols = {
-        #         "batch_size": "bs",
-        #         "learning_rate": "lr",
-        #         "RES_WIDTH": "rw",
-        #         "RES_DEPTH": "rd",
-        #         "RES_DROPOUT": "rdo",
-        #     }
-        # else:
         param_cols = {
             "batch_size": "bs",
             "learning_rate": "lr",
@@ -364,8 +318,7 @@ if __name__ == '__main__':
             name=f"study_{cfg['RUN_ID']}",
             trial_name_creator=my_trial_name_creator,
             trial_dirname_creator=my_trial_name_creator,
-            keep_checkpoints_num=1,
-            # checkpoint_score_attr="max-accuracy",
+            keep_checkpoints_num=1
         )
 
         train_classifier_logger.log_info_stream("Best config found:")

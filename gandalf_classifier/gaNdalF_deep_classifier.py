@@ -1,23 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-GaNdalF Classifier – mit zwei Hebeln:
-  (#1) Label/Mag Re-Weighting im Training (optional)
-  (#2) 2D-Kalibrierung (Temperature + Mag-aware Platt) (aktiv)
-
-WICHTIGE CFG-FLAGS (mit Defaults):
-  # Re-Weighting:
-  REWEIGHT_ENABLE:           False
-  REWEIGHT_N_BINS:           5
-  REWEIGHT_W_POS_BINS:       None  # -> Default ansteigend zu faint
-  REWEIGHT_W_NEG_BINS:       None  # -> Default abfallend zu faint
-
-  # Evaluation:
-  VAL_RATE_N_BINS:           5
-
-  # Sonstiges:
-  MAG_COL: "BDF_MAG_DERED_CALIB_I"
-"""
 
 import os
 import math
@@ -62,7 +44,6 @@ def expected_calibration_error(probs, y_true, n_bins=20):
     idx = np.digitize(probs, bins, right=True) - 1
     idx = np.clip(idx, 0, n_bins - 1)
     ece = 0.0
-    n = len(probs)
     for b in range(n_bins):
         m = (idx == b)
         if not np.any(m):
@@ -91,43 +72,6 @@ def neg_log_loss(probs, y_true, eps=1e-8):
     y_true = np.asarray(y_true, float).ravel()
     return float(-np.mean(y_true * np.log(probs) + (1.0 - y_true) * np.log(1.0 - probs)))
 
-def _coerce_bin_array(x, n_bins, default, name="weights"):
-    """
-    Macht aus x einen float-Array der Länge n_bins:
-      - None/'none'/'null'/'nan'/'' -> default
-      - str   -> versucht literal_eval, sonst kommasepariert parsen
-      - Skalar -> broadcast
-      - falsche Länge -> linear auf n_bins interpolieren
-    """
-    # String-"None"/"null"/... als echtes None interpretieren
-    if isinstance(x, str) and x.strip().lower() in {"none", "null", "nan", ""}:
-        x = None
-    if x is None:
-        return np.asarray(default, dtype=float)
-
-    if isinstance(x, str):
-        try:
-            x = ast.literal_eval(x)
-        except Exception:
-            parts = [p.strip() for p in x.replace(";", ",").split(",") if p.strip()]
-            x = [float(p) for p in parts]
-
-    arr = np.asarray(x, dtype=float)
-
-    if arr.ndim == 0:
-        return np.full(n_bins, float(arr), dtype=float)
-
-    if arr.size == n_bins:
-        return arr.astype(float, copy=False)
-
-    if arr.size < 2:
-        return np.full(n_bins, float(arr.ravel()[0]), dtype=float)
-
-    xp = np.linspace(0.0, 1.0, arr.size)
-    xq = np.linspace(0.0, 1.0, n_bins)
-    out = np.interp(xq, xp, arr.astype(float))
-    return out
-
 
 def quantile_edges(x: np.ndarray, n_bins: int):
     q = np.linspace(0, 1, n_bins + 1)
@@ -136,38 +80,6 @@ def quantile_edges(x: np.ndarray, n_bins: int):
         if edges[i] <= edges[i-1]:
             edges[i] = edges[i-1] + 1e-8
     return edges
-
-def label_mag_weights(mag, y, edges, w_pos_bins=None, w_neg_bins=None, normalize=True):
-    """
-    Weights pro (Bin, Label).
-      - None (Default wird genutzt)
-      - Skalar (wird gebroadcastet)
-      - Liste/Array beliebiger Länge (wird auf n_bins interpoliert)
-      - String ("[...]" oder "1,1.2,..." wird geparst)
-    """
-    y = np.asarray(y, dtype=float).ravel()
-    n_bins = len(edges) - 1
-
-    # Sinnvolle Defaults: pos ansteigend zu faint, neg abfallend
-    default_pos = np.linspace(1.0, 3.0, n_bins)
-    default_neg = np.linspace(2.5, 1.0, n_bins)
-
-    w_pos_bins = _coerce_bin_array(w_pos_bins, n_bins, default_pos, name="w_pos_bins")
-    w_neg_bins = _coerce_bin_array(w_neg_bins, n_bins, default_neg, name="w_neg_bins")
-
-    idx = np.digitize(mag, edges, right=True) - 1
-    idx = np.clip(idx, 0, n_bins - 1)
-
-    w = np.where(y > 0.5, w_pos_bins[idx], w_neg_bins[idx]).astype(np.float32)
-
-    if normalize and w.sum() > 0:
-        w *= (len(w) / w.sum())
-
-    # Sicherheitsnetz gegen NaNs/Inf oder nicht-positive Gewichte
-    if not np.all(np.isfinite(w)) or (w <= 0).any():
-        w = np.ones_like(w, dtype=np.float32)
-
-    return w
 
 
 # =========================== Mag-aware Platt =================================
@@ -218,37 +130,6 @@ class MagAwarePlatt:
         self.coef_ = np.asarray(d["coef_"], float)
         self.intercept_ = float(d["intercept_"])
 
-
-# =============================== Backbone ====================================
-
-class ResBlock(nn.Module):
-    def __init__(self, d, dp=0.2):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(d)
-        self.fc1 = nn.Linear(d, d)
-        self.act = nn.GELU()
-        self.drop = nn.Dropout(dp)
-        self.norm2 = nn.LayerNorm(d)
-        self.fc2 = nn.Linear(d, d)
-
-    def forward(self, x):
-        h = self.fc1(self.norm1(x)); h = self.act(h); h = self.drop(h)
-        h = self.fc2(self.norm2(h))
-        return x + h
-
-class ResMLP(nn.Module):
-    def __init__(self, in_dim, width=256, depth=4, dp=0.2, out_dim=1):
-        super().__init__()
-        self.inp = nn.Linear(in_dim, width)
-        self.blocks = nn.ModuleList([ResBlock(width, dp) for _ in range(depth)])
-        self.head = nn.Linear(width, out_dim)
-
-    def forward(self, x):
-        h = self.inp(x)
-        for b in self.blocks: h = b(h)
-        return self.head(h)
-
-
 # =========================== Temperature wrapper =============================
 
 class ModelWithTemperature(nn.Module):
@@ -296,12 +177,6 @@ class gaNdalFClassifier(nn.Module):
         self.ubn = bool(batch_norm); self.dp = float(dropout_prob)
         self.weight_decay = float(self.cfg.get("WEIGHT_DECAY", 1e-4))
         self.activation = nn.ReLU
-
-        # # Reweighting-Switches
-        # self.rew_enable = bool(self.cfg.get("REWEIGHT_ENABLE", False))
-        # self.rew_n_bins = int(self.cfg.get("REWEIGHT_N_BINS", 5))
-        # self.rew_w_pos_bins = self.cfg.get("REWEIGHT_W_POS_BINS", None)
-        # self.rew_w_neg_bins = self.cfg.get("REWEIGHT_W_NEG_BINS", None)
 
         # trackers
         self.lst_epochs = []; self.lst_train_loss_per_epoch = []
@@ -354,18 +229,19 @@ class gaNdalFClassifier(nn.Module):
 
         # loss with class pos_weight
         n_pos = int((self.galaxies.train_dataset["mcal_galaxy"] == 1).sum())
-        n_neg = int((self.galaxies.train_dataset["mcal_galaxy"] == 0).sum())  # n_neg / max(1, n_pos)
+        n_neg = int((self.galaxies.train_dataset["mcal_galaxy"] == 0).sum())
         pos_weight_tensor = torch.tensor([n_neg / max(1, n_pos)], device=self.device, dtype=torch.float32)
         self.loss_function = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor, reduction="none")
 
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        # self.scheduler = None; self._scheduler_batchwise = False
 
         self.use_amp = bool(self.cfg.get("AMP", True)) and (self.device.type == "cuda")
         self.cuda_scaler = GradScaler(enabled=self.use_amp)
 
         # calibration state
-        self.temperature_value = 1.0; self.scaled_model = None; self.mag_platt = None
+        self.temperature_value = 1.0
+        self.scaled_model = None
+        self.mag_platt = None
 
         self.load_checkpoint_if_any()
         self._install_sigterm_handler()
@@ -373,34 +249,10 @@ class gaNdalFClassifier(nn.Module):
     # ---------------- utils ----------------
     def init_dataset(self):
         galaxies = DESGalaxies(dataset_logger=self.classifier_logger, cfg=self.cfg)
-        # if self.cfg.get("SPLIT_MAGS", False):
-        #     galaxies.train_dataset = galaxies.train_dataset[galaxies.train_dataset["BDF_MAG_ERR_DERED_CALIB_Z"] > 23.50]
-        #     galaxies.valid_dataset = galaxies.valid_dataset[galaxies.valid_dataset["BDF_MAG_ERR_DERED_CALIB_Z"] > 23.50]
-        #     galaxies.test_dataset = galaxies.test_dataset[galaxies.test_dataset["BDF_MAG_ERR_DERED_CALIB_Z"] > 23.50]
-
         galaxies.scale_data()
         return galaxies
 
     def init_network(self, input_dim, output_dim):
-        # arch = str(self.cfg.get("ARCH", "mlp")).lower()
-        # if arch == "resmlp":
-        #     m = ResMLP(input_dim, width=int(self.cfg.get("RES_WIDTH", 256)),
-        #                depth=int(self.cfg.get("RES_DEPTH", 4)),
-        #                dp=float(self.cfg.get("RES_DROPOUT", 0.2)),
-        #                out_dim=output_dim)
-        #     def _init_linear(mod):
-        #         if isinstance(mod, nn.Linear):
-        #             nn.init.kaiming_uniform_(mod.weight, a=math.sqrt(5))
-        #             if mod.bias is not None:
-        #                 fan_in, _ = nn.init._calculate_fan_in_and_fan_out(mod.weight)
-        #                 bound = 1 / math.sqrt(max(1, fan_in))
-        #                 nn.init.uniform_(mod.bias, -bound, bound)
-        #     m.apply(_init_linear)
-        #     for b in m.blocks:
-        #         nn.init.zeros_(b.fc2.weight)
-        #         if b.fc2.bias is not None: nn.init.zeros_(b.fc2.bias)
-        #     self.number_hidden = [int(self.cfg.get("RES_WIDTH", 256))] * int(self.cfg.get("RES_DEPTH", 4))
-        #     return m
         layers, in_features = [], input_dim
         self.number_hidden = []
         for out_features in self.hs:
@@ -468,7 +320,8 @@ class gaNdalFClassifier(nn.Module):
 
     def save_checkpoint(self, epoch):
         path = self._checkpoint_path(); tmp = path + ".tmp"
-        torch.save(self._state_dict(epoch), tmp); os.replace(tmp, path)
+        torch.save(self._state_dict(epoch), tmp)
+        os.replace(tmp, path)
 
     def load_checkpoint_if_any(self):
         path = self._checkpoint_path()
@@ -624,20 +477,6 @@ class gaNdalFClassifier(nn.Module):
         df = self.galaxies.train_dataset
         x = torch.tensor(df[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
         y = torch.tensor(df[self.cfg["OUTPUT_COLS"]].values, dtype=torch.float32).squeeze()
-
-        # if self.rew_enable:
-        #     mag = df[self.mag_col].values.astype(float)
-        #     edges = quantile_edges(mag, self.rew_n_bins)
-        #     w_np = label_mag_weights(
-        #         mag=mag,
-        #         y=y.detach().cpu().numpy(),
-        #         edges=edges,
-        #         w_pos_bins=self.rew_w_pos_bins,
-        #         w_neg_bins=self.rew_w_neg_bins,
-        #     )
-        #     w = torch.tensor(w_np, dtype=torch.float32)
-        #     dataset = TensorDataset(x, y, w)
-        # else:
         dataset = TensorDataset(x, y)
 
         nw_cfg = self.cfg.get("NUM_WORKERS", "auto")
@@ -649,45 +488,15 @@ class gaNdalFClassifier(nn.Module):
             num_workers=max(1, nw), pin_memory=pin, persistent_workers=persist
         )
 
-        # if self.scheduler is None:
-        #     sched = str(self.cfg.get("SCHEDULER", None)).lower()
-        #     if sched == "cosine":
-        #         # Optuna-LR = Start-/Max-LR; min LR deterministisch ableiten
-        #         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        #             self.optimizer,
-        #             T_max=int(self.cfg["EPOCHS"]),
-        #             eta_min=self.lr * float(self.cfg.get("COSINE_ETA_MIN_FACTOR", 0.1))
-        #         )
-        #         self._scheduler_batchwise = False  # pro EPOCH schritt
-        #     elif sched == "onecycle":
-        #         # Optuna-LR = max_lr; base_lr ergibt sich aus div_factor
-        #         self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        #             self.optimizer,
-        #             max_lr=self.lr,
-        #             epochs=int(self.cfg["EPOCHS"]),
-        #             steps_per_epoch=len(loader),
-        #             pct_start=float(self.cfg.get("OC_PCT_START", 0.3)),
-        #             anneal_strategy=self.cfg.get("OC_ANNEAL", "cos"),
-        #             div_factor=float(self.cfg.get("OC_DIV_FACTOR", 10.0)),
-        #             final_div_factor=float(self.cfg.get("OC_FINAL_DIV", 100.0)),
-        #         )
-        #         self._scheduler_batchwise = True  # pro BATCH schritt
-
         train_loss, seen = 0.0, 0
         for batch in loader:
             self.optimizer.zero_grad(set_to_none=True)
-            # if self.rew_enable:
-            #     xb, yb, wb = batch; wb = wb.to(self.device, non_blocking=pin)
-            # else:
             xb, yb = batch; wb = None
 
             xb = xb.to(self.device, non_blocking=pin); yb = yb.to(self.device, non_blocking=pin)
             with autocast(enabled=self.use_amp):
                 logits = self.model(xb).squeeze()
                 loss_vec = self.loss_function(logits, yb)
-                # if self.rew_enable:
-                #     loss = (loss_vec * wb).sum() / (wb.sum() + 1e-12)
-                # else:
                 loss = loss_vec.mean()
 
             if self.use_amp:
@@ -698,14 +507,8 @@ class gaNdalFClassifier(nn.Module):
                 loss.backward()
                 self.optimizer.step()
 
-            # if self.scheduler is not None and self._scheduler_batchwise:
-            #     self.scheduler.step()
-
             bs_curr = yb.size(0); train_loss += float(loss.item()) * bs_curr; seen += bs_curr
             if getattr(self, "_terminate_requested", False): break
-
-        # if self.scheduler is not None and not self._scheduler_batchwise:
-        #     self.scheduler.step()
 
         avg = train_loss / max(1, seen)
         self.lst_train_loss_per_epoch.append(avg)
@@ -830,76 +633,6 @@ class gaNdalFClassifier(nn.Module):
             f"MRE={m_cal['mre']:.5f} GRE={m_cal['gre']:.5f} | T={getattr(self, 'temperature_value', 1.0):.3f}"
         )
 
-        # # Optional: als "epoch+1" in separate Listen schreiben
-        # self.lst_valid_f1_cal_per_epoch.append(m_cal['f1'])
-        # self.lst_valid_acc_cal_per_epoch.append(m_cal['acc'])
-        # self.lst_valid_brier_cal_per_epoch.append(m_cal['brier'])
-        # self.lst_valid_nll_cal_per_epoch.append(m_cal['nll'])
-        # self.lst_valid_ece_cal_per_epoch.append(m_cal['ece'])
-        # self.lst_valid_mre_cal_per_epoch.append(m_cal['mre'])
-        # self.lst_valid_gre_cal_per_epoch.append(m_cal['gre'])
-        #
-        # # --------- Plots auf VALID, epoch+1 ----------
-        # # Baue ein kleines DF wie in run_tests, damit deine Plotfunktionen laufen
-        # df_val_out = df.copy()
-        # thr_global = float(getattr(self, "best_threshold_for_best_model", 0.5))
-        # y_pred_raw = (p_raw >= thr_global).astype(int)
-        # y_pred_cal = (p_cal >= thr_global).astype(int)
-        #
-        # df_val_out['detected probability raw'] = p_raw
-        # df_val_out['detected probability'] = p_cal
-        # df_val_out['detected raw'] = y_pred_raw
-        # df_val_out['detected'] = y_pred_cal
-        #
-        # ep = epoch_plus_one  # fürs Titel-Tagging
-        # if self.cfg.get('PLOT_PROBABILITY_HIST', True):
-        #     plot_reliability_curve(
-        #         df_gandalf=df_val_out,
-        #         df_balrog=df,  # Ground truth auf Val
-        #         show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-        #         save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/val_reliability_e{ep}.pdf",
-        #         prob_cols=("detected probability", "detected probability raw"),
-        #         labels=("calibrated", "raw"),
-        #         n_bins=max(10, ece_bins),
-        #         title=f"VAL Reliability (epoch {ep})"
-        #     )
-        #     plot_rate_ratio_curve(
-        #         mag=mag_val,
-        #         probs_cal=p_cal, probs_raw=p_raw, y_true=y_true,
-        #         n_bins=max(7, rate_bins),
-        #         title=f"VAL Rate ratio by magnitude (epoch {ep})",
-        #         xlabel=self.mag_col + " (quantile bins)",
-        #         show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-        #         save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/val_rate_ratio_curve_e{ep}.pdf"
-        #     )
-        #
-        # # Einzelpanel „Calibration by mag“
-        # if self.cfg.get('PLOT_PRECISION_RECALL_CURVE', True):
-        #     plot_calibration_by_mag_singlepanel(
-        #         mag=mag_val, p_cal=p_cal, p_raw=p_raw, y_true=y_true,
-        #         n_bins=max(7, rate_bins),
-        #         title=f"VAL Calibration by magnitude (epoch {ep})",
-        #         xlabel=self.mag_col + " (quantile bins)",
-        #         show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-        #         save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/val_calib_by_mag_e{ep}.pdf"
-        #     )
-        #
-        # # (Optional) ROC/PR ebenfalls auf Val:
-        # if self.cfg.get('PLOT_ROC_CURVE', False):
-        #     plot_roc_curve_gandalf(
-        #         df_gandalf=df_val_out, df_balrog=df,
-        #         show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-        #         save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['ROC_CURVE']}/val_roc_curve_e{ep}.pdf",
-        #         title=f"VAL ROC (epoch {ep})"
-        #     )
-        # if self.cfg.get('PLOT_PRECISION_RECALL_CURVE', False):
-        #     plot_recall_curve_gandalf(
-        #         df_gandalf=df_val_out, df_balrog=df,
-        #         show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-        #         save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/val_pr_curve_e{ep}.pdf",
-        #         title=f"VAL Precision-Recall (epoch {ep})"
-        #     )
-
         return m_raw, m_cal
 
     # ---------------- calibration ----------------
@@ -930,7 +663,9 @@ class gaNdalFClassifier(nn.Module):
                 joblib.dump(
                     {"temperature": self.temperature_value,
                      "mag_platt": self.mag_platt.state_dict()},
-                    f"{self.cfg['PATH_SAVE_NN']}/calibration_artifacts.pkl",
+                    f"{self.cfg['PATH_SAVE_NN']}/calib_arts_e_{self.best_validation_epoch + 1}"
+                    f"_lr_{self.lr}_bs_{self.bs}_hs_{self.hs}_ubn_{self.ubn}_dp_{self.dp}"
+                    f"_nl_{self.nl}_run_{self.cfg['RUN_DATE']}.pkl",
                 )
             except Exception as e:
                 self.classifier_logger.log_error(f"Save calibration artifacts failed: {e}")
@@ -959,10 +694,6 @@ class gaNdalFClassifier(nn.Module):
         else:
             p_cal = p_T
             self.classifier_logger.log_info_stream("No mag-aware calibrator – using temp-scaled probs.")
-
-        # thr_global = float(getattr(self, "best_threshold_for_best_model", 0.5))
-        # y_pred_raw = (p_raw >= thr_global).astype(int)
-        # y_pred_cal = (p_cal >= thr_global).astype(int)
 
         # Statt threshold-basierter Klassifikation:
         rng = np.random.default_rng(2025)
