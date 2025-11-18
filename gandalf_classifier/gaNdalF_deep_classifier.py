@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import os
-import math
 import copy
 import joblib
 import torch
 import random
 import logging
 import numpy as np
-import pandas as pd
 from datetime import datetime
-import ast
 
 import torch.nn as nn
-from torch import optim
 from torch.utils.data import DataLoader, TensorDataset
 from torch.cuda.amp import GradScaler, autocast
 
 from sklearn.metrics import accuracy_score, f1_score, brier_score_loss
 
-# Project imports
 from Handler import (
     plot_classification_results,
     plot_confusion_matrix,
@@ -36,21 +30,23 @@ from Handler import (
     neg_log_loss,
     quantile_edges
 )
-
 from gandalf_calibration_model.gaNdalF_calibration_model import MagAwarePlatt, ModelWithTemperature
 from gandalf_galaxie_dataset import DESGalaxies
 
 class gaNdalFClassifier(nn.Module):
-    def __init__(self, cfg, batch_size, learning_rate, hidden_sizes, dropout_prob, batch_norm):
+    def __init__(self, cfg, batch_size, learning_rate, hidden_sizes, dropout_prob, batch_norm, weight_decay):
         super().__init__()
         self.cfg = cfg
         self.mag_col = str(self.cfg.get("MAG_COL", "BDF_MAG_DERED_CALIB_I"))
 
         # Hyperparams
-        self.bs = int(batch_size); self.lr = float(learning_rate)
-        self.hs = list(hidden_sizes); self.nl = len(self.hs)
-        self.ubn = bool(batch_norm); self.dp = float(dropout_prob)
-        self.weight_decay = float(self.cfg.get("WEIGHT_DECAY", 1e-4))
+        self.bs = int(batch_size)
+        self.lr = float(learning_rate)
+        self.hs = list(hidden_sizes)
+        self.nl = len(self.hs)
+        self.ubn = bool(batch_norm)
+        self.dp = float(dropout_prob)
+        self.weight_decay = float(weight_decay)
         self.activation = nn.ReLU
 
         # trackers
@@ -257,7 +253,9 @@ class gaNdalFClassifier(nn.Module):
     # ---------------- train/val/test ----------------
     def run_training(self, on_epoch_end=None):
         today = datetime.now().strftime("%Y%m%d_%H%M%S")
-        min_delta = 1e-4; patience = int(self.cfg.get("EARLY_STOP_PATIENCE", 0)); epochs_no_improve = 0
+        min_delta = 1e-4
+        patience = int(self.cfg.get("EARLY_STOP_PATIENCE", 0))
+        epochs_no_improve = 0
         self._finalized = False
 
         if getattr(self, "start_epoch", 0) >= int(self.cfg["EPOCHS"]):
@@ -549,7 +547,16 @@ class gaNdalFClassifier(nn.Module):
     def run_tests(self, epoch, today):
         self.classifier_logger.log_info_stream("run_tests: start")
         df_test = self.galaxies.test_dataset
-        df_out = df_test.copy()
+
+        n_max = int(self.cfg.get("NUMBER_TEST_SAMPLES", 0) or 0)
+        n_full = len(df_test)
+        if n_max > 0 and n_full > n_max:
+            df_test = df_test.sample(n=n_max, random_state=2025).reset_index(drop=True)
+            self.classifier_logger.log_info_stream(
+                f"Subsampled test set from {n_full} to {len(df_test)} objects for run_tests."
+            )
+
+        df_out = df_test
 
         x = torch.tensor(df_test[self.cfg["INPUT_COLS"]].values, dtype=torch.float32).to(self.device)
         y_true = df_test["mcal_galaxy"].to_numpy().astype(int).ravel()
@@ -633,6 +640,7 @@ class gaNdalFClassifier(nn.Module):
                 )
 
         if self.cfg['PLOT_MATRIX'] is True:
+            print(df_out.keys())
             plot_confusion_matrix(
                 df_gandalf=df_out,
                 # df_balrog=df_test,

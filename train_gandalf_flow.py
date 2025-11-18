@@ -63,9 +63,9 @@ def train_tune(tune_config, base_config):
     config["TRIAL_ID"] = hparam_hash(
         config["batch_size"], config["learning_rate"],
         config["number_hidden"], config["number_blocks"], config["number_layers"],
-        arch=config.get("FLOW_ARCH", "rqs"),
-        bins=config.get("RQS_NUM_BINS"), tb=config.get("RQS_TAIL_BOUND"),
-        conv=config.get("RQS_USE_INV1X1")
+        # arch=config.get("FLOW_ARCH", "rqs"),
+        # bins=config.get("RQS_NUM_BINS"), tb=config.get("RQS_TAIL_BOUND"),
+        # conv=config.get("RQS_USE_INV1X1")
     )
 
     train_flow = gaNdalFFlow(
@@ -145,15 +145,15 @@ def load_config_and_parser(system_path):
 
 def hparam_hash(bs, lr, nh, nb, nl, arch="rqs", bins=None, tb=None, conv=None):
     payload = {
-        "arch": arch,
+        # "arch": arch,
         "bs": int(bs),
         "lr": float(lr),
         "nh": int(nh),
         "nb": int(nb),
         "nl": int(nl)
     }
-    if arch == "rqs":
-        payload.update({"bins": bins, "tb": tb, "conv": int(bool(conv))})
+    # if arch == "rqs":
+    #     payload.update({"bins": bins, "tb": tb, "conv": int(bool(conv))})
     s = json.dumps(payload, sort_keys=True)
     return hashlib.sha1(s.encode()).hexdigest()[:10]
 
@@ -162,9 +162,11 @@ def my_trial_name_creator(trial):
     return "trial_" + hparam_hash(
         cfg["batch_size"], cfg["learning_rate"],
         cfg["number_hidden"], cfg["number_blocks"], cfg["number_layers"],
-        arch=cfg.get("FLOW_ARCH","rqs"),
-        bins=cfg.get("RQS_NUM_BINS"), tb=cfg.get("RQS_TAIL_BOUND"),
-        conv=cfg.get("RQS_USE_INV1X1"))
+        #arch=cfg.get("FLOW_ARCH","rqs"),
+        #bins=cfg.get("RQS_NUM_BINS"),
+        #tb=cfg.get("RQS_TAIL_BOUND"),
+        #conv=cfg.get("RQS_USE_INV1X1")
+    )
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
@@ -230,17 +232,10 @@ if __name__ == '__main__':
 
         search_space = {
             "batch_size": tune.choice(batch_size),
-            "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),
+            "learning_rate": tune.choice(learning_rate),  # tune.loguniform(learning_rate[0], learning_rate[1]),
             "number_hidden": tune.choice(number_hidden),
             "number_blocks": tune.choice(number_blocks),
             "number_layers": tune.choice(number_layers),
-
-            # Neu:
-            "FLOW_ARCH": "rqs",  # tune.choice(["rqs", "made"]),
-            # RQS only – wähle kleine Spaces zum Start:
-            "RQS_NUM_BINS": 8,  #tune.choice([8, 10, 12]),
-            "RQS_TAIL_BOUND": 3.0,  # tune.choice([3.0, 4.0, 5.0]),
-            "RQS_USE_INV1X1": False, # tune.choice([True, False]),
 
             # bestehend …
             "INFO_LOGGER": cfg["INFO_LOGGER"],

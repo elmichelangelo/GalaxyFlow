@@ -1,5 +1,5 @@
 from sklearn.linear_model import LogisticRegression
-from torch import nn
+from torch import nn, optim
 from torch.utils.data import DataLoader
 from gandalf_galaxie_dataset import DESGalaxies
 from Handler import *

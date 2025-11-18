@@ -99,9 +99,10 @@ def train_tune_classifier(tune_config, base_config):
         cfg=config,
         batch_size=config["batch_size"],
         learning_rate=config["learning_rate"],
-        hidden_sizes=config.get("hidden_sizes", [config.get("RES_WIDTH", 256)]),
+        hidden_sizes=config.get("hidden_sizes", [64]),
         dropout_prob=config.get("dropout_prob", 0.0),
         batch_norm=config.get("batch_norm", True),
+        weight_decay=config.get("weight_decay", 0.0),
     )
 
     ckpt_src = os.path.join(config['PATH_OUTPUT'], "last.ckpt.pt")
@@ -168,22 +169,12 @@ def train_tune_classifier(tune_config, base_config):
 def hparam_hash_from_config(config):
     payload = {"bs": int(config["batch_size"]), "lr": float(config["learning_rate"])}
 
-    if str(config.get("ARCH", "mlp")).lower() == "resmlp":
-        payload.update({
-            "arch": "resmlp",
-            "rw": int(config["RES_WIDTH"]),
-            "rd": int(config["RES_DEPTH"]),
-            "rdo": float(config["RES_DROPOUT"]),
-            "sched": str(config.get("SCHEDULER", None))
-        })
-    else:
-        payload.update({
-            "arch": "mlp",
-            "hs": "-".join(map(str, config["hidden_sizes"])),
-            "dp": float(config["dropout_prob"]),
-            "bn": int(bool(config["batch_norm"])),
-            "sched": str(config.get("SCHEDULER", None))
-        })
+    payload.update({
+        "hs": "-".join(map(str, config["hidden_sizes"])),
+        "dp": float(config["dropout_prob"]),
+        "bn": int(bool(config["batch_norm"])),
+        "wd": float(config["weight_decay"]),
+    })
 
     s = json.dumps(payload, sort_keys=True)
     return hashlib.sha1(s.encode()).hexdigest()[:10]
@@ -229,97 +220,96 @@ if __name__ == '__main__':
     # Write status to logger
     train_classifier_logger.log_info_stream("Start train classifier")
 
-    if cfg['HPARAM_SEARCH'] is False:
-        pass
-    else:
-        hidden_sizes = cfg["HIDDEN_SIZES"]
-        hidden_sizes = [tuple(h) if isinstance(h, list) else h for h in hidden_sizes]
-        dropout_prob = cfg["DROPOUT_PROB"]
-        batch_norm = cfg["BATCH_NORM"]
-        lr_lo, lr_hi = cfg["LEARNING_RATE"]
+    hidden_sizes = cfg["HIDDEN_SIZES"]
+    hidden_sizes = [tuple(h) if isinstance(h, list) else h for h in hidden_sizes]
+    dropout_prob = cfg["DROPOUT_PROB"]
+    batch_norm = cfg["BATCH_NORM"]
+    lr_lo, lr_hi = cfg["LEARNING_RATE"]
 
-        search_space = {
-            "batch_size": tune.choice(cfg["BATCH_SIZE"]),
-            "learning_rate": tune.loguniform(lr_lo, lr_hi),
-            "hidden_sizes": tune.choice(hidden_sizes),
-            "dropout_prob": tune.choice(dropout_prob),
-            "batch_norm": tune.choice(batch_norm),
-            "INFO_LOGGER": cfg["INFO_LOGGER"],
-            "ERROR_LOGGER": cfg["ERROR_LOGGER"],
-            "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
-            "STREAM_LOGGER": cfg["STREAM_LOGGER"],
-            "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
-            "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
-            "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
-            "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
-            "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
-            "RUN_DATE": cfg['RUN_DATE'],
-        }
-        param_cols = {
-            "batch_size": "bs",
-            "learning_rate": "lr",
-            "hidden_sizes": "hs",
-            "dropout_prob": "dp",
-            "batch_norm": "bn",
-        }
+    search_space = {
+        "batch_size": tune.choice(cfg["BATCH_SIZE"]),
+        "learning_rate": tune.loguniform(lr_lo, lr_hi),
+        "hidden_sizes": tune.choice(hidden_sizes),
+        "dropout_prob": tune.choice(dropout_prob),
+        "batch_norm": tune.choice(batch_norm),
+        "weight_decay": tune.choice(cfg["WEIGHT_DECAY"]),
+        "INFO_LOGGER": cfg["INFO_LOGGER"],
+        "ERROR_LOGGER": cfg["ERROR_LOGGER"],
+        "DEBUG_LOGGER": cfg["DEBUG_LOGGER"],
+        "STREAM_LOGGER": cfg["STREAM_LOGGER"],
+        "LOGGING_LEVEL": cfg["LOGGING_LEVEL"],
+        "PATH_TRANSFORMERS": cfg["PATH_TRANSFORMERS"],
+        "FILENAME_STANDARD_SCALER": cfg["FILENAME_STANDARD_SCALER"],
+        "PATH_OUTPUT_BASE": cfg["PATH_OUTPUT_BASE"],
+        "PATH_OUTPUT_CATALOGS_BASE": cfg["PATH_OUTPUT_CATALOGS_BASE"],
+        "RUN_DATE": cfg['RUN_DATE'],
+    }
+    param_cols = {
+        "batch_size": "bs",
+        "learning_rate": "lr",
+        "hidden_sizes": "hs",
+        "dropout_prob": "dp",
+        "batch_norm": "bn",
+        "weight_decay": "wd"
+    }
 
-        reporter = CLIReporter(
-            parameter_columns=param_cols,
-            metric_columns={
-                "val_objective": "Obj",
-                "brier": "Brier",
-                "ece": "ECE",
-                "mre": "MRE",
-                "gre": "GRE",
-                "nll": "NLL",
-                "f1": "F1",
-                "accuracy": "Acc",
-                "train_loss": "Train",
-                "val_loss": "Val",
-                "epoch": "Ep",
-            },
-        )
+    reporter = CLIReporter(
+        parameter_columns=param_cols,
+        metric_columns={
+            "val_objective": "Obj",
+            "brier": "Brier",
+            "ece": "ECE",
+            "mre": "MRE",
+            "gre": "GRE",
+            "nll": "NLL",
+            "f1": "F1",
+            "accuracy": "Acc",
+            "train_loss": "Train",
+            "val_loss": "Val",
+            "epoch": "Ep",
+        },
+    )
 
-        resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
+    resources = {"cpu": cfg["RESOURCE_CPU"], "gpu": cfg["RESOURCE_GPU"]}
 
-        optuna_search = OptunaSearch(metric="val_objective", mode="min")
+    optuna_search = OptunaSearch(metric="val_objective", mode="min")
 
-        asha = ASHAScheduler(
-            metric="val_objective",
-            time_attr="epoch",
-            mode="min",
-            max_t=cfg["EPOCHS"],
-            grace_period=max(20, cfg["EPOCHS"]//3),
-            reduction_factor=3,
-            stop_last_trials=True
-        )
+    asha = ASHAScheduler(
+        metric="val_objective",
+        time_attr="epoch",
+        mode="min",
+        max_t=cfg["EPOCHS"],
+        grace_period=max(2, cfg["EPOCHS"]//3),
+        reduction_factor=3,
+        stop_last_trials=True
+    )
 
-        plateau = TrialPlateauStopper(
-            metric="val_objective",
-            mode="min",
-            num_results=20,
-            grace_period=max(20, cfg["EPOCHS"]//3),
-            std=5e-3
-        )
+    plateau = TrialPlateauStopper(
+        metric="val_objective",
+        mode="min",
+        num_results=20,
+        grace_period=max(20, cfg["EPOCHS"]//3),
+        std=5e-3
+    )
 
-        ray.init(local_mode=cfg["DEBUG_MODE"], num_cpus=cfg["RESOURCE_CPU"], include_dashboard=cfg["INCLUDE_DASHBOARD"])
-        analysis = tune.run(
-            partial(train_tune_classifier, base_config=GLOBAL_BASE_CONFIG),
-            config=search_space,
-            search_alg=optuna_search,
-            scheduler=asha,
-            stop=None, #plateau,
-            num_samples=cfg['OPTUNA_RUNS'],
-            max_concurrent_trials=cfg['MAX_TRAILS'],
-            resources_per_trial=resources,
-            progress_reporter=reporter,
-            storage_path=cfg['PATH_OUTPUT_BASE'],
-            resume="AUTO",
-            name=f"study_{cfg['RUN_ID']}",
-            trial_name_creator=my_trial_name_creator,
-            trial_dirname_creator=my_trial_name_creator,
-            keep_checkpoints_num=1
-        )
+    ray.init(local_mode=cfg["DEBUG_MODE"], num_cpus=cfg["RESOURCE_CPU"], include_dashboard=cfg["INCLUDE_DASHBOARD"])
+    analysis = tune.run(
+        partial(train_tune_classifier, base_config=GLOBAL_BASE_CONFIG),
+        config=search_space,
+        search_alg=optuna_search,
+        scheduler=asha,
+        stop=None, #plateau,
+        num_samples=cfg['OPTUNA_RUNS'],
+        max_concurrent_trials=cfg['MAX_TRAILS'],
+        resources_per_trial=resources,
+        progress_reporter=reporter,
+        storage_path=cfg['PATH_OUTPUT_BASE'],
+        resume="AUTO",
+        name=f"study_{cfg['RUN_ID']}",
+        trial_name_creator=my_trial_name_creator,
+        trial_dirname_creator=my_trial_name_creator,
+        keep_checkpoints_num=1
+    )
 
-        train_classifier_logger.log_info_stream("Best config found:")
-        train_classifier_logger.log_info_stream(analysis.get_best_config(metric="val_objective", mode="min"))
+    train_classifier_logger.log_info_stream("Best config found:")
+    train_classifier_logger.log_info_stream(analysis.get_best_config(metric="val_objective", mode="min"))

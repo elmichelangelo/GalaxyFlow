@@ -200,11 +200,11 @@ class gaNdalFFlow(object):
         return galaxies
 
     def init_network(self, num_outputs, num_input):
-        arch = str(self.cfg.get("FLOW_ARCH", "made")).lower()
-        if arch == "rqs":
-            return self._init_rqs_coupling_network(num_outputs, num_input)
-        else:
-            return self._init_made_network(num_outputs, num_input)  # dein bisheriger Code
+        # arch = str(self.cfg.get("FLOW_ARCH", "made")).lower()
+        # if arch == "rqs":
+        #     return self._init_rqs_coupling_network(num_outputs, num_input)
+        # else:
+        return self._init_made_network(num_outputs, num_input)  # dein bisheriger Code
 
     def _autocast_ctx(self):
         # Nur auf CUDA + AMP aktivieren, sonst Nullkontext
@@ -231,130 +231,130 @@ class gaNdalFFlow(object):
         optimizer = optim.AdamW(model.parameters(), lr=self.lr)
         return model, optimizer
 
-    def _init_rqs_coupling_network(self, num_outputs, num_input):
-        from nflows import flows, distributions, transforms
-        from nflows.nn import nets
-        import torch.nn.functional as F
-
-        D = int(num_outputs)
-        C = int(num_input)
-
-        n_bins = int(self.cfg.get("RQS_NUM_BINS", 10))
-        tail_bound = float(self.cfg.get("RQS_TAIL_BOUND", 3.0))
-        use_inv1x1 = bool(self.cfg.get("RQS_USE_INV1X1", self.cfg.get("RQS_USE_INV1x1", True)))
-        norm_kind = str(self.cfg.get("RQS_NORM", "actnorm")).lower()
-
-        def _block(mask_even: bool):
-            tfs = []
-            if norm_kind == "actnorm":
-                tfs.append(transforms.normalization.ActNorm(D))
-            elif norm_kind in ("batchnorm", "batch_norm"):
-                tfs.append(transforms.normalization.BatchNorm(D))
-            else:
-                pass
-
-            # 2) Feature-Mixing zwischen Couplings:
-            if use_inv1x1:
-                # nflows: invertible 1x1 linear via LU (Glow-Äquivalent)
-                if hasattr(transforms, "lu") and hasattr(transforms.lu, "LULinear"):
-                    tfs.append(transforms.lu.LULinear(D))
-                else:
-                    # robuste Fallback-Option, funktioniert in allen nflows-Versionen
-                    tfs.append(transforms.permutations.RandomPermutation(D))
-            else:
-                tfs.append(transforms.permutations.RandomPermutation(D))
-
-            # 3) alternierende Maske
-            m = torch.arange(D) % 2
-            mask = (m == 0) if mask_even else (m == 1)
-
-            def _make_net(in_features, out_features):
-                return nets.ResidualNet(
-                    in_features=in_features,
-                    out_features=out_features,
-                    hidden_features=int(self.nh),
-                    context_features=C,
-                    num_blocks=int(self.nl),
-                    activation=F.relu,
-                    dropout_probability=0.0,
-                    use_batch_norm=False
-                )
-
-            tfs.append(
-                transforms.coupling.PiecewiseRationalQuadraticCouplingTransform(
-                    mask=mask,
-                    transform_net_create_fn=_make_net,
-                    num_bins=n_bins,
-                    tails="linear",
-                    tail_bound=tail_bound,
-                    apply_unconditional_transform=False
-                )
-            )
-            return tfs
-
-        all_transforms = []
-        for b in range(int(self.nb)):
-            all_transforms += _block(mask_even=(b % 2 == 0))
-            # all_transforms += _block(mask_even=(b % 2 == 1))
-
-        transform = transforms.CompositeTransform(all_transforms)
-        base = distributions.StandardNormal(shape=[D])
-        nf = flows.Flow(transform, base)
-
-        class _NflowsWrapper(torch.nn.Module):
-            def __init__(self, flow, sample_chunk: int = 8192):
-                super().__init__()
-                self.flow = flow
-                self.num_inputs = D
-                self.sample_chunk = int(sample_chunk)
-
-            def forward(self, y, cond_inputs=None, mode='direct'):
-                # Kompatibel zu deinem Trainer-Interface
-                return y, torch.zeros(y.size(0), 1, device=y.device, dtype=y.dtype)
-
-            def log_probs(self, y, cond_inputs=None):
-                lp = self.flow.log_prob(inputs=y, context=cond_inputs)  # [N]
-                return lp.unsqueeze(1)
-
-            @torch.no_grad()
-            def sample(self, num_samples=None, noise=None, cond_inputs=None):
-                dev = next(self.flow.parameters()).device
-                D = int(self.num_inputs)
-
-                if cond_inputs is None:
-                    s = self.flow.sample(int(num_samples))
-                    if s.dim() == 2 and s.shape[0] == D:  # [D, N] -> [N, D]
-                        s = s.t()
-                    return s
-
-                ctx = cond_inputs.to(dev, dtype=torch.float32)
-                N = int(ctx.shape[0])
-
-                out = torch.empty(N, D, dtype=torch.float32, device="cpu")
-                ch = self.sample_chunk if self.sample_chunk > 0 else N
-
-                for start in range(0, N, ch):
-                    end = min(start + ch, N)
-                    c = ctx[start:end]
-                    u = self.flow.sample(end - start, context=c)
-
-                    # auf [chunk, D] normalisieren
-                    if u.dim() == 1:
-                        u = u.view(-1, D) if u.numel() != D else u.view(1, D)
-                    elif u.shape == (D, end - start):
-                        u = u.t()
-                    elif u.shape != (end - start, D):
-                        raise RuntimeError(
-                            f"Unexpected shape {tuple(u.shape)} for chunk {start}:{end}, expected {(end - start, D)}.")
-
-                    out[start:end].copy_(u.to('cpu', dtype=torch.float32))
-
-                return out
-
-        sample_chunk = int(self.cfg.get("SAMPLE_CHUNK", 8192))
-        model = _NflowsWrapper(nf, sample_chunk=sample_chunk).to(dtype=torch.float32).to(self.device)
-        optimizer = optim.AdamW(model.parameters(), lr=self.lr)
-        return model, optimizer
+    # def _init_rqs_coupling_network(self, num_outputs, num_input):
+    #     from nflows import flows, distributions, transforms
+    #     from nflows.nn import nets
+    #     import torch.nn.functional as F
+    #
+    #     D = int(num_outputs)
+    #     C = int(num_input)
+    #
+    #     n_bins = int(self.cfg.get("RQS_NUM_BINS", 10))
+    #     tail_bound = float(self.cfg.get("RQS_TAIL_BOUND", 3.0))
+    #     use_inv1x1 = bool(self.cfg.get("RQS_USE_INV1X1", self.cfg.get("RQS_USE_INV1x1", True)))
+    #     norm_kind = str(self.cfg.get("RQS_NORM", "actnorm")).lower()
+    #
+    #     def _block(mask_even: bool):
+    #         tfs = []
+    #         if norm_kind == "actnorm":
+    #             tfs.append(transforms.normalization.ActNorm(D))
+    #         elif norm_kind in ("batchnorm", "batch_norm"):
+    #             tfs.append(transforms.normalization.BatchNorm(D))
+    #         else:
+    #             pass
+    #
+    #         # 2) Feature-Mixing zwischen Couplings:
+    #         if use_inv1x1:
+    #             # nflows: invertible 1x1 linear via LU (Glow-Äquivalent)
+    #             if hasattr(transforms, "lu") and hasattr(transforms.lu, "LULinear"):
+    #                 tfs.append(transforms.lu.LULinear(D))
+    #             else:
+    #                 # robuste Fallback-Option, funktioniert in allen nflows-Versionen
+    #                 tfs.append(transforms.permutations.RandomPermutation(D))
+    #         else:
+    #             tfs.append(transforms.permutations.RandomPermutation(D))
+    #
+    #         # 3) alternierende Maske
+    #         m = torch.arange(D) % 2
+    #         mask = (m == 0) if mask_even else (m == 1)
+    #
+    #         def _make_net(in_features, out_features):
+    #             return nets.ResidualNet(
+    #                 in_features=in_features,
+    #                 out_features=out_features,
+    #                 hidden_features=int(self.nh),
+    #                 context_features=C,
+    #                 num_blocks=int(self.nl),
+    #                 activation=F.relu,
+    #                 dropout_probability=0.0,
+    #                 use_batch_norm=False
+    #             )
+    #
+    #         tfs.append(
+    #             transforms.coupling.PiecewiseRationalQuadraticCouplingTransform(
+    #                 mask=mask,
+    #                 transform_net_create_fn=_make_net,
+    #                 num_bins=n_bins,
+    #                 tails="linear",
+    #                 tail_bound=tail_bound,
+    #                 apply_unconditional_transform=False
+    #             )
+    #         )
+    #         return tfs
+    #
+    #     all_transforms = []
+    #     for b in range(int(self.nb)):
+    #         all_transforms += _block(mask_even=(b % 2 == 0))
+    #         # all_transforms += _block(mask_even=(b % 2 == 1))
+    #
+    #     transform = transforms.CompositeTransform(all_transforms)
+    #     base = distributions.StandardNormal(shape=[D])
+    #     nf = flows.Flow(transform, base)
+    #
+    #     class _NflowsWrapper(torch.nn.Module):
+    #         def __init__(self, flow, sample_chunk: int = 8192):
+    #             super().__init__()
+    #             self.flow = flow
+    #             self.num_inputs = D
+    #             self.sample_chunk = int(sample_chunk)
+    #
+    #         def forward(self, y, cond_inputs=None, mode='direct'):
+    #             # Kompatibel zu deinem Trainer-Interface
+    #             return y, torch.zeros(y.size(0), 1, device=y.device, dtype=y.dtype)
+    #
+    #         def log_probs(self, y, cond_inputs=None):
+    #             lp = self.flow.log_prob(inputs=y, context=cond_inputs)  # [N]
+    #             return lp.unsqueeze(1)
+    #
+    #         @torch.no_grad()
+    #         def sample(self, num_samples=None, noise=None, cond_inputs=None):
+    #             dev = next(self.flow.parameters()).device
+    #             D = int(self.num_inputs)
+    #
+    #             if cond_inputs is None:
+    #                 s = self.flow.sample(int(num_samples))
+    #                 if s.dim() == 2 and s.shape[0] == D:  # [D, N] -> [N, D]
+    #                     s = s.t()
+    #                 return s
+    #
+    #             ctx = cond_inputs.to(dev, dtype=torch.float32)
+    #             N = int(ctx.shape[0])
+    #
+    #             out = torch.empty(N, D, dtype=torch.float32, device="cpu")
+    #             ch = self.sample_chunk if self.sample_chunk > 0 else N
+    #
+    #             for start in range(0, N, ch):
+    #                 end = min(start + ch, N)
+    #                 c = ctx[start:end]
+    #                 u = self.flow.sample(end - start, context=c)
+    #
+    #                 # auf [chunk, D] normalisieren
+    #                 if u.dim() == 1:
+    #                     u = u.view(-1, D) if u.numel() != D else u.view(1, D)
+    #                 elif u.shape == (D, end - start):
+    #                     u = u.t()
+    #                 elif u.shape != (end - start, D):
+    #                     raise RuntimeError(
+    #                         f"Unexpected shape {tuple(u.shape)} for chunk {start}:{end}, expected {(end - start, D)}.")
+    #
+    #                 out[start:end].copy_(u.to('cpu', dtype=torch.float32))
+    #
+    #             return out
+    #
+    #     sample_chunk = int(self.cfg.get("SAMPLE_CHUNK", 8192))
+    #     model = _NflowsWrapper(nf, sample_chunk=sample_chunk).to(dtype=torch.float32).to(self.device)
+    #     optimizer = optim.AdamW(model.parameters(), lr=self.lr)
+    #     return model, optimizer
 
     def _checkpoint_path(self):
         return os.path.join(self.cfg['PATH_OUTPUT'], "last.ckpt.pt")
