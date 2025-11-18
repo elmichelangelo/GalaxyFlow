@@ -616,109 +616,137 @@ class gaNdalFClassifier(nn.Module):
         df_out['mcal_galaxy probability'] = p_cal
         df_out['mcal_galaxy raw'] = y_pred_raw
         df_out['mcal_galaxy'] = y_pred_cal
+        df_out['true mcal_galaxy'] = y_true
 
         # Optional plots
         if self.cfg['PLOT_MISS_CLASSF'] is True:
-            pairs = [
-                ['BDF_MAG_DERED_CALIB_R', 'BDF_MAG_DERED_CALIB_I'],
-                ['BDF_MAG_DERED_CALIB_I', 'BDF_MAG_DERED_CALIB_Z'],
-                ['Color BDF MAG R-I', 'Color BDF MAG I-Z'],
-                ['BDF_T', 'BDF_G'],
-                ['FWHM_WMEAN_R', 'FWHM_WMEAN_I'],
-                ['FWHM_WMEAN_I', 'FWHM_WMEAN_Z'],
-                ['AIRMASS_WMEAN_R', 'AIRMASS_WMEAN_I'],
-                ['AIRMASS_WMEAN_I', 'AIRMASS_WMEAN_Z'],
-                ['MAGLIM_R', 'MAGLIM_I'],
-                ['MAGLIM_I', 'MAGLIM_Z'],
-            ]
-            for i, cols in enumerate(pairs):
-                plot_classification_results(
-                    data_frame=df_out, cols=cols,
-                    show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['MISS-CLASSIFICATION']}/classf_{i}.pdf",
-                    title=f"Classification Results, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-                )
+            try:
+                pairs = [
+                    ['BDF_MAG_DERED_CALIB_R', 'BDF_MAG_DERED_CALIB_I'],
+                    ['BDF_MAG_DERED_CALIB_I', 'BDF_MAG_DERED_CALIB_Z'],
+                    ['Color BDF MAG R-I', 'Color BDF MAG I-Z'],
+                    ['BDF_T', 'BDF_G'],
+                    ['FWHM_WMEAN_R', 'FWHM_WMEAN_I'],
+                    ['FWHM_WMEAN_I', 'FWHM_WMEAN_Z'],
+                    ['AIRMASS_WMEAN_R', 'AIRMASS_WMEAN_I'],
+                    ['AIRMASS_WMEAN_I', 'AIRMASS_WMEAN_Z'],
+                    ['MAGLIM_R', 'MAGLIM_I'],
+                    ['MAGLIM_I', 'MAGLIM_Z'],
+                ]
+                for i, cols in enumerate(pairs):
+                    plot_classification_results(
+                        data_frame=df_out, cols=cols,
+                        show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
+                        save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['MISS-CLASSIFICATION']}/classf_{i}.pdf",
+                        title=f"Classification Results, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                    )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_classification_results")
 
         if self.cfg['PLOT_MATRIX'] is True:
-            print(df_out.keys())
-            plot_confusion_matrix(
-                df_gandalf=df_out,
-                # df_balrog=df_test,
-                show_plot=self.cfg['SHOW_PLOT'],
-                save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['CONFUSION_MATRIX']}/confusion_matrix.pdf",
-                title=f"Confusion Matrix, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-            )
+            try:
+                plot_confusion_matrix(
+                    df_gandalf=df_out,
+                    # df_balrog=df_test,
+                    show_plot=self.cfg['SHOW_PLOT'],
+                    save_plot=self.cfg['SAVE_PLOT'],
+                    y_true_col = "true mcal_galaxy",
+                    y_pred_col = "mcal_galaxy",
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['CONFUSION_MATRIX']}/confusion_matrix.pdf",
+                    title=f"Confusion Matrix, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_confusion_matrix")
 
         if self.cfg['PLOT_ROC_CURVE'] is True:
-            plot_roc_curve_gandalf(
-                df_gandalf=df_out,
-                # df_balrog=df_test,
-                show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['ROC_CURVE']}/roc_curve.pdf",
-                title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-            )
+            try:
+                plot_roc_curve_gandalf(
+                    df_gandalf=df_out,
+                    # df_balrog=df_test,
+                    y_true_col="true mcal_galaxy",
+                    y_pred_col="mcal_galaxy",
+                    show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['ROC_CURVE']}/roc_curve.pdf",
+                    title=f"Receiver Operating Characteristic (ROC) Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_roc_curve_gandalf")
 
         if self.cfg['PLOT_PRECISION_RECALL_CURVE'] is True:
-            plot_recall_curve_gandalf(
-                df_gandalf=df_out,
-                df_balrog=df_test,
-                show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/precision_recall_curve.pdf",
-                title=f"Precision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-            )
+            try:
+                plot_recall_curve_gandalf(
+                    df_gandalf=df_out,
+                    # df_balrog=df_test,
+                    show_plot=self.cfg['SHOW_PLOT'], save_plot=self.cfg['SAVE_PLOT'],
+                    y_true_col="true mcal_galaxy",
+                    y_pred_col="mcal_galaxy",
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/precision_recall_curve.pdf",
+                    title=f"Precision-Recall Curve, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_recall_curve_gandalf")
 
-            plot_calibration_by_mag_singlepanel(
-                mag=mag_te,
-                p_cal=p_cal,
-                p_raw=p_raw,
-                y_true=y_true,
-                n_bins=max(7, int(self.cfg.get("REWEIGHT_N_BINS", 5))),  # oder feste Zahl
-                title=f"Calibration by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-                xlabel=self.mag_col + " (quantile bins)",
-                show_plot=self.cfg['SHOW_PLOT'],
-                save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/calib_by_mag_single.pdf".replace(
-                    "probability_histogram", "calib_by_mag")
-            )
+            try:
+                plot_calibration_by_mag_singlepanel(
+                    mag=mag_te,
+                    p_cal=p_cal,
+                    p_raw=p_raw,
+                    y_true=y_true,
+                    n_bins=max(7, int(self.cfg.get("REWEIGHT_N_BINS", 5))),  # oder feste Zahl
+                    title=f"Calibration by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                    xlabel=self.mag_col + " (quantile bins)",
+                    show_plot=self.cfg['SHOW_PLOT'],
+                    save_plot=self.cfg['SAVE_PLOT'],
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PRECISION_RECALL_CURVE']}/calib_by_mag_single.pdf".replace(
+                        "probability_histogram", "calib_by_mag")
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_calibration_by_mag_singlepanel")
 
         if self.cfg['PLOT_PROBABILITY_HIST'] is True:
-            plot_reliability_curve(
-                df_gandalf=df_out,
-                df_balrog=df_test,  # Ground truth!
-                show_plot=self.cfg['SHOW_PLOT'],
-                save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/reliability.pdf",
-                prob_cols=("mcal_galaxy probability", "mcal_galaxy probability raw"),
-                labels=("calibrated", "raw"),
-                n_bins=15,
-                title=f"Reliability, lr={self.lr}, bs={self.bs}, epoch={epoch}"
-            )
-
-            plot_rate_ratio_curve(
-                mag=mag_te,
-                probs_cal=p_cal,
-                probs_raw=p_raw,
-                y_true=y_true,
-                n_bins=max(7, int(self.cfg.get("REWEIGHT_N_BINS", 5))),
-                title=f"Rate ratio by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}",
-                xlabel=self.mag_col + " (quantile bins)",
-                show_plot=self.cfg['SHOW_PLOT'],
-                save_plot=self.cfg['SAVE_PLOT'],
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag_curve.pdf"
-            )
-
-            plot_rate_ratio_by_mag(
-                mag=mag_te,
-                y_true=y_true,
-                probs_raw=p_raw,
-                probs_cal=p_cal,
-                calibrated=True,  # default
-                bin_width=0.25,
-                mag_label="BDF_MAG_DERED_CALIB_I",
-                show_density_ratio=True,
-                save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag.pdf"
-            )
+            try:
+                plot_reliability_curve(
+                    df_gandalf=df_out,
+                    df_balrog=df_test,  # Ground truth!
+                    show_plot=self.cfg['SHOW_PLOT'],
+                    save_plot=self.cfg['SAVE_PLOT'],
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/reliability.pdf",
+                    prob_cols=("mcal_galaxy probability", "mcal_galaxy probability raw"),
+                    labels=("calibrated", "raw"),
+                    n_bins=15,
+                    title=f"Reliability, lr={self.lr}, bs={self.bs}, epoch={epoch}"
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_reliability_curve")
+            try:
+                plot_rate_ratio_curve(
+                    mag=mag_te,
+                    probs_cal=p_cal,
+                    probs_raw=p_raw,
+                    y_true=y_true,
+                    n_bins=max(7, int(self.cfg.get("REWEIGHT_N_BINS", 5))),
+                    title=f"Rate ratio by magnitude, lr={self.lr}, bs={self.bs}, epoch={epoch}",
+                    xlabel=self.mag_col + " (quantile bins)",
+                    show_plot=self.cfg['SHOW_PLOT'],
+                    save_plot=self.cfg['SAVE_PLOT'],
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag_curve.pdf"
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_rate_ratio_curve")
+            try:
+                plot_rate_ratio_by_mag(
+                    mag=mag_te,
+                    y_true=y_true,
+                    probs_raw=p_raw,
+                    probs_cal=p_cal,
+                    calibrated=True,  # default
+                    bin_width=0.25,
+                    mag_label="BDF_MAG_DERED_CALIB_I",
+                    show_density_ratio=True,
+                    save_name=f"{self.cfg['PATH_PLOTS_FOLDER']['PROB_HIST']}/rate_ratio_by_mag.pdf"
+                )
+            except Exception as e:
+                self.classifier_logger.log_info_stream(f"Error {e} plotting plot_rate_ratio_by_mag")
 
         self.classifier_logger.log_info_stream("run_tests: done")
 

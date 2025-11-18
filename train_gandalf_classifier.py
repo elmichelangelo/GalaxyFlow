@@ -224,11 +224,10 @@ if __name__ == '__main__':
     hidden_sizes = [tuple(h) if isinstance(h, list) else h for h in hidden_sizes]
     dropout_prob = cfg["DROPOUT_PROB"]
     batch_norm = cfg["BATCH_NORM"]
-    lr_lo, lr_hi = cfg["LEARNING_RATE"]
 
     search_space = {
         "batch_size": tune.choice(cfg["BATCH_SIZE"]),
-        "learning_rate": tune.loguniform(lr_lo, lr_hi),
+        "learning_rate": tune.choice(cfg["LEARNING_RATE"]),  #tune.loguniform(cfg["LEARNING_RATE"][0], cfg["LEARNING_RATE"][1]),
         "hidden_sizes": tune.choice(hidden_sizes),
         "dropout_prob": tune.choice(dropout_prob),
         "batch_norm": tune.choice(batch_norm),

@@ -836,7 +836,7 @@ def plot_confusion_matrix(
     show_plot: bool,
     save_plot: bool,
     save_name: str,
-    y_true_col:str="true detected",
+    y_true_col:str="true mcal_galaxy",
     y_pred_col:str="threshold detected",
     check_raw: bool = False,
     title: str = "Confusion Matrix",
@@ -1105,11 +1105,12 @@ def plot_recall_curve(data_frame, show_plot, save_plot, save_name, title='Precis
     plt.close(fig_recal_curve)
 
 
-def plot_recall_curve_gandalf(df_gandalf, df_balrog, show_plot, save_plot, save_name, title='Precision-Recall Curve'):
+def plot_recall_curve_gandalf(df_gandalf, show_plot, save_plot, save_name, title='Precision-Recall Curve', y_true_col:str="true detected",
+        y_pred_col:str="threshold detected"):
     """"""
     precision, recall, thresholds = precision_recall_curve(
-        df_gandalf['detected'].ravel(),
-        df_balrog['detected'].ravel()
+        df_gandalf[y_pred_col].ravel(),
+        df_gandalf[y_true_col].ravel()
     )
 
     fig_recal_curve = plt.figure()
