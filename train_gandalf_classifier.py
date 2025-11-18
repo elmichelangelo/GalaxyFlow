@@ -227,7 +227,7 @@ if __name__ == '__main__':
 
     search_space = {
         "batch_size": tune.choice(cfg["BATCH_SIZE"]),
-        "learning_rate": tune.choice(cfg["LEARNING_RATE"]),  #tune.loguniform(cfg["LEARNING_RATE"][0], cfg["LEARNING_RATE"][1]),
+        "learning_rate": tune.loguniform(cfg["LEARNING_RATE"][0], cfg["LEARNING_RATE"][1]),
         "hidden_sizes": tune.choice(hidden_sizes),
         "dropout_prob": tune.choice(dropout_prob),
         "batch_norm": tune.choice(batch_norm),
