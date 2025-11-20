@@ -171,7 +171,8 @@ def my_trial_name_creator(trial):
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
-    sys.path.append(os.path.dirname(__file__))
+    # sys.path.append(os.path.dirname(__file__))
+    path = os.path.abspath(sys.path[-1])
     cfg, path_cfg_file = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
 
     cfg['PATH_OUTPUT_BASE'] = cfg['PATH_OUTPUT']
