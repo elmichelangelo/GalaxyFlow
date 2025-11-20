@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=nf_train_new_data
+#SBATCH --job-name=nf_train_new_data2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=256G
-#SBATCH -o /dss/dsshome1/04/di97tac/logs/nf_train_new_data_%A.log
-#SBATCH -e /dss/dsshome1/04/di97tac/logs/nf_train_new_data_err_%A.log
+#SBATCH -o /dss/dsshome1/04/di97tac/logs/nf_train_new_data2_%A.log
+#SBATCH -e /dss/dsshome1/04/di97tac/logs/nf_train_new_data2_err_%A.log
 #SBATCH --qos=mcml
 #SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --cpus-per-task=12
