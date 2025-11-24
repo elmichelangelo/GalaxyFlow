@@ -4,8 +4,8 @@
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=256G
-#SBATCH -o /dss/dsshome1/04/di97tac/logs/cf_new_training_%A.log
-#SBATCH -e /dss/dsshome1/04/di97tac/logs/cf_new_training_err_%A.log
+#SBATCH -o /dss/dsshome1/04/di97tac/logs/cf_new_training2_%A.log
+#SBATCH -e /dss/dsshome1/04/di97tac/logs/cf_new_training2_err_%A.log
 #SBATCH --qos=mcml
 #SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --cpus-per-task=12
