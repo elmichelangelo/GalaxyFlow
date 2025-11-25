@@ -267,7 +267,7 @@ class gaNdalF(object):
         df_gandalf = self.classifier_data.copy()
         df_gandalf["true detected"] = y_true
         df_gandalf["threshold detected"] = y_pred
-        df_gandalf["sampled detected"] = y_sampled
+        df_gandalf["sampled mcal_galaxy"] = y_sampled
         df_gandalf["probability detected raw"] = p_raw
         df_gandalf["probability detected"] = p_for_sampling
 

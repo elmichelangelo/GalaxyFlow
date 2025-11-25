@@ -72,9 +72,9 @@ class GalaxyDataset(Dataset):
                 df_train = df_train[self.cfg["COLUMNS"]]
                 df_valid = df_valid[self.cfg["COLUMNS"]]
                 df_test = df_test[self.cfg["COLUMNS"]]
-                self.train_dataset = df_train[df_train["detected"]==1].copy()
-                self.valid_dataset = df_valid[df_valid["detected"]==1].copy()
-                self.test_dataset = df_test[df_test["detected"]==1].copy()
+                self.train_dataset = df_train[df_train[self.cfg["DETECTION_TYPE"]]==1].copy()
+                self.valid_dataset = df_valid[df_valid[self.cfg["DETECTION_TYPE"]]==1].copy()
+                self.test_dataset = df_test[self.cfg["DETECTION_TYPE"]==1].copy()
             del df_train
             del df_valid
             del df_test

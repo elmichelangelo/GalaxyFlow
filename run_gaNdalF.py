@@ -4,8 +4,10 @@ from Handler import (
     get_os,
     unsheared_shear_cuts,
     unsheared_mag_cut,
+    binary_cut,
     LoggerHandler,
     calc_color,
+    mag2flux,
     plot_roc_curve_gandalf,
     plot_features_single,
     plot_balrog_histogram_with_error_and_detection,
@@ -367,8 +369,8 @@ def main(classifier_cfg, flow_cfg, logger):
             savename=f"{classifier_cfg['PATH_PLOTS']}/feature_input_classifier.pdf"
         )
 
-    df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
-    df_information = df[["bal_id", "ID", "injection_counts"]]
+    # df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
+    # df_information = df[["bal_id", "ID", "injection_counts"]]
 
     # df_out_gandalf = df_gandalf.merge(df_information, how="left", on="bal_id")
     # df_out_gandalf.rename(columns={"ID": "true_id"}, inplace=True)
@@ -391,66 +393,66 @@ def main(classifier_cfg, flow_cfg, logger):
     # plt.scatter(df_out_balrog["injection_counts_m"], df_out_gandalf["injection_counts_m"])
     # plt.show()
 
-    df_gandalf_detected = df_gandalf[df_gandalf["sampled detected"]==1]
-    df_balrog_detected = df_balrog[df_balrog["detected"]==1]
+    # df_gandalf_detected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
+    # df_balrog_detected = df_balrog[df_balrog["mcal_galaxy"]==1]
 
-    df_out_gandalf_detected = df_gandalf_detected.merge(df_information, how="left", on="bal_id")
-    df_out_gandalf_detected.rename(columns={"ID": "true_id"}, inplace=True)
-
-    df_out_balrog_detetced = df_balrog_detected.merge(df_information, how="left", on="bal_id")
-    df_out_balrog_detetced.rename(columns={"ID": "true_id"}, inplace=True)
-
-    df_out_gandalf_detected = compute_injection_counts(
-        det_catalog=df_out_gandalf_detected,
-        id_col="true_id",
-        count_col="detection_counts_n"
-    )
-
-    df_out_balrog_detetced = compute_injection_counts(
-        det_catalog=df_out_balrog_detetced,
-        id_col="true_id",
-        count_col="detection_counts_n"
-    )
-
-    df_check = df_out_gandalf_detected[["true_id", "bal_id", "detection_counts_n"]].copy()
-    df_check.rename(columns={"detection_counts_n": "detection_counts_n_gandalf"}, inplace=True)
-
-    counts_balrog = (
-        df_out_balrog_detetced[["true_id", "detection_counts_n"]]
-        .dropna(subset=["true_id"])
-        .drop_duplicates("true_id")  # eine Zeile pro true_id
-        .set_index("true_id")["detection_counts_n"]  # Series: index=true_id, value=count
-    )
-
-    df_check["detection_counts_n_balrog"] = df_check["true_id"].map(counts_balrog)
-
-    df_check = df_check.drop_duplicates("true_id")
-
-    x = df_check["detection_counts_n_balrog"]
-    y = df_check["detection_counts_n_gandalf"]
-
-    lo = int(min(x.min(), y.min()))
-    hi = int(max(x.max(), y.max()))
-
-    plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.5)
-    plt.gca().set_aspect("equal", "box")
-    plt.scatter(df_check["detection_counts_n_balrog"], df_check["detection_counts_n_gandalf"])
-    plt.title("Compare Detection Counts: n vs. n'")
-    plt.xlim(0, hi)
-    plt.ylim(0, hi)
-    plt.xlabel("detection counts balrog: n")
-    plt.ylabel("detection counts gandalf: n'")
-    plt.savefig(f"{flow_cfg['PATH_PLOTS']}/n_vs_ndash.png", dpi=150, bbox_inches='tight')
-    plt.clf()
-    plt.close()
-
-    plt.scatter(df_check["detection_counts_n_balrog"], (df_check["detection_counts_n_gandalf"]-df_check["detection_counts_n_balrog"])/np.sqrt(df_check["detection_counts_n_balrog"]), alpha=0.3)
-    plt.title("Compare Detection Counts: n vs. n'")
-    plt.ylabel("(n'-n)/sqrt(n)")
-    plt.xlabel("n")
-    plt.savefig(f"{flow_cfg['PATH_PLOTS']}/compare_detection_counts.png", dpi=150, bbox_inches='tight')
-    plt.clf()
-    plt.close()
+    # df_out_gandalf_detected = df_gandalf_detected.merge(df_information, how="left", on="bal_id")
+    # df_out_gandalf_detected.rename(columns={"ID": "true_id"}, inplace=True)
+    #
+    # df_out_balrog_detetced = df_balrog_detected.merge(df_information, how="left", on="bal_id")
+    # df_out_balrog_detetced.rename(columns={"ID": "true_id"}, inplace=True)
+    #
+    # df_out_gandalf_detected = compute_injection_counts(
+    #     det_catalog=df_out_gandalf_detected,
+    #     id_col="true_id",
+    #     count_col="detection_counts_n"
+    # )
+    #
+    # df_out_balrog_detetced = compute_injection_counts(
+    #     det_catalog=df_out_balrog_detetced,
+    #     id_col="true_id",
+    #     count_col="detection_counts_n"
+    # )
+    #
+    # df_check = df_out_gandalf_detected[["true_id", "bal_id", "detection_counts_n"]].copy()
+    # df_check.rename(columns={"detection_counts_n": "detection_counts_n_gandalf"}, inplace=True)
+    #
+    # counts_balrog = (
+    #     df_out_balrog_detetced[["true_id", "detection_counts_n"]]
+    #     .dropna(subset=["true_id"])
+    #     .drop_duplicates("true_id")  # eine Zeile pro true_id
+    #     .set_index("true_id")["detection_counts_n"]  # Series: index=true_id, value=count
+    # )
+    #
+    # df_check["detection_counts_n_balrog"] = df_check["true_id"].map(counts_balrog)
+    #
+    # df_check = df_check.drop_duplicates("true_id")
+    #
+    # x = df_check["detection_counts_n_balrog"]
+    # y = df_check["detection_counts_n_gandalf"]
+    #
+    # lo = int(min(x.min(), y.min()))
+    # hi = int(max(x.max(), y.max()))
+    #
+    # plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.5)
+    # plt.gca().set_aspect("equal", "box")
+    # plt.scatter(df_check["detection_counts_n_balrog"], df_check["detection_counts_n_gandalf"])
+    # plt.title("Compare Detection Counts: n vs. n'")
+    # plt.xlim(0, hi)
+    # plt.ylim(0, hi)
+    # plt.xlabel("detection counts balrog: n")
+    # plt.ylabel("detection counts gandalf: n'")
+    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/n_vs_ndash.png", dpi=150, bbox_inches='tight')
+    # plt.clf()
+    # plt.close()
+    #
+    # plt.scatter(df_check["detection_counts_n_balrog"], (df_check["detection_counts_n_gandalf"]-df_check["detection_counts_n_balrog"])/np.sqrt(df_check["detection_counts_n_balrog"]), alpha=0.3)
+    # plt.title("Compare Detection Counts: n vs. n'")
+    # plt.ylabel("(n'-n)/sqrt(n)")
+    # plt.xlabel("n")
+    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/compare_detection_counts.png", dpi=150, bbox_inches='tight')
+    # plt.clf()
+    # plt.close()
 
     save_catalogs(
         cfg=classifier_cfg,
@@ -506,11 +508,11 @@ def main(classifier_cfg, flow_cfg, logger):
     df_gandalf = model.flow_galaxies.scale_data(df_gandalf)
     df_gandalf, df_balrog = model.run_flow(data_frame=df_gandalf)
 
-    df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
-    df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
-
-    df_out_balrog_flow = df_balrog.merge(df_information, how="left", on="bal_id")
-    df_out_balrog_flow.rename(columns={"ID": "true_id"}, inplace=True)
+    # df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
+    # df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
+    #
+    # df_out_balrog_flow = df_balrog.merge(df_information, how="left", on="bal_id")
+    # df_out_balrog_flow.rename(columns={"ID": "true_id"}, inplace=True)
 
     df_gandalf = calc_color(
         data_frame=df_gandalf,
@@ -523,122 +525,128 @@ def main(classifier_cfg, flow_cfg, logger):
         column_name=f"unsheared/mag"
     )
 
-    # plot_flow(
-    #     cfg=flow_cfg,
-    #     logger=logger,
-    #     df_gandalf=df_gandalf,
-    #     df_balrog=df_balrog,
-    #     prefix=""
-    # )
+    for band in ["r", "i", "z"]:
+        df_gandalf[f"unsheared/flux_{band}"] = mag2flux(df_gandalf[f"unsheared/mag_{band}"])
+        df_balrog[f"unsheared/flux_{band}"] = mag2flux(df_balrog[f"unsheared/mag_{band}"])
+
+    plot_flow(
+        cfg=flow_cfg,
+        logger=logger,
+        df_gandalf=df_gandalf,
+        df_balrog=df_balrog,
+        prefix=""
+    )
 
     df_gandalf = unsheared_shear_cuts(df_gandalf)
     df_gandalf = unsheared_mag_cut(df_gandalf)
     df_balrog = unsheared_shear_cuts(df_balrog)
     df_balrog = unsheared_mag_cut(df_balrog)
+    df_gandalf = binary_cut(df_gandalf)
+    df_balrog = binary_cut(df_balrog)
 
-    df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
-    df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
+    # df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
+    # df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
+    #
+    # df_out_balrog_flow = df_balrog.merge(df_information, how="left", on="bal_id")
+    # df_out_balrog_flow.rename(columns={"ID": "true_id"}, inplace=True)
+    #
+    # df_out_gandalf_flow = compute_injection_counts(
+    #     det_catalog=df_out_gandalf_flow,
+    #     id_col="true_id",
+    #     count_col="detection_counts_k"
+    # )
+    #
+    # df_out_balrog_flow = compute_injection_counts(
+    #     det_catalog=df_out_balrog_flow,
+    #     id_col="true_id",
+    #     count_col="detection_counts_k"
+    # )
+    #
+    # df_check_flow = df_out_gandalf_flow[["true_id", "bal_id", "detection_counts_k"]].copy()
+    # df_check_flow.rename(columns={"detection_counts_k": "detection_counts_k_gandalf"}, inplace=True)
+    #
+    # counts_balrog_flow = (
+    #     df_out_balrog_flow[["true_id", "detection_counts_k"]]
+    #     .dropna(subset=["true_id"])
+    #     .drop_duplicates("true_id")  # eine Zeile pro true_id
+    #     .set_index("true_id")["detection_counts_k"]  # Series: index=true_id, value=count
+    # )
+    #
+    # df_check_flow["detection_counts_k_balrog"] = df_check_flow["true_id"].map(counts_balrog_flow)
+    #
+    # df_check_flow = df_check_flow.drop_duplicates("true_id")
+    #
+    # x = df_check_flow["detection_counts_k_balrog"]
+    # y = df_check_flow["detection_counts_k_gandalf"]
+    #
+    # lo = int(min(x.min(), y.min()))
+    # hi = int(max(x.max(), y.max()))
+    #
+    # plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.5)
+    # plt.gca().set_aspect("equal", "box")
+    # plt.scatter(df_check_flow["detection_counts_k_balrog"], df_check_flow["detection_counts_k_gandalf"])
+    # plt.title("Compare Selection Counts w/o mag cut w/ mcal cuts: k vs. k'")
+    # plt.xlim(0, hi)
+    # plt.ylim(0, hi)
+    # plt.xlabel("selection counts balrog: k")
+    # plt.ylabel("selection counts gandalf: k'")
+    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/k_vs_kdash_w_mag_cuts_w_mcal_cuts.png", dpi=150, bbox_inches='tight')
+    # plt.clf()
+    # plt.close()
+    #
+    # plt.scatter(df_check_flow["detection_counts_k_balrog"], (df_check_flow["detection_counts_k_gandalf"] - df_check_flow["detection_counts_k_balrog"]) / np.sqrt(df_check_flow["detection_counts_k_balrog"]), alpha=0.3)
+    # plt.title("Compare Selection Counts w/o mag cut w/ mcal cuts: k vs. k'")
+    # plt.ylabel("(k'-k)/sqrt(k)")
+    # plt.xlabel("k")
+    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/compare_selection_counts.png", dpi=150, bbox_inches='tight')
+    # plt.clf()
+    # plt.close()
+    #
+    # lst_ranges = [
+    #     [-1.5, 4],  # mag r-i
+    #     [-4, 1.5],  # mag i-z
+    #     [15, 26],  # mag r
+    #     [18, 23.5],  # mag i
+    #     [15, 26],  # mag z
+    #     None,  # mag err r
+    #     None,  # mag err i
+    #     None,  # mag err z
+    #     [-1.2, 1.2],  # e_1
+    #     [-1.2, 1.2],  # e_2
+    #     [10, 1000],  # snr
+    #     [0.5, 50],  # size ratio
+    #     [0, 10]  # T
+    # ]
+    # lst_binwidths = [
+    #     0.25,  # mag r-i
+    #     0.25,  # mag i-z
+    #     0.25,  # mag r
+    #     0.25,  # mag i
+    #     0.25,  # mag z
+    #     0.25,  # mag err r
+    #     0.25,  # mag err i
+    #     0.25,  # mag err z
+    #     0.1,  # e_1
+    #     0.1,  # e_2
+    #     50,  # snr
+    #     1.5,  # size ratio
+    #     0.5,  # T
+    # ]
+    # os.makedirs(flow_cfg["PATH_PLOTS"], exist_ok=True)
 
-    df_out_balrog_flow = df_balrog.merge(df_information, how="left", on="bal_id")
-    df_out_balrog_flow.rename(columns={"ID": "true_id"}, inplace=True)
-
-    df_out_gandalf_flow = compute_injection_counts(
-        det_catalog=df_out_gandalf_flow,
-        id_col="true_id",
-        count_col="detection_counts_k"
-    )
-
-    df_out_balrog_flow = compute_injection_counts(
-        det_catalog=df_out_balrog_flow,
-        id_col="true_id",
-        count_col="detection_counts_k"
-    )
-
-    df_check_flow = df_out_gandalf_flow[["true_id", "bal_id", "detection_counts_k"]].copy()
-    df_check_flow.rename(columns={"detection_counts_k": "detection_counts_k_gandalf"}, inplace=True)
-
-    counts_balrog_flow = (
-        df_out_balrog_flow[["true_id", "detection_counts_k"]]
-        .dropna(subset=["true_id"])
-        .drop_duplicates("true_id")  # eine Zeile pro true_id
-        .set_index("true_id")["detection_counts_k"]  # Series: index=true_id, value=count
-    )
-
-    df_check_flow["detection_counts_k_balrog"] = df_check_flow["true_id"].map(counts_balrog_flow)
-
-    df_check_flow = df_check_flow.drop_duplicates("true_id")
-
-    x = df_check_flow["detection_counts_k_balrog"]
-    y = df_check_flow["detection_counts_k_gandalf"]
-
-    lo = int(min(x.min(), y.min()))
-    hi = int(max(x.max(), y.max()))
-
-    plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.5)
-    plt.gca().set_aspect("equal", "box")
-    plt.scatter(df_check_flow["detection_counts_k_balrog"], df_check_flow["detection_counts_k_gandalf"])
-    plt.title("Compare Selection Counts w/o mag cut w/ mcal cuts: k vs. k'")
-    plt.xlim(0, hi)
-    plt.ylim(0, hi)
-    plt.xlabel("selection counts balrog: k")
-    plt.ylabel("selection counts gandalf: k'")
-    plt.savefig(f"{flow_cfg['PATH_PLOTS']}/k_vs_kdash_w_mag_cuts_w_mcal_cuts.png", dpi=150, bbox_inches='tight')
-    plt.clf()
-    plt.close()
-
-    plt.scatter(df_check_flow["detection_counts_k_balrog"], (df_check_flow["detection_counts_k_gandalf"] - df_check_flow["detection_counts_k_balrog"]) / np.sqrt(df_check_flow["detection_counts_k_balrog"]), alpha=0.3)
-    plt.title("Compare Selection Counts w/o mag cut w/ mcal cuts: k vs. k'")
-    plt.ylabel("(k'-k)/sqrt(k)")
-    plt.xlabel("k")
-    plt.savefig(f"{flow_cfg['PATH_PLOTS']}/compare_selection_counts.png", dpi=150, bbox_inches='tight')
-    plt.clf()
-    plt.close()
-
-    lst_ranges = [
-        [-1.5, 4],  # mag r-i
-        [-4, 1.5],  # mag i-z
-        [15, 26],  # mag r
-        [18, 23.5],  # mag i
-        [15, 26],  # mag z
-        None,  # mag err r
-        None,  # mag err i
-        None,  # mag err z
-        [-1.2, 1.2],  # e_1
-        [-1.2, 1.2],  # e_2
-        [10, 1000],  # snr
-        [0.5, 50],  # size ratio
-        [0, 10]  # T
-    ]
-    lst_binwidths = [
-        0.25,  # mag r-i
-        0.25,  # mag i-z
-        0.25,  # mag r
-        0.25,  # mag i
-        0.25,  # mag z
-        0.25,  # mag err r
-        0.25,  # mag err i
-        0.25,  # mag err z
-        0.1,  # e_1
-        0.1,  # e_2
-        50,  # snr
-        1.5,  # size ratio
-        0.5,  # T
-    ]
-    os.makedirs(flow_cfg["PATH_PLOTS"], exist_ok=True)
-
-    plot_balrog_histogram_with_error_and_detection(
-        df_gandalf=df_gandalf,
-        df_balrog=df_balrog,
-        columns=flow_cfg["HIST_PLOT_COLS"],
-        labels=flow_cfg["HIST_PLOT_LABELS"],
-        ranges=lst_ranges,
-        binwidths=lst_binwidths,
-        title=r"MCAL selected galaxies gaNdalF vs. Balrog",
-        show_plot=flow_cfg["SHOW_PLOT"],
-        save_plot=flow_cfg["SAVE_PLOT"],
-        save_name=f"{flow_cfg[f'PATH_PLOTS']}/selection_hist_plot_with_selection_cf.pdf",
-        detection_name="selected",
-    )
+    # plot_balrog_histogram_with_error_and_detection(
+    #     df_gandalf=df_gandalf,
+    #     df_balrog=df_balrog,
+    #     columns=flow_cfg["HIST_PLOT_COLS"],
+    #     labels=flow_cfg["HIST_PLOT_LABELS"],
+    #     ranges=lst_ranges,
+    #     binwidths=lst_binwidths,
+    #     title=r"MCAL selected galaxies gaNdalF vs. Balrog",
+    #     show_plot=flow_cfg["SHOW_PLOT"],
+    #     save_plot=flow_cfg["SAVE_PLOT"],
+    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/selection_hist_plot_with_selection_cf.pdf",
+    #     detection_name="selected",
+    # )
 
     # df_non_detected = df_gandalf[df_gandalf["true detected"] == 0]
     # df_only_detected = df_gandalf[df_gandalf["true detected"] == 1]
@@ -668,8 +676,6 @@ def main(classifier_cfg, flow_cfg, logger):
     #     save_plot=flow_cfg["SAVE_PLOT"],
     #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_only_detected.pdf"
     # )
-
-    exit()
 
     # lst_galaxy_properties = [
     #     "BDF_MAG_DERED_CALIB_R",
@@ -796,23 +802,24 @@ def main(classifier_cfg, flow_cfg, logger):
     #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_all_input_obs_cond.pdf"
     # )
 
-    # plot_flow(
-    #     cfg=flow_cfg,
-    #     logger=logger,
-    #     df_gandalf=df_gandalf,
-    #     df_balrog=df_balrog,
-    #     prefix="_cut"
-    # )
+    plot_flow(
+        cfg=flow_cfg,
+        logger=logger,
+        df_gandalf=df_gandalf,
+        df_balrog=df_balrog,
+        prefix="_cut"
+    )
 
     df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
     df_information = df[["bal_id", "ID", "injection_counts"]]
     df_out = df_gandalf.merge(df_information, how="left", on="bal_id")
     df_out.rename(columns={"ID": "true_id"}, inplace=True)
+    df_out.rename(columns={"injection_counts": "injection_counts_old"}, inplace=True)
 
     df_out = compute_injection_counts(
         det_catalog=df_out,
         id_col="true_id",
-        count_col="injection_counts_new"
+        count_col="injection_counts"
     )
     save_catalogs(
         cfg=classifier_cfg,
