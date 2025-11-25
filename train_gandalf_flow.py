@@ -172,7 +172,7 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
     sys.path.append(os.path.dirname(__file__))
-    sys.path.append("/dss/dsshome1/04/di97tac/development/GalaxyFlow/")
+    # sys.path.append("/dss/dsshome1/04/di97tac/development/GalaxyFlow/")
     path = os.path.abspath(sys.path[-1])
     cfg, path_cfg_file = load_config_and_parser(system_path=path)
 
@@ -234,7 +234,7 @@ if __name__ == '__main__':
 
         search_space = {
             "batch_size": tune.choice(batch_size),
-            "learning_rate": tune.choice(learning_rate),  # tune.loguniform(learning_rate[0], learning_rate[1]),
+            "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),  # tune.loguniform(learning_rate[0], learning_rate[1]),
             "number_hidden": tune.choice(number_hidden),
             "number_blocks": tune.choice(number_blocks),
             "number_layers": tune.choice(number_layers),
