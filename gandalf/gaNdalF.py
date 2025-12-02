@@ -213,9 +213,11 @@ class gaNdalF(object):
         pin = (device.type == "cuda")
         loader = DataLoader(
             TensorDataset(X_t, mag_t),
-            batch_size=bs, shuffle=False,
+            batch_size=bs,
+            shuffle=False,
             num_workers=max(1, os.cpu_count() // 2),
-            pin_memory=pin, persistent_workers=False
+            pin_memory=pin,
+            persistent_workers=False
         )
 
         self.classifier_model.eval()
@@ -271,7 +273,7 @@ class gaNdalF(object):
         df_gandalf["probability detected raw"] = p_raw
         df_gandalf["probability detected"] = p_for_sampling
 
-        acc = accuracy_score(y_true, y_pred)
+        acc = accuracy_score(y_true, y_sampled)
         self.gandalf_logger.log_info_stream(f"Accuracy (deterministic, thr={thr:.3f}): {acc * 100:.2f}%")
         return df_gandalf, self.classifier_data
 

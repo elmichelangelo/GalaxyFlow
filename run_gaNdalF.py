@@ -352,6 +352,23 @@ def main(classifier_cfg, flow_cfg, logger):
 
     df_gandalf, df_balrog = model.run_classifier()
 
+    df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
+    df_information = df[["bal_id", "ID"]].copy()
+
+    del df
+
+    df_information.rename(columns={"ID": "true_id"}, inplace=True)
+
+    df_information = compute_injection_counts(
+        det_catalog=df_information.copy(),
+        id_col="true_id",
+        count_col="injection_counts"
+    )
+
+    df_gandalf = df_gandalf.merge(df_information, how="left", on="bal_id")
+
+    del df_information
+
     classifier_cfg["PATH_PLOTS"] = f'{classifier_cfg["PATH_PLOTS"]}/{classifier_cfg["RUN_DATE"]}_RUN_PLOTS'
     flow_cfg["PATH_PLOTS"] = classifier_cfg["PATH_PLOTS"]
 
@@ -504,6 +521,8 @@ def main(classifier_cfg, flow_cfg, logger):
     #         savename=f"{flow_cfg['PATH_PLOTS']}/feature_input_flow_w_classifier_cut.pdf"
     #     )
 
+    df_gandalf_injection_counts = df_gandalf[["bal_id", "injection_counts", "true_id"]].copy()
+
     df_gandalf = model.flow_galaxies.apply_log10(df_gandalf)
     df_gandalf = model.flow_galaxies.scale_data(df_gandalf)
     df_gandalf, df_balrog = model.run_flow(data_frame=df_gandalf)
@@ -529,20 +548,24 @@ def main(classifier_cfg, flow_cfg, logger):
         df_gandalf[f"unsheared/flux_{band}"] = mag2flux(df_gandalf[f"unsheared/mag_{band}"])
         df_balrog[f"unsheared/flux_{band}"] = mag2flux(df_balrog[f"unsheared/mag_{band}"])
 
+    df_balrog_selected = df_balrog[df_balrog["mcal_galaxy"]==1]
+    df_gandalf_selected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
+
     plot_flow(
         cfg=flow_cfg,
         logger=logger,
-        df_gandalf=df_gandalf,
-        df_balrog=df_balrog,
+        df_gandalf=df_gandalf_selected,
+        df_balrog=df_balrog_selected,
         prefix=""
     )
 
-    df_gandalf = unsheared_shear_cuts(df_gandalf)
-    df_gandalf = unsheared_mag_cut(df_gandalf)
-    df_balrog = unsheared_shear_cuts(df_balrog)
-    df_balrog = unsheared_mag_cut(df_balrog)
-    df_gandalf = binary_cut(df_gandalf)
-    df_balrog = binary_cut(df_balrog)
+    df_gandalf_selected = unsheared_shear_cuts(df_gandalf_selected)
+    df_gandalf_selected = unsheared_mag_cut(df_gandalf_selected)
+    df_gandalf_selected = binary_cut(df_gandalf_selected)
+
+    df_balrog_selected = unsheared_shear_cuts(df_balrog_selected)
+    df_balrog_selected = unsheared_mag_cut(df_balrog_selected)
+    df_balrog_selected = binary_cut(df_balrog_selected)
 
     # df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
     # df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
@@ -805,26 +828,17 @@ def main(classifier_cfg, flow_cfg, logger):
     plot_flow(
         cfg=flow_cfg,
         logger=logger,
-        df_gandalf=df_gandalf,
-        df_balrog=df_balrog,
+        df_gandalf=df_gandalf_selected,
+        df_balrog=df_balrog_selected,
         prefix="_cut"
     )
 
-    df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
-    df_information = df[["bal_id", "ID", "injection_counts"]]
-    df_out = df_gandalf.merge(df_information, how="left", on="bal_id")
-    df_out.rename(columns={"ID": "true_id"}, inplace=True)
-    df_out.rename(columns={"injection_counts": "injection_counts_old"}, inplace=True)
+    df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="bal_id")
 
-    df_out = compute_injection_counts(
-        det_catalog=df_out,
-        id_col="true_id",
-        count_col="injection_counts"
-    )
     save_catalogs(
         cfg=classifier_cfg,
-        df=df_out,
-        filename=f"{classifier_cfg['RUN_DATE']}_gandalf_Emulated_Classified_{classifier_cfg['NUMBER_SAMPLES']}_{len(df_gandalf)}.h5")
+        df=df_merged,
+        filename=f"{classifier_cfg['RUN_DATE']}_gandalf_Emulated_Classified_{classifier_cfg['NUMBER_SAMPLES']}_{len(df_merged)}.h5")
 
 
 if __name__ == '__main__':

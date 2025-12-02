@@ -200,7 +200,7 @@ def binary_cut(data_frame):
     """"""
     highe_cut = np.greater(np.sqrt(np.power(data_frame['unsheared/e_1'], 2.) + np.power(data_frame['unsheared/e_2'], 2)), 0.8)
     c = 22.5
-    m = 3.5
+    m = 2.5
     magT_cut = np.log10(data_frame['unsheared/T']) < (c - flux2mag(data_frame['unsheared/flux_r'])) / m
     binaries = highe_cut & magT_cut
 
