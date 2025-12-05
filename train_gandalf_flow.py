@@ -234,7 +234,7 @@ if __name__ == '__main__':
 
         search_space = {
             "batch_size": tune.choice(batch_size),
-            "learning_rate": tune.loguniform(learning_rate[0], learning_rate[1]),  # tune.loguniform(learning_rate[0], learning_rate[1]),
+            "learning_rate": tune.choice(learning_rate),  # tune.loguniform(learning_rate[0], learning_rate[1]),
             "number_hidden": tune.choice(number_hidden),
             "number_blocks": tune.choice(number_blocks),
             "number_layers": tune.choice(number_layers),

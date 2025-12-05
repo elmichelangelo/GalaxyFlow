@@ -19,7 +19,7 @@ def plot_cuts(data_frame):
 def unsheared_object_cuts(data_frame):
     """"""
     print("Apply unsheared object cuts")
-    cuts = (data_frame["unsheared/extended_class_sof"] >= 0) & (data_frame["unsheared/flags_gold"] < 2)
+    cuts = (data_frame["unsheared/extended_class_sof"] >= 2) & (data_frame["unsheared/flags_gold"] < 2)
     data_frame = data_frame[cuts]
     print('Length of catalog after applying unsheared object cuts: {}'.format(len(data_frame)))
     return data_frame
@@ -70,8 +70,8 @@ def unsheared_mag_cut(data_frame):
             (data_frame["unsheared/mag_z"] < 26) &
             (-1.5 < data_frame["unsheared/mag_r"] - data_frame["unsheared/mag_i"]) &
             (data_frame["unsheared/mag_r"] - data_frame["unsheared/mag_i"] < 4) &
-            (-1.5 < data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"]) &
-            (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 4)
+            (-4 < data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"]) &
+            (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 1.5)
     )
     data_frame = data_frame[cuts]
     print('Length of catalog after applying unsheared mag cuts: {}'.format(len(data_frame)))
@@ -89,8 +89,8 @@ def unsheared_mag_cut_gandalf(data_frame):
             (data_frame["unsheared/mag_z"] < 32) &
             (-3.5 < data_frame["unsheared/mag_r"] - data_frame["unsheared/mag_i"]) &
             (data_frame["unsheared/mag_r"] - data_frame["unsheared/mag_i"] < 6) &
-            (-3.5 < data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"]) &
-            (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 6)
+            (-6 < data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"]) &
+            (data_frame["unsheared/mag_z"] - data_frame["unsheared/mag_i"] < 3.5)
     )
     data_frame = data_frame[cuts]
     print('Length of catalog after applying unsheared mag cuts: {}'.format(len(data_frame)))
@@ -248,6 +248,24 @@ def apply_photometric_cuts(cfg, data_frame, flag_cat="", merge_with_flag=False):
     #     master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}"
     # )
     df_merged = unsheared_mag_cut_gandalf(data_frame=df_merged)
+    return df_merged
+
+
+def apply_cuts(cfg, data_frame, flag_cat="", merge_with_flag=False):
+    """"""
+    if merge_with_flag is True:
+        df_merged = pd.merge(data_frame, flag_cat, on='bal_id', how='left')
+    else:
+        df_merged = data_frame
+    df_merged = unsheared_object_cuts(data_frame=df_merged)
+    df_merged = flag_cuts_gandalf(data_frame=df_merged)
+    df_merged = unsheared_shear_cuts(data_frame=df_merged)
+    df_merged = binary_cut(data_frame=df_merged)
+    df_merged = mask_cut_healpy(
+        data_frame=df_merged,
+        master=f"{cfg['PATH_DATA']}/{cfg['FILENAME_MASTER_CAT']}"
+    )
+    df_merged = unsheared_mag_cut(data_frame=df_merged)
     return df_merged
 
 

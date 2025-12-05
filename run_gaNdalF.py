@@ -1,6 +1,7 @@
 from datetime import datetime
 from Handler import (
     fnn,
+    apply_cuts,
     get_os,
     unsheared_shear_cuts,
     unsheared_mag_cut,
@@ -8,6 +9,8 @@ from Handler import (
     LoggerHandler,
     calc_color,
     mag2flux,
+    flux2mag,
+    fluxerr2magerr,
     plot_roc_curve_gandalf,
     plot_features_single,
     plot_balrog_histogram_with_error_and_detection,
@@ -19,7 +22,8 @@ from Handler import (
     plot_features_compare,
     plot_compare_corner,
     compute_injection_counts,
-    run_flow_cuts
+    run_flow_cuts,
+    plot_balrog_histogram_with_error_and_detection_true_balrog
 )
 from gandalf import gaNdalF
 import argparse
@@ -295,20 +299,21 @@ def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
         title=r"gaNdalF vs. Balrog: Property Distribution Comparison",
         show_plot=cfg["SHOW_PLOT"],
         save_plot=cfg["SAVE_PLOT"],
-        save_name=f"{cfg[f'PATH_PLOTS']}/hist_plot{prefix}.pdf"
+        save_name=f"{cfg[f'PATH_PLOTS']}/hist_plot{prefix}.pdf",
+        detection_name="mcal_galaxy"
     )
 
 
-def test_plot(df_gandalf, cfg, logger, title=f"Feature Plot"):
-    plot_features(
-        cfg=cfg,
-        plot_log=logger,
-        df_gandalf=df_gandalf,
-        df_balrog=df_gandalf,
-        columns=cfg["OUTPUT_COLS"],
-        title_prefix=title,
-        savename=f"{cfg['PATH_PLOTS']}/feature_plot.pdf"
-    )
+# def test_plot(df_gandalf, cfg, logger, title=f"Feature Plot"):
+#     plot_features(
+#         cfg=cfg,
+#         plot_log=logger,
+#         df_gandalf=df_gandalf,
+#         df_balrog=df_gandalf,
+#         columns=cfg["OUTPUT_COLS"],
+#         title_prefix=title,
+#         savename=f"{cfg['PATH_PLOTS']}/feature_plot.pdf"
+#     )
 
 
 def add_confusion_label(df, pred_col="detected", true_col="true_detected"):
@@ -352,20 +357,35 @@ def main(classifier_cfg, flow_cfg, logger):
 
     df_gandalf, df_balrog = model.run_classifier()
 
-    df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
-    df_information = df[["bal_id", "ID"]].copy()
+    df_merged_balrog = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
+    df_information = df_merged_balrog[["bal_id", "ID"]].copy()
+    df_merged_balrog["r-i"] = df_merged_balrog["unsheared/mag_r"] - df_merged_balrog["unsheared/mag_i"]
+    df_merged_balrog["i-z"] = df_merged_balrog["unsheared/mag_i"] - df_merged_balrog["unsheared/mag_z"]
+    df_merged_balrog = df_merged_balrog[df_merged_balrog["detected"]==1]
 
-    del df
+    df_merged_balrog = apply_cuts(cfg=flow_cfg, data_frame=df_merged_balrog)
+
+    df_merged_balrog = df_merged_balrog[flow_cfg["HIST_PLOT_COLS"]]
+
+    true_balrog_dataset = "/Volumes/elmichelangelo_external_ssd_1/Data/y3_balrog2_v1.2_merged_select2_bstarcut_matchflag1.5asec_snr_SR_corrected_uppersizecuts.h5"
+    df_true_balrog = pd.read_hdf(true_balrog_dataset, key="df/")
+    for band in ["r", "i", "z"]:
+        df_true_balrog[f"unsheared/mag_{band}"] = flux2mag(df_true_balrog[f"unsheared/flux_{band}"])
+        df_true_balrog[f"unsheared/mag_err_{band}"] = np.log10(fluxerr2magerr(df_true_balrog[f"unsheared/flux_{band}"], df_true_balrog[f"unsheared/flux_err_{band}"]))
+        df_merged_balrog[f"unsheared/mag_err_{band}"] = np.log10(df_merged_balrog[f"unsheared/mag_err_{band}"])
+    df_true_balrog["r-i"] = df_true_balrog["unsheared/mag_r"] - df_true_balrog["unsheared/mag_i"]
+    df_true_balrog["i-z"] = df_true_balrog["unsheared/mag_i"] - df_true_balrog["unsheared/mag_z"]
+    df_true_balrog = df_true_balrog[flow_cfg["HIST_PLOT_COLS"]]
 
     df_information.rename(columns={"ID": "true_id"}, inplace=True)
 
-    df_information = compute_injection_counts(
-        det_catalog=df_information.copy(),
+    df_gandalf = df_gandalf.merge(df_information, how="left", on="bal_id")
+
+    df_gandalf = compute_injection_counts(
+        det_catalog=df_gandalf.copy(),
         id_col="true_id",
         count_col="injection_counts"
     )
-
-    df_gandalf = df_gandalf.merge(df_information, how="left", on="bal_id")
 
     del df_information
 
@@ -825,6 +845,53 @@ def main(classifier_cfg, flow_cfg, logger):
     #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_all_input_obs_cond.pdf"
     # )
 
+    lst_ranges = [
+        [-1.5, 4],  # mag r-i
+        [-4, 1.5],  # mag i-z
+        [15, 26],  # mag r
+        [18, 23.5],  # mag i
+        [15, 26],  # mag z
+        None,  # mag err r
+        None,  # mag err i
+        None,  # mag err z
+        [-1.2, 1.2],  # e_1
+        [-1.2, 1.2],  # e_2
+        [10, 1000],  # snr
+        [0.5, 30],  # size ratio
+        [0, 10]  # T
+    ]
+    lst_binwidths = [
+        0.25,  # mag r-i
+        0.25,  # mag i-z
+        0.25,  # mag r
+        0.25,  # mag i
+        0.25,  # mag z
+        0.25,  # mag err r
+        0.25,  # mag err i
+        0.25,  # mag err z
+        0.1,  # e_1
+        0.1,  # e_2
+        50,  # snr
+        1.5,  # size ratio
+        0.5,  # T
+    ]
+
+    plot_balrog_histogram_with_error_and_detection_true_balrog(
+        df_gandalf=df_gandalf_selected,
+        df_balrog=df_balrog_selected,
+        true_balrog=df_true_balrog,
+        complete_balrog=df_merged_balrog,
+        columns=flow_cfg["HIST_PLOT_COLS"],
+        labels=flow_cfg["HIST_PLOT_LABELS"],
+        ranges=lst_ranges,
+        binwidths=lst_binwidths,
+        title=r"gaNdalF vs. Balrog: Property Distribution Comparison",
+        show_plot=flow_cfg["SHOW_PLOT"],
+        save_plot=flow_cfg["SAVE_PLOT"],
+        save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_three.pdf",
+        detection_name="mcal_galaxy"
+    )
+
     plot_flow(
         cfg=flow_cfg,
         logger=logger,
@@ -832,6 +899,8 @@ def main(classifier_cfg, flow_cfg, logger):
         df_balrog=df_balrog_selected,
         prefix="_cut"
     )
+
+    exit()
 
     df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="bal_id")
 
@@ -853,6 +922,68 @@ if __name__ == '__main__':
     elif classifier_cfg["LOGGING_LEVEL"] == "ERROR":
         log_lvl = logging.ERROR
 
+    # true_balrog_dataset = "/Volumes/elmichelangelo_external_ssd_1/Data/y3_balrog2_v1.2_merged_select2_bstarcut_matchflag1.5asec_snr_SR_corrected_uppersizecuts.h5"
+    # store = pd.HDFStore(true_balrog_dataset, mode="r")
+    # print(store.keys())  # zeigt alle verfügbaren Keys, z.B. ['/data', '/table', ...]
+    # store.close()
+    # df = pd.read_hdf(true_balrog_dataset, key="/df")
+    # print(df.head())
+    #
+    # for band in ["r", "i", "z"]:
+    #     df[f"unsheared/mag_{band}"] = flux2mag(df[f"unsheared/flux_{band}"])
+    #     df[f"unsheared/mag_err_{band}"] = np.log10(fluxerr2magerr(df[f"unsheared/flux_{band}"], df[f"unsheared/flux_err_{band}"]))
+    #
+    # df["r-i"] = df[f"unsheared/mag_r"] - df[f"unsheared/mag_i"]
+    # df["i-z"] = df[f"unsheared/mag_i"] - df[f"unsheared/mag_z"]
+    #
+    # df["detected"] = np.ones(len(df))
+    # df["sampled detected"] = np.ones(len(df))
+    #
+    # lst_ranges = [
+    #     [-1.5, 4],  # mag r-i
+    #     [-4, 1.5],  # mag i-z
+    #     [15, 26],  # mag r
+    #     [18, 23.5],  # mag i
+    #     [15, 26],  # mag z
+    #     None,  # mag err r
+    #     None,  # mag err i
+    #     None,  # mag err z
+    #     [-1.2, 1.2],  # e_1
+    #     [-1.2, 1.2],  # e_2
+    #     [10, 1000],  # snr
+    #     [0.5, 30],  # size ratio
+    #     [0, 10]  # T
+    # ]
+    # lst_binwidths = [
+    #     0.25,  # mag r-i
+    #     0.25,  # mag i-z
+    #     0.25,  # mag r
+    #     0.25,  # mag i
+    #     0.25,  # mag z
+    #     0.25,  # mag err r
+    #     0.25,  # mag err i
+    #     0.25,  # mag err z
+    #     0.1,  # e_1
+    #     0.1,  # e_2
+    #     50,  # snr
+    #     1.5,  # size ratio
+    #     0.5,  # T
+    # ]
+    #
+    # plot_balrog_histogram_with_error_and_detection(
+    #     df_gandalf=df,
+    #     df_balrog=df,
+    #     columns=flow_cfg["HIST_PLOT_COLS"],
+    #     labels=flow_cfg["HIST_PLOT_LABELS"],
+    #     ranges=lst_ranges,
+    #     binwidths=lst_binwidths,
+    #     title=r"Balrog: Property Distribution",
+    #     show_plot=flow_cfg["SHOW_PLOT"],
+    #     save_plot=flow_cfg["SAVE_PLOT"],
+    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_true_balrog.pdf"
+    # )
+    #
+    # exit()
     run_logger = LoggerHandler(
         logger_dict={"logger_name": "train flow logger",
                      "info_logger": classifier_cfg['INFO_LOGGER'],

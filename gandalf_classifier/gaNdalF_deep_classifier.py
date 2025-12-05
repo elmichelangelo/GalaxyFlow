@@ -115,6 +115,9 @@ class gaNdalFClassifier(nn.Module):
         self.mag_platt = None
 
         self.load_checkpoint_if_any()
+        if hasattr(self, "start_epoch") and self.start_epoch > 0:
+            self.best_model_state_dict = copy.deepcopy(self.model.state_dict())
+            self.best_val_objective = getattr(self, "best_val_objective", float("inf"))
         self._install_sigterm_handler()
 
     # ---------------- utils ----------------
@@ -284,6 +287,7 @@ class gaNdalFClassifier(nn.Module):
             if (epoch == getattr(self, "start_epoch", 0)) or (
                     val_obj < getattr(self, "best_val_objective", float("inf")) - min_delta):
                 self.best_val_objective = val_obj
+                self.best_validation_loss = val_loss
                 self.best_validation_epoch = epoch
                 self.best_model_state_dict = copy.deepcopy(self.model.state_dict())
                 self.best_threshold_for_best_model = float(thr_star)
@@ -384,7 +388,7 @@ class gaNdalFClassifier(nn.Module):
             if getattr(self, "_terminate_requested", False): break
 
         avg = train_loss / max(1, seen)
-        self.lst_train_loss_per_epoch.append(avg)
+        # self.lst_train_loss_per_epoch.append(avg)
         self.classifier_logger.log_info_stream(f"Epoch {epoch + 1}\tTraining Loss: {avg:.6f}")
         return avg
 

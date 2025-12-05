@@ -72,9 +72,9 @@ class GalaxyDataset(Dataset):
                 df_train = df_train[self.cfg["COLUMNS"]]
                 df_valid = df_valid[self.cfg["COLUMNS"]]
                 df_test = df_test[self.cfg["COLUMNS"]]
-                self.train_dataset = df_train[df_train[self.cfg["DETECTION_TYPE"]]==1].copy()
-                self.valid_dataset = df_valid[df_valid[self.cfg["DETECTION_TYPE"]]==1].copy()
-                self.test_dataset = df_test[df_test[self.cfg["DETECTION_TYPE"]]==1].copy()
+                self.train_dataset = df_train.copy()
+                self.valid_dataset = df_valid.copy()
+                self.test_dataset = df_test.copy()
             del df_train
             del df_valid
             del df_test
@@ -82,11 +82,16 @@ class GalaxyDataset(Dataset):
             self.run_dataset = data_frames
 
     def __len__(self):
-        return len(self.train_dataset + self.valid_dataset + self.test_dataset)
+        if self.cfg["TRAINING"]:
+            return len(self.train_dataset)
+        else:
+            return len(self.run_dataset)
 
     def __getitem__(self, idx):
-        sample = self.test_dataset[idx]
-        return sample
+        if self.cfg["TRAINING"]:
+            return self.train_dataset.iloc[idx]
+        else:
+            return self.run_dataset.iloc[idx]
 
     def apply_log10(self, data_frame=None):
         if data_frame is not None:
