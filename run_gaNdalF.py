@@ -44,122 +44,102 @@ def load_config_and_parser(system_path):
     now = datetime.now()
     if get_os() == "Mac":
         print("load MAC config-file")
-        config_file_name_classifier = "MAC_run_classifier.cfg"
-        config_file_name_flow = "MAC_run_flow.cfg"
+        config_file_name = "MAC_run_gandalf.cfg"
     elif get_os() == "Linux":
         print("load LMU config-file")
-        config_file_name_classifier = "LMU_run_classifier.cfg"
-        config_file_name_flow = "LMU_run_flow.cfg"
+        config_file_name = "LMU_run_gandalf.cfg"
     else:
         print("Undefined operating system")
         sys.exit()
 
-    parser_classifier = argparse.ArgumentParser(description='Start gaNdalF')
-    parser_classifier.add_argument(
+    parser = argparse.ArgumentParser(description='Start gaNdalF')
+    parser.add_argument(
         '--config_filename',
         "-cf",
         type=str,
         nargs=1,
         required=False,
-        default=config_file_name_classifier,
+        default=config_file_name,
         help='Name of config file. If not given default.cfg will be used'
     )
-    args_classifier = parser_classifier.parse_args()
-    if isinstance(args_classifier.config_filename, list):
-        args_classifier.config_filename = args_classifier.config_filename[0]
-    with open(f"{system_path}/conf/{args_classifier.config_filename}", 'r') as fp:
-        print(f"open {f'{system_path}/conf/{args_classifier.config_filename}'}")
-        config_classifier = yaml.safe_load(fp)
-    config_classifier['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
+    args = parser.parse_args()
+    if isinstance(args.config_filename, list):
+        args.config_filename = args.config_filename[0]
+    with open(f"{system_path}/conf/{args.config_filename}", 'r') as fp:
+        print(f"open {f'{system_path}/conf/{args.config_filename}'}")
+        config = yaml.safe_load(fp)
+    config['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
 
-    parser_flow = argparse.ArgumentParser(description='Start gaNdalF')
-    parser_flow.add_argument(
-        '--config_filename',
-        "-cf",
-        type=str,
-        nargs=1,
-        required=False,
-        default=config_file_name_flow,
-        help='Name of config file. If not given default.cfg will be used'
-    )
-    args_flow = parser_flow.parse_args()
-    if isinstance(args_flow.config_filename, list):
-        args_flow.config_filename = args_flow.config_filename[0]
-    with open(f"{system_path}/conf/{args_flow.config_filename}", 'r') as fp:
-        print(f"open {f'{system_path}/conf/{args_flow.config_filename}'}")
-        config_flow = yaml.safe_load(fp)
-    config_flow['RUN_DATE'] = now.strftime('%Y-%m-%d_%H-%M')
-
-    return config_classifier, config_flow
+    return config
 
 
-def plot_classifier(cfg, df_gandalf, df_balrog):
+def plot_classifier(cfg, df_gandalf):
     if cfg["SAVE_PLOT"] is True:
         os.makedirs(cfg["PATH_PLOTS"], exist_ok=True)
 
     plot_confusion_matrix(
         df_gandalf=df_gandalf,
         # df_balrog=df_balrog,
-        y_true_col="true detected",
-        y_pred_col="threshold detected",
+        y_true_col="mcal_galaxy",
+        y_pred_col="sampled mcal_galaxy",
         show_plot=cfg['SHOW_PLOT'],
         save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/thr_confusion_matrix.png",
+        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}thr_confusion_matrix.png",
         title=f"Confusion Matrix"
     )
 
     plot_confusion_matrix(
         df_gandalf=df_gandalf,
         # df_balrog=df_balrog,
-        y_true_col="true detected",
-        y_pred_col="sampled detected",
+        y_true_col="mcal_galaxy",
+        y_pred_col="sampled mcal_galaxy",
         show_plot=cfg['SHOW_PLOT'],
         save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/smpl_confusion_matrix.png",
+        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}smpl_confusion_matrix.png",
         title=f"Confusion Matrix"
     )
 
     plot_roc_curve_gandalf(
         df_gandalf=df_gandalf,
         # df_balrog=df_balrog,
-        y_true_col="true detected",
-        y_pred_col="threshold detected",
+        y_true_col="mcal_galaxy",
+        y_pred_col="sampled mcal_galaxy",
         show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/thr_roc_curve.pdf",
+        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}thr_roc_curve.pdf",
         title=f"Receiver Operating Characteristic (ROC) Curve threshold",
     )
 
     plot_roc_curve_gandalf(
         df_gandalf=df_gandalf,
         # df_balrog=df_balrog,
-        y_true_col="true detected",
-        y_pred_col="sampled detected",
+        y_true_col="mcal_galaxy",
+        y_pred_col="sampled mcal_galaxy",
         show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/smpl_roc_curve.pdf",
+        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}smpl_roc_curve.pdf",
         title=f"Receiver Operating Characteristic (ROC) Curve sample",
     )
 
-    plot_rate_ratio_by_mag(
-        mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
-        y_true=df_gandalf["true detected"].to_numpy().astype(int).ravel(),
-        probs_raw=df_gandalf["threshold detected"].to_numpy(float),
-        calibrated=False,
-        bin_width=1,
-        mag_label="BDF_MAG_DERED_CALIB_Z",
-        show_density_ratio=False,
-        save_name=f"{cfg['PATH_PLOTS']}/thr_rate_ratio_raw_only.pdf"
-    )
-
-    plot_rate_ratio_by_mag(
-        mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
-        y_true=df_gandalf["true detected"].to_numpy().astype(int).ravel(),
-        probs_raw=df_gandalf["sampled detected"].to_numpy(float),
-        calibrated=False,
-        bin_width=1,
-        mag_label="BDF_MAG_DERED_CALIB_Z",
-        show_density_ratio=False,
-        save_name=f"{cfg['PATH_PLOTS']}/smpl_rate_ratio_raw_only.pdf"
-    )
+    # plot_rate_ratio_by_mag(
+    #     mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
+    #     y_true=df_gandalf["mcal_galaxy"].to_numpy().astype(int).ravel(),
+    #     probs_raw=df_gandalf["sampled mcal_galaxy"].to_numpy(float),
+    #     calibrated=False,
+    #     bin_width=1,
+    #     mag_label="BDF_MAG_DERED_CALIB_Z",
+    #     show_density_ratio=False,
+    #     save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}thr_rate_ratio_raw_only.pdf"
+    # )
+    #
+    # plot_rate_ratio_by_mag(
+    #     mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
+    #     y_true=df_gandalf["mcal_galaxy"].to_numpy().astype(int).ravel(),
+    #     probs_raw=df_gandalf["sampled mcal_galaxy"].to_numpy(float),
+    #     calibrated=False,
+    #     bin_width=1,
+    #     mag_label="BDF_MAG_DERED_CALIB_Z",
+    #     show_density_ratio=False,
+    #     save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}smpl_rate_ratio_raw_only.pdf"
+    # )
 
 
 def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
@@ -196,8 +176,8 @@ def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
             title=f"chain plot",
             show_plot=cfg['SHOW_PLOT'],
             save_plot=cfg['SAVE_PLOT'],
-            save_name=f"{cfg[f'PATH_PLOTS']}/chainplot{prefix}.pdf",
-            columns=cfg["OUTPUT_COLS"],
+            save_name=f"{cfg[f'PATH_PLOTS']}/{cfg['RUN_NUMBER']}chainplot{prefix}.pdf",
+            columns=cfg["OUTPUT_COLS_NF"],
             labels=[
                 f"mag_r",
                 f"mag_i",
@@ -224,7 +204,7 @@ def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
             labels=["r-i", "i-z"],
             show_plot=cfg['SHOW_PLOT'],
             save_plot=cfg['SAVE_PLOT'],
-            save_name=f"{cfg[f'PATH_PLOTS']}/color_color{prefix}.pdf",
+            save_name=f"{cfg[f'PATH_PLOTS']}/{cfg['RUN_NUMBER']}color_color{prefix}.pdf",
             ranges=[(-4, 4), (-4, 4)]
         )
     if prefix == "":
@@ -299,7 +279,7 @@ def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
         title=r"gaNdalF vs. Balrog: Property Distribution Comparison",
         show_plot=cfg["SHOW_PLOT"],
         save_plot=cfg["SAVE_PLOT"],
-        save_name=f"{cfg[f'PATH_PLOTS']}/hist_plot{prefix}.pdf",
+        save_name=f"{cfg[f'PATH_PLOTS']}/{cfg['RUN_NUMBER']}hist_plot{prefix}.pdf",
         detection_name="mcal_galaxy"
     )
 
@@ -330,14 +310,14 @@ def add_confusion_label(df, pred_col="detected", true_col="true_detected"):
 
 def save_catalogs(cfg, df, filename, key: str = "catalog", mode: str = "w", format: str = "table", complib: str = "blosc", complevel: int = 9,):
     """"""
-    os.makedirs(cfg["PATH_OUTPUT"], exist_ok=True)
+    os.makedirs(cfg["PATH_CATALOGS"], exist_ok=True)
 
     df_to_save = df.copy()
     df_to_save.columns = [str(c) for c in df_to_save.columns]
 
     if ".h5" in filename:
         df_to_save.to_hdf(
-            f"{cfg['PATH_OUTPUT']}/{filename}",
+            f"{cfg['PATH_CATALOGS']}/{filename}",
             key=key,
             mode=mode,
             format=format,
@@ -346,117 +326,27 @@ def save_catalogs(cfg, df, filename, key: str = "catalog", mode: str = "w", form
         )
     else:
         df_to_save.to_pickle(
-            f"{cfg['PATH_OUTPUT']}/{filename}",
+            f"{cfg['PATH_CATALOGS']}/{filename}",
         )
 
-
-
-def main(classifier_cfg, flow_cfg, logger):
-    """"""
-    model = gaNdalF(logger, classifier_cfg=classifier_cfg, flow_cfg=flow_cfg)
-
-    df_gandalf, df_balrog = model.run_classifier()
-
-    df_gandalf["gandalf_id"] = np.arange(len(df_gandalf))
-
-    df_merged_balrog = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
-    df_information = df_merged_balrog[["bal_id", "ID"]].copy()
+def plot_compare_true_wide_histogram(cfg, df_gandalf_selected, df_balrog_selected):
+    df_merged_balrog = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FULL_GANDALF_CATALOG']}")
     df_merged_balrog["r-i"] = df_merged_balrog["unsheared/mag_r"] - df_merged_balrog["unsheared/mag_i"]
     df_merged_balrog["i-z"] = df_merged_balrog["unsheared/mag_i"] - df_merged_balrog["unsheared/mag_z"]
-    df_merged_balrog = df_merged_balrog[df_merged_balrog["detected"]==1]
+    df_merged_balrog = df_merged_balrog[df_merged_balrog["detected"] == 1]
 
-    df_merged_balrog = apply_cuts(cfg=flow_cfg, data_frame=df_merged_balrog)
+    df_merged_balrog = apply_cuts(cfg=cfg, data_frame=df_merged_balrog)
+    df_merged_balrog = df_merged_balrog[cfg["HIST_PLOT_COLS"]]
 
-    df_merged_balrog = df_merged_balrog[flow_cfg["HIST_PLOT_COLS"]]
-
-    true_balrog_dataset = "/Volumes/elmichelangelo_external_ssd_1/Data/y3_balrog2_v1.2_merged_select2_bstarcut_matchflag1.5asec_snr_SR_corrected_uppersizecuts.h5"
-    df_true_balrog = pd.read_hdf(true_balrog_dataset, key="df/")
+    df_true_balrog = pd.read_hdf(f"{cfg['PATH_DATA']}/{cfg['FILENAME_TRUE_BALROG_CATALOG']}", key="df/")
     for band in ["r", "i", "z"]:
         df_true_balrog[f"unsheared/mag_{band}"] = flux2mag(df_true_balrog[f"unsheared/flux_{band}"])
-        df_true_balrog[f"unsheared/mag_err_{band}"] = np.log10(fluxerr2magerr(df_true_balrog[f"unsheared/flux_{band}"], df_true_balrog[f"unsheared/flux_err_{band}"]))
+        df_true_balrog[f"unsheared/mag_err_{band}"] = np.log10(
+            fluxerr2magerr(df_true_balrog[f"unsheared/flux_{band}"], df_true_balrog[f"unsheared/flux_err_{band}"]))
         df_merged_balrog[f"unsheared/mag_err_{band}"] = np.log10(df_merged_balrog[f"unsheared/mag_err_{band}"])
     df_true_balrog["r-i"] = df_true_balrog["unsheared/mag_r"] - df_true_balrog["unsheared/mag_i"]
     df_true_balrog["i-z"] = df_true_balrog["unsheared/mag_i"] - df_true_balrog["unsheared/mag_z"]
-    df_true_balrog = df_true_balrog[flow_cfg["HIST_PLOT_COLS"]]
-
-    df_information.rename(columns={"ID": "true_id"}, inplace=True)
-
-    df_gandalf = df_gandalf.merge(df_information, how="left", on="bal_id")
-
-    df_gandalf = compute_injection_counts(
-        det_catalog=df_gandalf.copy(),
-        id_col="true_id",
-        count_col="injection_counts"
-    )
-
-    df_gandalf_injection_counts = df_gandalf[["gandalf_id", "bal_id", "injection_counts", "true_id"]].copy()
-
-    del df_information
-
-    classifier_cfg["PATH_PLOTS"] = f'{classifier_cfg["PATH_PLOTS"]}/{classifier_cfg["RUN_DATE"]}_RUN_PLOTS'
-    flow_cfg["PATH_PLOTS"] = classifier_cfg["PATH_PLOTS"]
-
-    df_gandalf = model.classifier_galaxies.inverse_scale_data(df_gandalf)
-    df_balrog = model.classifier_galaxies.inverse_scale_data(df_balrog)
-
-    if classifier_cfg["CHECK_INPUT_PLOT"] is True:
-        flow_cfg['PATH_PLOTS'] = classifier_cfg['PATH_PLOTS']
-        os.makedirs(classifier_cfg['PATH_PLOTS'], exist_ok=True)
-        plot_features_single(
-            cfg=classifier_cfg,
-            df_gandalf=df_gandalf,
-            columns=classifier_cfg["INPUT_COLS"],
-            title_prefix=f"Classifier Input Columns",
-            savename=f"{classifier_cfg['PATH_PLOTS']}/feature_input_classifier.pdf"
-        )
-
-    save_catalogs(
-        cfg=classifier_cfg,
-        df=df_gandalf,
-        filename=f"{classifier_cfg['RUN_DATE']}_gandalf_Classified.pkl")
-
-    save_catalogs(
-        cfg=classifier_cfg,
-        df=df_balrog,
-        filename=f"{classifier_cfg['RUN_DATE']}_balrog_Classified.pkl")
-
-    df_gandalf = model.flow_galaxies.apply_log10(df_gandalf)
-    df_gandalf = model.flow_galaxies.scale_data(df_gandalf)
-    df_gandalf, df_balrog = model.run_flow(data_frame=df_gandalf)
-
-    df_gandalf = calc_color(
-        data_frame=df_gandalf,
-        colors=flow_cfg['COLORS_FLOW'],
-        column_name=f"unsheared/mag"
-    )
-    df_balrog = calc_color(
-        data_frame=df_balrog,
-        colors=flow_cfg['COLORS_FLOW'],
-        column_name=f"unsheared/mag"
-    )
-
-    for band in ["r", "i", "z"]:
-        df_gandalf[f"unsheared/flux_{band}"] = mag2flux(df_gandalf[f"unsheared/mag_{band}"])
-        df_balrog[f"unsheared/flux_{band}"] = mag2flux(df_balrog[f"unsheared/mag_{band}"])
-
-    df_balrog_selected = df_balrog[df_balrog["mcal_galaxy"]==1]
-    df_gandalf_selected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
-
-    plot_flow(
-        cfg=flow_cfg,
-        logger=logger,
-        df_gandalf=df_gandalf_selected,
-        df_balrog=df_balrog_selected,
-        prefix=""
-    )
-
-    df_gandalf_selected = unsheared_shear_cuts(df_gandalf_selected)
-    df_gandalf_selected = unsheared_mag_cut(df_gandalf_selected)
-    df_gandalf_selected = binary_cut(df_gandalf_selected)
-
-    df_balrog_selected = unsheared_shear_cuts(df_balrog_selected)
-    df_balrog_selected = unsheared_mag_cut(df_balrog_selected)
-    df_balrog_selected = binary_cut(df_balrog_selected)
+    df_true_balrog = df_true_balrog[cfg["HIST_PLOT_COLS"]]
 
     lst_ranges = [
         [-1.5, 4],  # mag r-i
@@ -494,115 +384,209 @@ def main(classifier_cfg, flow_cfg, logger):
         df_balrog=df_balrog_selected,
         true_balrog=df_true_balrog,
         complete_balrog=df_merged_balrog,
-        columns=flow_cfg["HIST_PLOT_COLS"],
-        labels=flow_cfg["HIST_PLOT_LABELS"],
+        columns=cfg["HIST_PLOT_COLS"],
+        labels=cfg["HIST_PLOT_LABELS"],
         ranges=lst_ranges,
         binwidths=lst_binwidths,
         title=r"gaNdalF vs. Balrog: Property Distribution Comparison",
-        show_plot=flow_cfg["SHOW_PLOT"],
-        save_plot=flow_cfg["SAVE_PLOT"],
-        save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_three.pdf",
+        show_plot=cfg["SHOW_PLOT"],
+        save_plot=cfg["SAVE_PLOT"],
+        save_name=f"{cfg[f'PATH_PLOTS']}/{cfg['RUN_NUMBER']}hist_plot_three.pdf",
         detection_name="mcal_galaxy"
     )
 
+
+def add_true_id(cfg, df):
+    df_information = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FULL_GANDALF_CATALOG']}")
+    df_information = df_information[["bal_id", "ID"]].copy()
+    df_information.rename(columns={"ID": "true_id"}, inplace=True)
+    return df.merge(df_information, how="left", on="bal_id")
+
+def init_output_paths(cfg):
+    cfg["PATH_OUTPUT"] = f'{cfg["PATH_OUTPUT"]}/{cfg["RUN_DATE"]}_RUN_GANDALF'
+    os.makedirs(cfg["PATH_OUTPUT"], exist_ok=True)
+
+    cfg["PATH_PLOTS"] = f'{cfg["PATH_OUTPUT"]}/Plots'
+    os.makedirs(cfg["PATH_PLOTS"], exist_ok=True)
+
+    cfg["PATH_LOGS"] = f'{cfg["PATH_OUTPUT"]}/Logs'
+    os.makedirs(cfg["PATH_LOGS"], exist_ok=True)
+
+    cfg["PATH_CATALOGS"] = f'{cfg["PATH_OUTPUT"]}/Catalogs'
+    os.makedirs(cfg["PATH_CATALOGS"], exist_ok=True)
+
+
+def main(cfg, logger):
+    """"""
+    # Init gaNdalF model
+    model = gaNdalF(logger, cfg=cfg)
+
+    # Init Classifier model from gaNdalF
+    model.init_classifier()
+
+    # Scale input data for gaNdalF run
+    logger.log_info_stream(f"Scale classifier data")
+    model.classifier_galaxies.scale_data(
+        cfg_key_cols_interest="COLUMNS_OF_INTEREST_CF",
+        cfg_key_filename_scaler="FILENAME_STANDARD_SCALER_CF",
+    )
+
+    # Run gaNdalF classifier
+    df_gandalf, df_balrog = model.run_classifier()
+
+    # add new gaNdalF ID
+    logger.log_info_stream(f"Add gandalf_id")
+    df_gandalf["gandalf_id"] = np.arange(len(df_gandalf))
+
+    logger.log_info_stream(f"Add true_id")
+    df_gandalf = add_true_id(
+        cfg=cfg,
+        df=df_gandalf
+    )
+
+    logger.log_info_stream(f"compute injection counts")
+    df_gandalf = compute_injection_counts(
+        det_catalog=df_gandalf.copy(),
+        id_col="true_id",
+        count_col="injection_counts"
+    )
+
+    df_gandalf_injection_counts = df_gandalf[["gandalf_id", "bal_id", "injection_counts", "true_id"]].copy()
+
+    logger.log_info_stream(f"Inverse scale classifier data")
+    df_gandalf = model.classifier_galaxies.inverse_scale_data(df_gandalf)
+    df_balrog = model.classifier_galaxies.inverse_scale_data(df_balrog)
+
+    if cfg["CHECK_INPUT_PLOT"] is True:
+        logger.log_info_stream(f"Plot input columns")
+        os.makedirs(cfg['PATH_PLOTS'], exist_ok=True)
+        plot_features_single(
+            cfg=cfg,
+            df_gandalf=df_gandalf,
+            columns=cfg["INPUT_COLS"],
+            title_prefix=f"Classifier Input Columns",
+            savename=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}feature_input_classifier.pdf"
+        )
+
+        plot_classifier(
+            cfg=cfg,
+            df_gandalf=df_gandalf,
+        )
+
+    if cfg["SAVE_CLF_DATA"] is True:
+        logger.log_info_stream(f"Save classifier data")
+        save_catalogs(
+            cfg=cfg,
+            df=df_gandalf,
+            filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}gandalf_Classified.pkl")
+        save_catalogs(
+            cfg=cfg,
+            df=df_balrog,
+            filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}balrog_Classified.pkl")
+
+    model.init_flow(
+        data_frame=df_gandalf,
+    )
+
+    logger.log_info_stream(f"Apply log10 flow data")
+    df_gandalf = model.flow_galaxies.apply_log10(
+        data_frame=df_gandalf,
+        cfg_key_log10_cols="LOG10_COLS"
+    )
+
+    logger.log_info_stream(f"Apply scale flow data")
+    df_gandalf = model.flow_galaxies.scale_data(
+        data_frame=df_gandalf,
+        cfg_key_cols_interest="COLUMNS_OF_INTEREST_NF",
+        cfg_key_filename_scaler="FILENAME_STANDARD_SCALER_NF"
+    )
+
+    logger.log_info_stream(f"Run flow")
+    df_gandalf, df_balrog = model.run_flow(data_frame=df_gandalf)
+
+    logger.log_info_stream(f"Add color")
+    df_gandalf = calc_color(
+        data_frame=df_gandalf,
+        colors=cfg['COLORS_FLOW'],
+        column_name=f"unsheared/mag"
+    )
+    df_balrog = calc_color(
+        data_frame=df_balrog,
+        colors=cfg['COLORS_FLOW'],
+        column_name=f"unsheared/mag"
+    )
+
+    for band in ["r", "i", "z"]:
+        df_gandalf[f"unsheared/flux_{band}"] = mag2flux(df_gandalf[f"unsheared/mag_{band}"])
+        df_balrog[f"unsheared/flux_{band}"] = mag2flux(df_balrog[f"unsheared/mag_{band}"])
+
+    logger.log_info_stream(f"Only selected")
+    df_balrog_selected = df_balrog[df_balrog["mcal_galaxy"]==1]
+    df_gandalf_selected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
+
+    logger.log_info_stream(f"Plot flow before mcal cuts")
     plot_flow(
-        cfg=flow_cfg,
+        cfg=cfg,
+        logger=logger,
+        df_gandalf=df_gandalf_selected,
+        df_balrog=df_balrog_selected,
+        prefix=""
+    )
+
+    logger.log_info_stream(f"Apply mcal cuts to gandalf data")
+    df_gandalf_selected = unsheared_shear_cuts(df_gandalf_selected)
+    df_gandalf_selected = unsheared_mag_cut(df_gandalf_selected)
+    df_gandalf_selected = binary_cut(df_gandalf_selected)
+
+    logger.log_info_stream(f"Apply mcal cuts to balrog data")
+    df_balrog_selected = unsheared_shear_cuts(df_balrog_selected)
+    df_balrog_selected = unsheared_mag_cut(df_balrog_selected)
+    df_balrog_selected = binary_cut(df_balrog_selected)
+
+    logger.log_info_stream(f"Plot flow after mcal cuts")
+    plot_flow(
+        cfg=cfg,
         logger=logger,
         df_gandalf=df_gandalf_selected,
         df_balrog=df_balrog_selected,
         prefix="_cut"
     )
 
+    logger.log_info_stream(f"Merge flow catalog")
     df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="gandalf_id")
 
+    logger.log_info_stream(f"Save flow catalog")
     save_catalogs(
-        cfg=classifier_cfg,
+        cfg=cfg,
         df=df_merged,
-        filename=f"{classifier_cfg['RUN_DATE']}_gandalf_Emulated_Classified_{classifier_cfg['NUMBER_SAMPLES']}_{len(df_merged)}.h5")
-
+        filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}gandalf_Emulated_Classified_{cfg['NUMBER_SAMPLES']}_{len(df_merged)}.h5")
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
     sys.path.append(os.path.dirname(__file__))
-    classifier_cfg, flow_cfg = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
+    config = load_config_and_parser(system_path=os.path.abspath(sys.path[-1]))
 
     log_lvl = logging.INFO
-    if classifier_cfg["LOGGING_LEVEL"] == "DEBUG":
+    if config["LOGGING_LEVEL"] == "DEBUG":
         log_lvl = logging.DEBUG
-    elif classifier_cfg["LOGGING_LEVEL"] == "ERROR":
-        log_lvl = logging.ERROR
 
-    # true_balrog_dataset = "/Volumes/elmichelangelo_external_ssd_1/Data/y3_balrog2_v1.2_merged_select2_bstarcut_matchflag1.5asec_snr_SR_corrected_uppersizecuts.h5"
-    # store = pd.HDFStore(true_balrog_dataset, mode="r")
-    # print(store.keys())  # zeigt alle verfügbaren Keys, z.B. ['/data', '/table', ...]
-    # store.close()
-    # df = pd.read_hdf(true_balrog_dataset, key="/df")
-    # print(df.head())
-    #
-    # for band in ["r", "i", "z"]:
-    #     df[f"unsheared/mag_{band}"] = flux2mag(df[f"unsheared/flux_{band}"])
-    #     df[f"unsheared/mag_err_{band}"] = np.log10(fluxerr2magerr(df[f"unsheared/flux_{band}"], df[f"unsheared/flux_err_{band}"]))
-    #
-    # df["r-i"] = df[f"unsheared/mag_r"] - df[f"unsheared/mag_i"]
-    # df["i-z"] = df[f"unsheared/mag_i"] - df[f"unsheared/mag_z"]
-    #
-    # df["detected"] = np.ones(len(df))
-    # df["sampled detected"] = np.ones(len(df))
-    #
-    # lst_ranges = [
-    #     [-1.5, 4],  # mag r-i
-    #     [-4, 1.5],  # mag i-z
-    #     [15, 26],  # mag r
-    #     [18, 23.5],  # mag i
-    #     [15, 26],  # mag z
-    #     None,  # mag err r
-    #     None,  # mag err i
-    #     None,  # mag err z
-    #     [-1.2, 1.2],  # e_1
-    #     [-1.2, 1.2],  # e_2
-    #     [10, 1000],  # snr
-    #     [0.5, 30],  # size ratio
-    #     [0, 10]  # T
-    # ]
-    # lst_binwidths = [
-    #     0.25,  # mag r-i
-    #     0.25,  # mag i-z
-    #     0.25,  # mag r
-    #     0.25,  # mag i
-    #     0.25,  # mag z
-    #     0.25,  # mag err r
-    #     0.25,  # mag err i
-    #     0.25,  # mag err z
-    #     0.1,  # e_1
-    #     0.1,  # e_2
-    #     50,  # snr
-    #     1.5,  # size ratio
-    #     0.5,  # T
-    # ]
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df,
-    #     df_balrog=df,
-    #     columns=flow_cfg["HIST_PLOT_COLS"],
-    #     labels=flow_cfg["HIST_PLOT_LABELS"],
-    #     ranges=lst_ranges,
-    #     binwidths=lst_binwidths,
-    #     title=r"Balrog: Property Distribution",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_true_balrog.pdf"
-    # )
-    #
-    # exit()
+    init_output_paths(cfg=config)
     run_logger = LoggerHandler(
         logger_dict={"logger_name": "train flow logger",
-                     "info_logger": classifier_cfg['INFO_LOGGER'],
-                     "error_logger": classifier_cfg['ERROR_LOGGER'],
-                     "debug_logger": classifier_cfg['DEBUG_LOGGER'],
-                     "stream_logger": classifier_cfg['STREAM_LOGGER'],
+                     "info_logger": config['INFO_LOGGER'],
+                     "error_logger": config['ERROR_LOGGER'],
+                     "debug_logger": config['DEBUG_LOGGER'],
+                     "stream_logger": config['STREAM_LOGGER'],
                      "stream_logging_level": log_lvl},
-        log_folder_path=f"{classifier_cfg['PATH_OUTPUT']}/"
+        log_folder_path=f"{config['PATH_LOGS']}/"
     )
 
-    main(classifier_cfg=classifier_cfg, flow_cfg=flow_cfg, logger=run_logger)
+    if config["BOOTSTRAP"] is True:
+        for actual_boot in range(config["TOTAL_BOOTSTRAP"]):
+            config['RUN_NUMBER'] = f"{actual_boot+1}_"
+            config['BERNOULLI_SEED'] = config['BERNOULLI_SEED'] + actual_boot + 1
+            main(cfg=config, logger=run_logger)
+    else:
+        config['RUN_NUMBER'] = ""
+        main(cfg=config, logger=run_logger)

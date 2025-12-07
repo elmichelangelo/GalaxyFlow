@@ -836,10 +836,10 @@ def plot_confusion_matrix(
     show_plot: bool,
     save_plot: bool,
     save_name: str,
-    y_true_col:str="true mcal_galaxy",
-    y_pred_col:str="threshold detected",
+    y_true_col: str="true mcal_galaxy",
+    y_pred_col: str="threshold detected",
     check_raw: bool = False,
-    title: str = "Confusion Matrix",
+    title: str="Confusion Matrix",
 ):
     # ---------- Daten ----------
     y_true = df_gandalf[y_true_col].to_numpy().astype(int).ravel()
