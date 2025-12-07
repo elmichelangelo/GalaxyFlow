@@ -357,6 +357,8 @@ def main(classifier_cfg, flow_cfg, logger):
 
     df_gandalf, df_balrog = model.run_classifier()
 
+    df_gandalf["gandalf_id"] = np.arange(len(df_gandalf))
+
     df_merged_balrog = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
     df_information = df_merged_balrog[["bal_id", "ID"]].copy()
     df_merged_balrog["r-i"] = df_merged_balrog["unsheared/mag_r"] - df_merged_balrog["unsheared/mag_i"]
@@ -387,6 +389,8 @@ def main(classifier_cfg, flow_cfg, logger):
         count_col="injection_counts"
     )
 
+    df_gandalf_injection_counts = df_gandalf[["gandalf_id", "bal_id", "injection_counts", "true_id"]].copy()
+
     del df_information
 
     classifier_cfg["PATH_PLOTS"] = f'{classifier_cfg["PATH_PLOTS"]}/{classifier_cfg["RUN_DATE"]}_RUN_PLOTS'
@@ -406,91 +410,6 @@ def main(classifier_cfg, flow_cfg, logger):
             savename=f"{classifier_cfg['PATH_PLOTS']}/feature_input_classifier.pdf"
         )
 
-    # df = pd.read_pickle("/Volumes/elmichelangelo_external_ssd_1/Data/20250927_balrog_complete_26303386.pkl")
-    # df_information = df[["bal_id", "ID", "injection_counts"]]
-
-    # df_out_gandalf = df_gandalf.merge(df_information, how="left", on="bal_id")
-    # df_out_gandalf.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_balrog = df_balrog.merge(df_information, how="left", on="bal_id")
-    # df_out_balrog.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_gandalf = compute_injection_counts(
-    #     det_catalog=df_out_gandalf,
-    #     id_col="true_id",
-    #     count_col="injection_counts_m"
-    # )
-    #
-    # df_out_balrog = compute_injection_counts(
-    #     det_catalog=df_out_balrog,
-    #     id_col="true_id",
-    #     count_col="injection_counts_m"
-    # )
-    #
-    # plt.scatter(df_out_balrog["injection_counts_m"], df_out_gandalf["injection_counts_m"])
-    # plt.show()
-
-    # df_gandalf_detected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
-    # df_balrog_detected = df_balrog[df_balrog["mcal_galaxy"]==1]
-
-    # df_out_gandalf_detected = df_gandalf_detected.merge(df_information, how="left", on="bal_id")
-    # df_out_gandalf_detected.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_balrog_detetced = df_balrog_detected.merge(df_information, how="left", on="bal_id")
-    # df_out_balrog_detetced.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_gandalf_detected = compute_injection_counts(
-    #     det_catalog=df_out_gandalf_detected,
-    #     id_col="true_id",
-    #     count_col="detection_counts_n"
-    # )
-    #
-    # df_out_balrog_detetced = compute_injection_counts(
-    #     det_catalog=df_out_balrog_detetced,
-    #     id_col="true_id",
-    #     count_col="detection_counts_n"
-    # )
-    #
-    # df_check = df_out_gandalf_detected[["true_id", "bal_id", "detection_counts_n"]].copy()
-    # df_check.rename(columns={"detection_counts_n": "detection_counts_n_gandalf"}, inplace=True)
-    #
-    # counts_balrog = (
-    #     df_out_balrog_detetced[["true_id", "detection_counts_n"]]
-    #     .dropna(subset=["true_id"])
-    #     .drop_duplicates("true_id")  # eine Zeile pro true_id
-    #     .set_index("true_id")["detection_counts_n"]  # Series: index=true_id, value=count
-    # )
-    #
-    # df_check["detection_counts_n_balrog"] = df_check["true_id"].map(counts_balrog)
-    #
-    # df_check = df_check.drop_duplicates("true_id")
-    #
-    # x = df_check["detection_counts_n_balrog"]
-    # y = df_check["detection_counts_n_gandalf"]
-    #
-    # lo = int(min(x.min(), y.min()))
-    # hi = int(max(x.max(), y.max()))
-    #
-    # plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.5)
-    # plt.gca().set_aspect("equal", "box")
-    # plt.scatter(df_check["detection_counts_n_balrog"], df_check["detection_counts_n_gandalf"])
-    # plt.title("Compare Detection Counts: n vs. n'")
-    # plt.xlim(0, hi)
-    # plt.ylim(0, hi)
-    # plt.xlabel("detection counts balrog: n")
-    # plt.ylabel("detection counts gandalf: n'")
-    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/n_vs_ndash.png", dpi=150, bbox_inches='tight')
-    # plt.clf()
-    # plt.close()
-    #
-    # plt.scatter(df_check["detection_counts_n_balrog"], (df_check["detection_counts_n_gandalf"]-df_check["detection_counts_n_balrog"])/np.sqrt(df_check["detection_counts_n_balrog"]), alpha=0.3)
-    # plt.title("Compare Detection Counts: n vs. n'")
-    # plt.ylabel("(n'-n)/sqrt(n)")
-    # plt.xlabel("n")
-    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/compare_detection_counts.png", dpi=150, bbox_inches='tight')
-    # plt.clf()
-    # plt.close()
-
     save_catalogs(
         cfg=classifier_cfg,
         df=df_gandalf,
@@ -501,57 +420,9 @@ def main(classifier_cfg, flow_cfg, logger):
         df=df_balrog,
         filename=f"{classifier_cfg['RUN_DATE']}_balrog_Classified.pkl")
 
-
-    # plot_classifier(
-    #     cfg=classifier_cfg,
-    #     df_gandalf=df_gandalf,
-    #     df_balrog=df_balrog,
-    # )
-
-    # df_gandalf = df_gandalf[df_gandalf["BDF_MAG_DERED_CALIB_R"]<32]
-    # df_gandalf = df_gandalf[df_gandalf["BDF_MAG_DERED_CALIB_I"]<32]
-    # df_gandalf = df_gandalf[df_gandalf["BDF_MAG_DERED_CALIB_Z"]<32]
-
-    # df_gandalf = add_confusion_label(df=df_gandalf, pred_col="sampled detected", true_col="true detected")
-
-    # df_gandalf2 = model.flow_data.copy()
-    #
-    # df_gandalf2 = model.flow_galaxies.inverse_scale_data(df_gandalf2)
-    #
-    # if flow_cfg["CHECK_INPUT_PLOT"] is True:
-    #     os.makedirs(flow_cfg['PATH_PLOTS'], exist_ok=True)
-    #     plot_features_compare(
-    #         cfg=flow_cfg,
-    #         df_gandalf=df_gandalf,
-    #         df_gandalf2=df_gandalf2,
-    #         columns=flow_cfg["INPUT_COLS"],
-    #         title_prefix=f"Flow Input w/ compare",
-    #         savename=f"{flow_cfg['PATH_PLOTS']}/feature_input_flow_w_classifier.pdf"
-    #     )
-
-    # df_gandalf = run_flow_cuts(cfg=flow_cfg, data_frame=df_gandalf)
-
-    # if flow_cfg["CHECK_INPUT_PLOT"] is True:
-    #     plot_features_compare(
-    #         cfg=flow_cfg,
-    #         df_gandalf=df_gandalf,
-    #         df_gandalf2=df_gandalf2,
-    #         columns=flow_cfg["INPUT_COLS"],
-    #         title_prefix=f"Flow Input w/ compare new cuts",
-    #         savename=f"{flow_cfg['PATH_PLOTS']}/feature_input_flow_w_classifier_cut.pdf"
-    #     )
-
-    df_gandalf_injection_counts = df_gandalf[["bal_id", "injection_counts", "true_id"]].copy()
-
     df_gandalf = model.flow_galaxies.apply_log10(df_gandalf)
     df_gandalf = model.flow_galaxies.scale_data(df_gandalf)
     df_gandalf, df_balrog = model.run_flow(data_frame=df_gandalf)
-
-    # df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
-    # df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_balrog_flow = df_balrog.merge(df_information, how="left", on="bal_id")
-    # df_out_balrog_flow.rename(columns={"ID": "true_id"}, inplace=True)
 
     df_gandalf = calc_color(
         data_frame=df_gandalf,
@@ -586,264 +457,6 @@ def main(classifier_cfg, flow_cfg, logger):
     df_balrog_selected = unsheared_shear_cuts(df_balrog_selected)
     df_balrog_selected = unsheared_mag_cut(df_balrog_selected)
     df_balrog_selected = binary_cut(df_balrog_selected)
-
-    # df_out_gandalf_flow = df_gandalf.merge(df_information, how="left", on="bal_id")
-    # df_out_gandalf_flow.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_balrog_flow = df_balrog.merge(df_information, how="left", on="bal_id")
-    # df_out_balrog_flow.rename(columns={"ID": "true_id"}, inplace=True)
-    #
-    # df_out_gandalf_flow = compute_injection_counts(
-    #     det_catalog=df_out_gandalf_flow,
-    #     id_col="true_id",
-    #     count_col="detection_counts_k"
-    # )
-    #
-    # df_out_balrog_flow = compute_injection_counts(
-    #     det_catalog=df_out_balrog_flow,
-    #     id_col="true_id",
-    #     count_col="detection_counts_k"
-    # )
-    #
-    # df_check_flow = df_out_gandalf_flow[["true_id", "bal_id", "detection_counts_k"]].copy()
-    # df_check_flow.rename(columns={"detection_counts_k": "detection_counts_k_gandalf"}, inplace=True)
-    #
-    # counts_balrog_flow = (
-    #     df_out_balrog_flow[["true_id", "detection_counts_k"]]
-    #     .dropna(subset=["true_id"])
-    #     .drop_duplicates("true_id")  # eine Zeile pro true_id
-    #     .set_index("true_id")["detection_counts_k"]  # Series: index=true_id, value=count
-    # )
-    #
-    # df_check_flow["detection_counts_k_balrog"] = df_check_flow["true_id"].map(counts_balrog_flow)
-    #
-    # df_check_flow = df_check_flow.drop_duplicates("true_id")
-    #
-    # x = df_check_flow["detection_counts_k_balrog"]
-    # y = df_check_flow["detection_counts_k_gandalf"]
-    #
-    # lo = int(min(x.min(), y.min()))
-    # hi = int(max(x.max(), y.max()))
-    #
-    # plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.5)
-    # plt.gca().set_aspect("equal", "box")
-    # plt.scatter(df_check_flow["detection_counts_k_balrog"], df_check_flow["detection_counts_k_gandalf"])
-    # plt.title("Compare Selection Counts w/o mag cut w/ mcal cuts: k vs. k'")
-    # plt.xlim(0, hi)
-    # plt.ylim(0, hi)
-    # plt.xlabel("selection counts balrog: k")
-    # plt.ylabel("selection counts gandalf: k'")
-    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/k_vs_kdash_w_mag_cuts_w_mcal_cuts.png", dpi=150, bbox_inches='tight')
-    # plt.clf()
-    # plt.close()
-    #
-    # plt.scatter(df_check_flow["detection_counts_k_balrog"], (df_check_flow["detection_counts_k_gandalf"] - df_check_flow["detection_counts_k_balrog"]) / np.sqrt(df_check_flow["detection_counts_k_balrog"]), alpha=0.3)
-    # plt.title("Compare Selection Counts w/o mag cut w/ mcal cuts: k vs. k'")
-    # plt.ylabel("(k'-k)/sqrt(k)")
-    # plt.xlabel("k")
-    # plt.savefig(f"{flow_cfg['PATH_PLOTS']}/compare_selection_counts.png", dpi=150, bbox_inches='tight')
-    # plt.clf()
-    # plt.close()
-    #
-    # lst_ranges = [
-    #     [-1.5, 4],  # mag r-i
-    #     [-4, 1.5],  # mag i-z
-    #     [15, 26],  # mag r
-    #     [18, 23.5],  # mag i
-    #     [15, 26],  # mag z
-    #     None,  # mag err r
-    #     None,  # mag err i
-    #     None,  # mag err z
-    #     [-1.2, 1.2],  # e_1
-    #     [-1.2, 1.2],  # e_2
-    #     [10, 1000],  # snr
-    #     [0.5, 50],  # size ratio
-    #     [0, 10]  # T
-    # ]
-    # lst_binwidths = [
-    #     0.25,  # mag r-i
-    #     0.25,  # mag i-z
-    #     0.25,  # mag r
-    #     0.25,  # mag i
-    #     0.25,  # mag z
-    #     0.25,  # mag err r
-    #     0.25,  # mag err i
-    #     0.25,  # mag err z
-    #     0.1,  # e_1
-    #     0.1,  # e_2
-    #     50,  # snr
-    #     1.5,  # size ratio
-    #     0.5,  # T
-    # ]
-    # os.makedirs(flow_cfg["PATH_PLOTS"], exist_ok=True)
-
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_gandalf,
-    #     df_balrog=df_balrog,
-    #     columns=flow_cfg["HIST_PLOT_COLS"],
-    #     labels=flow_cfg["HIST_PLOT_LABELS"],
-    #     ranges=lst_ranges,
-    #     binwidths=lst_binwidths,
-    #     title=r"MCAL selected galaxies gaNdalF vs. Balrog",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/selection_hist_plot_with_selection_cf.pdf",
-    #     detection_name="selected",
-    # )
-
-    # df_non_detected = df_gandalf[df_gandalf["true detected"] == 0]
-    # df_only_detected = df_gandalf[df_gandalf["true detected"] == 1]
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_non_detected,
-    #     df_balrog=df_balrog,
-    #     columns=flow_cfg["HIST_PLOT_COLS"],
-    #     labels=flow_cfg["HIST_PLOT_LABELS"],
-    #     ranges=lst_ranges,
-    #     binwidths=lst_binwidths,
-    #     title=r"gaNdalF vs. Balrog: non detected",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_non_detected.pdf"
-    # )
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_only_detected,
-    #     df_balrog=df_balrog,
-    #     columns=flow_cfg["HIST_PLOT_COLS"],
-    #     labels=flow_cfg["HIST_PLOT_LABELS"],
-    #     ranges=lst_ranges,
-    #     binwidths=lst_binwidths,
-    #     title=r"gaNdalF vs. Balrog: only detected",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_only_detected.pdf"
-    # )
-
-    # lst_galaxy_properties = [
-    #     "BDF_MAG_DERED_CALIB_R",
-    #     "BDF_MAG_DERED_CALIB_I",
-    #     "BDF_MAG_DERED_CALIB_Z",
-    #     "BDF_MAG_ERR_DERED_CALIB_R",
-    #     "BDF_MAG_ERR_DERED_CALIB_I",
-    #     "BDF_MAG_ERR_DERED_CALIB_Z",
-    #     'Color BDF MAG R-I',
-    #     'Color BDF MAG I-Z',
-    #     "BDF_T",
-    #     "BDF_G"
-    # ]
-    # lst_galaxy_probs_labels = [
-    #     "true mag r",
-    #     "true mag i",
-    #     "true mag z",
-    #     "true mag err r",
-    #     "true mag err i",
-    #     "true mag err z",
-    #     'Color BDF MAG R-I',
-    #     'Color BDF MAG I-Z',
-    #     "BDF_T",
-    #     "BDF_G"
-    #     ]
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_non_detected,
-    #     df_balrog=df_balrog,
-    #     columns=lst_galaxy_properties,
-    #     labels=lst_galaxy_probs_labels,
-    #     ranges=[None for _ in range(len(lst_galaxy_properties))],
-    #     binwidths=[None for _ in range(len(lst_galaxy_properties))],
-    #     title=r"gaNdalF vs. Balrog: non detected input",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_non_detected_input_galaxy_properties.pdf"
-    # )
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_gandalf,
-    #     df_balrog=df_balrog,
-    #     columns=lst_galaxy_properties,
-    #     labels=lst_galaxy_probs_labels,
-    #     ranges=[None for _ in range(len(lst_galaxy_properties))],
-    #     binwidths=[None for _ in range(len(lst_galaxy_properties))],
-    #     # binwidths=[
-    #     #     0.25,  # mag r
-    #     #     0.25,  # mag i
-    #     #     0.25,  # mag z
-    #     #     0.25,  # mag err r
-    #     #     0.25,  # mag err i
-    #     #     0.25,  # mag err z
-    #     #     0.25,  # color r-i
-    #     #     0.25,  # color i-z
-    #     #     0.25,  # bdft
-    #     #     0.25,  # bdfg
-    #     #     0.25,  # fwhm r
-    #     #     0.25,  # fwhm i
-    #     #     0.25,  # fwhm z
-    #     #     0.25,  # airmass r
-    #     #     0.25,  # airmass i
-    #     #     0.25,  # airmass z
-    #     #     0.25,  # maglim r
-    #     #     0.25,  # maglim i
-    #     #     0.25,  # maglim z
-    #     #     0.25,  # ebv
-    #     # ],
-    #     title=r"gaNdalF vs. Balrog: detected and non detected input",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_all_input_galaxy_properties.pdf"
-    # )
-    #
-    # lst_observing_conditions = [
-    #     "FWHM_WMEAN_R",
-    #     "FWHM_WMEAN_I",
-    #     "FWHM_WMEAN_Z",
-    #     "AIRMASS_WMEAN_R",
-    #     "AIRMASS_WMEAN_I",
-    #     "AIRMASS_WMEAN_Z",
-    #     "MAGLIM_R",
-    #     "MAGLIM_I",
-    #     "MAGLIM_Z",
-    #     "EBV_SFD98"
-    # ]
-    #
-    # lst_observing_cond_labels = [
-    #     "FWHM R",
-    #     "FWHM I",
-    #     "FWHM Z",
-    #     "AIRMASS R",
-    #     "AIRMASS I",
-    #     "AIRMASS Z",
-    #     "MAGLIM_R",
-    #     "MAGLIM_I",
-    #     "MAGLIM_Z",
-    #     "EBV_SFD98"
-    # ]
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_non_detected,
-    #     df_balrog=df_balrog,
-    #     columns=lst_observing_conditions,
-    #     labels=lst_observing_cond_labels,
-    #     ranges=[None for _ in range(len(lst_observing_conditions))],
-    #     binwidths=[None for _ in range(len(lst_observing_conditions))],
-    #     title=r"gaNdalF vs. Balrog: non detected input",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_non_detected_input_obs_cond.pdf"
-    # )
-    #
-    # plot_balrog_histogram_with_error_and_detection(
-    #     df_gandalf=df_gandalf,
-    #     df_balrog=df_balrog,
-    #     columns=lst_observing_conditions,
-    #     labels=lst_observing_cond_labels,
-    #     ranges=[None for _ in range(len(lst_observing_conditions))],
-    #     binwidths=[None for _ in range(len(lst_observing_conditions))],
-    #     title=r"gaNdalF vs. Balrog: detected and non detected input",
-    #     show_plot=flow_cfg["SHOW_PLOT"],
-    #     save_plot=flow_cfg["SAVE_PLOT"],
-    #     save_name=f"{flow_cfg[f'PATH_PLOTS']}/hist_plot_all_input_obs_cond.pdf"
-    # )
 
     lst_ranges = [
         [-1.5, 4],  # mag r-i
@@ -900,9 +513,7 @@ def main(classifier_cfg, flow_cfg, logger):
         prefix="_cut"
     )
 
-    exit()
-
-    df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="bal_id")
+    df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="gandalf_id")
 
     save_catalogs(
         cfg=classifier_cfg,

@@ -284,7 +284,7 @@ class gaNdalF(object):
 
         df_gandalf_input = self.flow_data.copy()
         df_gandalf_input.loc[:, self.flow_cfg["OUTPUT_COLS"]] = np.nan
-        df_gandalf_input["gandalf_id"] = np.arange(len(df_gandalf_input))
+        # df_gandalf_input["gandalf_id"] = np.arange(len(df_gandalf_input))
         try:
             flow_detected = df_gandalf_input[df_gandalf_input[self.flow_cfg["DETECTION_TYPE"]]==1].copy()
         except KeyError:
