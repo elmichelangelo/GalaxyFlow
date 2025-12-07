@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=cf_train_final
+#SBATCH --job-name=nf_train_final
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=256G
-#SBATCH -o /dss/dsshome1/04/di97tac/logs/cf_train_final_%A.log
-#SBATCH -e /dss/dsshome1/04/di97tac/logs/cf_train_final_err_%A.log
+#SBATCH -o /dss/dsshome1/04/di97tac/logs/nf_train_final_%A.log
+#SBATCH -e /dss/dsshome1/04/di97tac/logs/nf_train_final_err_%A.log
 #SBATCH --qos=mcml
 #SBATCH --partition=mcml-hgx-h100-94x4
 #SBATCH --cpus-per-task=12
