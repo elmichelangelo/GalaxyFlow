@@ -3456,8 +3456,8 @@ def plot_balrog_histogram_with_error_and_detection(
 
 
 def plot_balrog_histogram_with_error_and_detection_true_balrog(
-    df_gandalf, df_balrog, true_balrog, complete_balrog, columns, labels, ranges, binwidths,
-    title, show_plot, save_plot, save_name, detection_name="detected"
+        df_gandalf, df_balrog, true_balrog, complete_balrog, columns, labels, ranges, binwidths,
+        title, show_plot, save_plot, save_name, detection_name="detected"
 ):
     import matplotlib as mpl
     # # Use LaTeX fonts in matplotlib
@@ -3470,37 +3470,32 @@ def plot_balrog_histogram_with_error_and_detection_true_balrog(
     mpl.rcParams['xtick.labelsize'] = 20
     mpl.rcParams['ytick.labelsize'] = 12
 
-    # Define colors and levels
+    # Define colors
     color_gandalf = 'darkgreen'
     color_balrog = 'purple'
     color_true_balrog = 'red'
     color_complete_balrog = 'blue'
     alpha_fill = 0.35
 
+    # Colors for ratios
+    color_ratio_1 = 'black'  # gaNdalF / Balrog
+    color_ratio_2 = 'darkgrey'  # True / Complete
+
     # Determine subplot grid
     ncols = 3
     nrows = (len(columns) + ncols - 1) // ncols
 
-    # Create main figure and GridSpec
-    fig = plt.figure(figsize=(16, 5 * nrows))  # Adjust vertical size as needed
+    fig = plt.figure(figsize=(16, 4 * nrows))
     main_gs = GridSpec(nrows, ncols, figure=fig)
 
-    ratio_handle = None
+    ratio_handle_1 = None
+    ratio_handle_2 = None
 
     for idx, col in enumerate(columns):
         row_idx = idx // ncols
         col_idx = idx % ncols
 
-        # Create a nested GridSpec for each subplot with no vertical space between hist and error
-        inner_gs = GridSpecFromSubplotSpec(
-            2, 1,
-            subplot_spec=main_gs[row_idx, col_idx],
-            height_ratios=[3,1],
-            hspace=0
-        )
-
-        ax_hist = fig.add_subplot(inner_gs[0])
-        ax_error = fig.add_subplot(inner_gs[1], sharex=ax_hist)
+        ax_hist = fig.add_subplot(main_gs[row_idx, col_idx])
 
         binwidth = binwidths[idx] if binwidths[idx] is not None else 0.2
 
@@ -3511,233 +3506,128 @@ def plot_balrog_histogram_with_error_and_detection_true_balrog(
             range_min = min(df_gandalf[col].min(), df_balrog[col].min())
             range_max = max(df_gandalf[col].max(), df_balrog[col].max())
 
-        # Create common bins
         bins = np.arange(range_min, range_max + binwidth, binwidth)
 
-        # Plot histograms
-        sns.histplot(
-            data=df_gandalf,
-            x=col,
-            ax=ax_hist,
-            bins=bins,
-            fill=True,
-            # element="step",
-            alpha=alpha_fill,
-            stat="density",
-            color=color_gandalf,
-            # log_scale=(False, True),
-            edgecolor=None,
-            label="gaNdalF"
-        )
-        sns.histplot(
-            data=true_balrog,
-            x=col,
-            ax=ax_hist,
-            bins=bins,
-            fill=False,
-            # element="step",
-            alpha=0.5,
-            stat="density",
-            color=color_true_balrog,
-            # log_scale=(False, True),
-            linewidth=1.5,
-            edgecolor=color_true_balrog,
-            label="Balrog true data"
-        )
-        sns.histplot(
-            data=complete_balrog,
-            x=col,
-            ax=ax_hist,
-            bins=bins,
-            fill=False,
-            # element="step",
-            alpha=0.5,
-            stat="density",
-            color=color_complete_balrog,
-            # log_scale=(False, True),
-            linewidth=1.5,
-            edgecolor=color_complete_balrog,
-            label="Balrog complete merged data"
-        )
-        sns.histplot(
-            data=df_balrog,
-            x=col,
-            ax=ax_hist,
-            bins=bins,
-            fill=True,
-            # element="step",
-            alpha=alpha_fill,
-            stat="density",
-            color=color_balrog,
-            # log_scale=(False, True),
-            edgecolor=None,
-            label="Balrog"
-        )
+        # --- PLOT HISTOGRAMS ---
+        sns.histplot(data=df_gandalf, x=col, ax=ax_hist, bins=bins, fill=True, alpha=alpha_fill,
+                     stat="density", color=color_gandalf, edgecolor=None, label="gaNdalF samples")
+        sns.histplot(data=true_balrog, x=col, ax=ax_hist, bins=bins, fill=False, alpha=0.5,
+                     stat="density", color=color_true_balrog, linewidth=1.5, edgecolor=color_true_balrog,
+                     label="Balrog catalog (True)")
+        sns.histplot(data=complete_balrog, x=col, ax=ax_hist, bins=bins, fill=False, alpha=0.5,
+                     stat="density", color=color_complete_balrog, linewidth=1.5, edgecolor=color_complete_balrog,
+                     label="Balrog (Complete)")
+        sns.histplot(data=df_balrog, x=col, ax=ax_hist, bins=bins, fill=True, alpha=alpha_fill,
+                     stat="density", color=color_balrog, edgecolor=None, label="Balrog samples")
+
         ax_hist.set_yscale('log')
-
-        # Compute counts
-        cG, _ = np.histogram(df_gandalf[col], bins=bins)
-        cB, _ = np.histogram(df_balrog[col], bins=bins)
-
-        # Totals
-        NB = len(df_balrog)
-        NG = len(df_gandalf)
-
-        # Normalisierte Bin-Anteile (probability per bin)
-        qB = cB.astype(float) / NB
-        qG = cG.astype(float) / NG
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            percent_error = 100.0 * (qB - qG) / qB
-            sigma_E = 100.0 * np.sqrt(
-                ((qG ** 2) / (qB ** 4)) * (cB.astype(float) / (NB ** 2)) +
-                (1.0 / (qB ** 2)) * (cG.astype(float) / (NG ** 2))
-            )
-
-        # Handle division by zero
-        mask = (qB == 0)
-        percent_error[mask] = np.nan
-        sigma_E[mask] = np.nan
-
-        # Bin centers
-        bin_centers = bins[:-1] + binwidth / 2
-
-        # Plot error bars
-        ax_error.errorbar(
-            bin_centers, percent_error, yerr=sigma_E,
-            fmt='o', color='black', ecolor='black', capsize=2, markersize=2, clip_on=True
-        )
-
-        # Calculate Median, ignoring NaNs
-        median_percent_error = np.nanmedian(percent_error)
-        ax_error.axhline(
-            median_percent_error,
-            color='darkred',
-            linestyle='--'
-        )
-        ax_error.axhline(
-            0,
-            color='black',
-        )
-        ax_error.axhline(
-            -10,
-            color='grey',
-            linestyle='--'
-        )
-        ax_error.axhline(
-            10,
-            color='grey',
-            linestyle='--'
-        )
-
-        # Set limits
         ax_hist.set_xlim(range_min, range_max)
-        ax_error.set_xlim(range_min, range_max)
 
-        # Formatting
-        # ax_error.set_ylabel('% Error')  # , fontsize=font_size_labels
+        # Formatting Labels
         if col_idx == 0:
             ax_hist.set_ylabel(r"$\mathrm{Density}$", fontsize=12, labelpad=6)
             ax_hist.tick_params(axis='y', labelsize=10)
-
-            ax_error.set_ylabel(
-                r"$f_i = 100\,\frac{\hat p_{B,i}-\hat p_{G,i}}{\hat p_{B,i}}$",
-                fontsize=10, labelpad=6
-            )
-            ax_hist.set_ylabel('Density')  # , fontsize=font_size_labels
         else:
-            ax_error.set_ylabel("")
             ax_hist.set_ylabel("")
-        ax_error.set_xlabel(labels[idx])  # , fontsize=font_size_labels
-        # handles_err = [ax_error.axhline(median_percent_error, color='black', linestyle='--',
-        #                                 label = rf'Med. \% Err. = {median_percent_error:.3f}')
-        #                ]
-        # ax_error.legend(handles=handles_err, loc="upper right", ncol=1, frameon=True, fontsize=14)  # bbox_to_anchor=(0.99, 0.97),
 
-        # Hide x-axis labels on the top histogram
-        plt.setp(ax_hist.get_xticklabels(), visible=False)
-        ax_hist.tick_params(
-            axis='x',
-            labelbottom=False
-        )
-
-        # Add grid
+        ax_hist.set_xlabel(labels[idx])
         ax_hist.grid(True)
-        ax_error.grid(True)
+        ax_hist.tick_params(axis='y', direction='in', left=True, right=True)
 
-        # Set symmetric y-axis ticks on both sides
-        ax_hist.tick_params(
-            axis='y',
-            direction='in',  # Ticks pointing inside
-            left=True,  # Ticks on the left
-            right=True  # Ticks on the right
-        )
-        ax_error.tick_params(
-            axis='y',
-            direction='in',  # Ticks pointing inside
-            left=True,  # Ticks on the left
-            right=True  # Ticks on the right
-        )
-
-        # Adjust error plot y-limits if desired
-        ax_error.set_ylim(-50, 50)
-
-        # --- Detected-Counts pro Bin ---
+        # --- RATIO CALCULATION 1: gaNdalF / Balrog ---
         cG_det, _ = np.histogram(df_gandalf.loc[df_gandalf[f"sampled {detection_name}"] == 1, col], bins=bins)
         cB_det, _ = np.histogram(df_balrog.loc[df_balrog[detection_name] == 1, col], bins=bins)
 
         NG = len(df_gandalf)
         NB = len(df_balrog)
 
-        # Global normalisierte "Detektionsdichte" pro Bin
         qG_det = cG_det.astype(float) / NG
         qB_det = cB_det.astype(float) / NB
 
-        # Ratio, sauber maskiert
         with np.errstate(divide='ignore', invalid='ignore'):
-            R = np.where(qB_det > 0, qG_det / qB_det, np.nan)
+            R1 = np.where(qB_det > 0, qG_det / qB_det, np.nan)
+
+        # --- RATIO CALCULATION 2: True Balrog / Complete Balrog ---
+        # Annahme: Auch hier soll nach "detection_name" gefiltert werden
+        cTrue_det, _ = np.histogram(true_balrog.loc[true_balrog[detection_name] == 1, col], bins=bins)
+        cComp_det, _ = np.histogram(complete_balrog.loc[complete_balrog[detection_name] == 1, col], bins=bins)
+
+        NTrue = len(true_balrog)
+        NComp = len(complete_balrog)
+
+        qTrue_det = cTrue_det.astype(float) / NTrue
+        qComp_det = cComp_det.astype(float) / NComp
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            R2 = np.where(qTrue_det > 0, qComp_det / qTrue_det, np.nan)
 
         bin_centers = bins[:-1] + 0.5 * (bins[1] - bins[0])
 
-        # Overlay auf rechter Achse
+        # --- PLOT RATIOS ON TWIN AXIS ---
         ax_ratio = ax_hist.twinx()
-        line_ratio, = ax_ratio.plot(bin_centers, R, marker='o', linewidth=1.0, markersize=3,
-                      label=f'{detection_name} ratio (G/B)', color='black')
+
+        # Plot Ratio 1 (Black)
+        line_r1, = ax_ratio.plot(bin_centers, R1, marker='o', linewidth=1.0, markersize=3,
+                                 color=color_ratio_1, label=f'Ratio G/B')
+
+        # Plot Ratio 2 (Dark Grey)
+        line_r2, = ax_ratio.plot(bin_centers, R2, marker='s', linewidth=1.0, markersize=3,
+                                 color=color_ratio_2, linestyle=':', label=f'Ratio True/Comp')
+
+        # Reference Line
         ax_ratio.axhline(1.0, linestyle='--', linewidth=1.0, color='gray')
-        ax_ratio.set_ylabel(f'Ratio {detection_name} (gaNdalF / Balrog)', fontsize=10)
 
-        if ratio_handle is None:
-            ratio_handle = line_ratio
+        # Axis Label
+        ax_ratio.set_ylabel(f'Ratio {detection_name}', fontsize=10)
 
-        # Auto-Skalierung: nicht zu eng, nicht zu wild
-        if np.isfinite(R).any():
-            r_hi = np.nanpercentile(R, 99)
+        # Store handles for legend (only once)
+        if ratio_handle_1 is None:
+            ratio_handle_1 = line_r1
+        if ratio_handle_2 is None:
+            ratio_handle_2 = line_r2
+
+        # --- AUTO-SCALING FOR RATIO ---
+        # Wir schauen uns beide Ratios an, um das Y-Limit zu setzen
+        combined_R = np.concatenate([R1, R2])
+        if np.isfinite(combined_R).any():
+            # 99. Perzentil aller Datenpunkte (R1 und R2) um Ausreißer zu ignorieren
+            r_hi = np.nanpercentile(combined_R, 99)
+            # Mindestens bis 2.0, sonst dynamisch
             ax_ratio.set_ylim(0, max(2.0, 1.2 * r_hi))
+        else:
+            ax_ratio.set_ylim(0, 2.0)
 
-    # Create custom legend handles (outside loop, only once per figure)
+    # Create custom legend handles
     handles_fig = [
-        mpatches.Patch(color=color_gandalf, label='gaNdalF result'),
-        mpatches.Patch(color=color_balrog, label='Balrog training data subsample'),
-        mpatches.Patch(color=color_true_balrog, label='True Balrog catalog'),
-        mpatches.Patch(color=color_complete_balrog, label='Balrog training data full catalog'),
+        mpatches.Patch(color=color_true_balrog, label='Balrog SOMPZ (catalog used for SOMPZ by Miles et al.)'),
+        mpatches.Patch(color=color_complete_balrog,
+                       label='Balrog Complete (training set, validation set and sample set together)'),
+        mpatches.Patch(color=color_gandalf, label='gaNdalF Samples'),
+        mpatches.Patch(color=color_balrog, label='Balrog Samples (sampled from sample set only)'),
     ]
-    if ratio_handle is not None:
-        handles_fig.append(ratio_handle)
+
+    # Add Ratio Lines to Legend
+    if ratio_handle_1 is not None:
+        # Manuelles Update des Labels für die Legende
+        ratio_handle_1.set_label('Ratio (gaNdalF Samples / Balrog Samples)')
+        handles_fig.append(ratio_handle_1)
+
+    if ratio_handle_2 is not None:
+        ratio_handle_2.set_label('Ratio (Balrog SOMPZ / Balrog Complete)')
+        handles_fig.append(ratio_handle_2)
 
     # Move legend to the top right of the figure
-    fig.legend(handles=handles_fig, loc="upper right", bbox_to_anchor=(0.98, 0.96), ncol=1,
-               frameon=True)  # Ensure frame is visible
+    fig.legend(handles=handles_fig, loc="upper right", bbox_to_anchor=(0.85, 0.15), ncol=1, frameon=True)
+
     # Adjust layout and add title
-    plt.suptitle(title, y=0.99)  # fontsize=font_size_title,
+    plt.suptitle(title, y=0.99)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-    # Show or save plot
     if save_plot:
         plt.savefig(save_name, dpi=300, bbox_inches='tight')
     if show_plot:
         plt.show()
 
-    # Clear the figure
     plt.clf()
     plt.close(fig)
 

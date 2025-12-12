@@ -329,14 +329,23 @@ def save_catalogs(cfg, df, filename, key: str = "catalog", mode: str = "w", form
             f"{cfg['PATH_CATALOGS']}/{filename}",
         )
 
-def plot_compare_true_wide_histogram(cfg, df_gandalf_selected, df_balrog_selected):
-    df_merged_balrog = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FULL_GANDALF_CATALOG']}")
+def plot_compare_true_wide_histogram(cfg,
+                                     df_gandalf_selected: pd.DataFrame | None = None,
+                                     df_balrog_selected: pd.DataFrame | None = None):
+    df_missing_columns = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FULL_GANDALF_CATALOG']}")
+    df_missing_columns = df_missing_columns[["bal_id", "unsheared/extended_class_sof", "unsheared/flags_gold", "match_flag_1.5_asec", "flags_foreground", "flags_badregions", "flags_footprint", "unsheared/dec", "unsheared/ra"]]
+    df_full_balrog = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_FULL_GANDALF_TRAINING_SET']}")
+    df_merged_balrog = df_full_balrog.merge(df_missing_columns, how="left", on="bal_id")
+
+    for band in ["r", "i", "z"]:
+        df_merged_balrog[f"unsheared/flux_{band}"] = mag2flux(df_merged_balrog[f"unsheared/mag_{band}"])
+
     df_merged_balrog["r-i"] = df_merged_balrog["unsheared/mag_r"] - df_merged_balrog["unsheared/mag_i"]
     df_merged_balrog["i-z"] = df_merged_balrog["unsheared/mag_i"] - df_merged_balrog["unsheared/mag_z"]
     df_merged_balrog = df_merged_balrog[df_merged_balrog["detected"] == 1]
 
     df_merged_balrog = apply_cuts(cfg=cfg, data_frame=df_merged_balrog)
-    df_merged_balrog = df_merged_balrog[cfg["HIST_PLOT_COLS"]]
+    df_merged_balrog = df_merged_balrog[cfg["HIST_PLOT_COLS"]+["mcal_galaxy"]]
 
     df_true_balrog = pd.read_hdf(f"{cfg['PATH_DATA']}/{cfg['FILENAME_TRUE_BALROG_CATALOG']}", key="df/")
     for band in ["r", "i", "z"]:
@@ -347,6 +356,17 @@ def plot_compare_true_wide_histogram(cfg, df_gandalf_selected, df_balrog_selecte
     df_true_balrog["r-i"] = df_true_balrog["unsheared/mag_r"] - df_true_balrog["unsheared/mag_i"]
     df_true_balrog["i-z"] = df_true_balrog["unsheared/mag_i"] - df_true_balrog["unsheared/mag_z"]
     df_true_balrog = df_true_balrog[cfg["HIST_PLOT_COLS"]]
+
+    if df_balrog_selected is None:
+        df_balrog_selected = df_true_balrog
+        df_balrog_selected['mcal_galaxy'] = np.ones(len(df_balrog_selected))
+        df_balrog_selected['detected'] = np.ones(len(df_balrog_selected))
+    else:
+        df_true_balrog["mcal_galaxy"] = np.ones(len(df_true_balrog))
+    if df_gandalf_selected is None:
+        df_gandalf_selected = df_merged_balrog
+        df_gandalf_selected['mcal_galaxy'] = np.ones(len(df_gandalf_selected))
+        df_gandalf_selected['sampled mcal_galaxy'] = np.ones(len(df_gandalf_selected))
 
     lst_ranges = [
         [-1.5, 4],  # mag r-i
@@ -421,6 +441,12 @@ def main(cfg, logger):
     # Init gaNdalF model
     model = gaNdalF(logger, cfg=cfg)
 
+    # plot_compare_true_wide_histogram(
+    #     cfg=cfg,
+    #     df_gandalf_selected=None,
+    #     df_balrog_selected=None
+    # )
+
     # Init Classifier model from gaNdalF
     model.init_classifier()
 
@@ -460,18 +486,20 @@ def main(cfg, logger):
     if cfg["CHECK_INPUT_PLOT"] is True:
         logger.log_info_stream(f"Plot input columns")
         os.makedirs(cfg['PATH_PLOTS'], exist_ok=True)
-        plot_features_single(
-            cfg=cfg,
-            df_gandalf=df_gandalf,
-            columns=cfg["INPUT_COLS"],
-            title_prefix=f"Classifier Input Columns",
-            savename=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}feature_input_classifier.pdf"
-        )
-
-        plot_classifier(
-            cfg=cfg,
-            df_gandalf=df_gandalf,
-        )
+        try:
+            plot_features_single(
+                cfg=cfg,
+                df_gandalf=df_gandalf,
+                columns=cfg["INPUT_COLS"],
+                title_prefix=f"Classifier Input Columns",
+                savename=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}feature_input_classifier.pdf"
+            )
+            plot_classifier(
+                cfg=cfg,
+                df_gandalf=df_gandalf,
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot classifier: {e}")
 
     if cfg["SAVE_CLF_DATA"] is True:
         logger.log_info_stream(f"Save classifier data")
@@ -525,13 +553,18 @@ def main(cfg, logger):
     df_gandalf_selected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
 
     logger.log_info_stream(f"Plot flow before mcal cuts")
-    plot_flow(
-        cfg=cfg,
-        logger=logger,
-        df_gandalf=df_gandalf_selected,
-        df_balrog=df_balrog_selected,
-        prefix=""
-    )
+
+    if cfg["PLOT_FLOW"] is True:
+        try:
+            plot_flow(
+                cfg=cfg,
+                logger=logger,
+                df_gandalf=df_gandalf_selected,
+                df_balrog=df_balrog_selected,
+                prefix=""
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot flow before cut: {e}")
 
     logger.log_info_stream(f"Apply mcal cuts to gandalf data")
     df_gandalf_selected = unsheared_shear_cuts(df_gandalf_selected)
@@ -544,13 +577,24 @@ def main(cfg, logger):
     df_balrog_selected = binary_cut(df_balrog_selected)
 
     logger.log_info_stream(f"Plot flow after mcal cuts")
-    plot_flow(
-        cfg=cfg,
-        logger=logger,
-        df_gandalf=df_gandalf_selected,
-        df_balrog=df_balrog_selected,
-        prefix="_cut"
-    )
+    #
+    # plot_compare_true_wide_histogram(
+    #     cfg=cfg,
+    #     df_gandalf_selected=df_gandalf_selected,
+    #     df_balrog_selected=df_balrog_selected
+    # )
+
+    if cfg["PLOT_FLOW"] is True:
+        try:
+            plot_flow(
+                cfg=cfg,
+                logger=logger,
+                df_gandalf=df_gandalf_selected,
+                df_balrog=df_balrog_selected,
+                prefix="_cut"
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot flow after cut: {e}")
 
     logger.log_info_stream(f"Merge flow catalog")
     df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="gandalf_id")
