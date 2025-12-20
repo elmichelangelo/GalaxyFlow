@@ -2,11 +2,11 @@
 #SBATCH --job-name=run_gandalf
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=12:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=512G
 #SBATCH --chdir=/home/p/P.Gebhardt/development/GalaxyFlow/
-#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF/run_gaNdalF.log
-#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF/run_gaNdalF_err.log
+#SBATCH -o /home/p/P.Gebhardt/Output/gaNdalF/20251220_run_gaNdalF.log
+#SBATCH -e /home/p/P.Gebhardt/Output/gaNdalF/20251220_run_gaNdalF_err.log
 ##SBATCH --partition=cip
 #SBATCH --partition=inter
 ##SBATCH --gres=gpu:a40:0
@@ -16,4 +16,4 @@
 ##module load python/3.11-2024.06
 source /project/ls-gruen/users/patrick.gebhardt/envs/gaNdalF/bin/activate
 
-srun -n1 python run_gaNdalF.py -cf LMU.cfg
+srun -n1 python run_gaNdalF.py -cf LMU_run_gaNdalF.cfg

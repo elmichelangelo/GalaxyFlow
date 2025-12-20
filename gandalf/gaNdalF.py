@@ -251,11 +251,6 @@ class gaNdalF(object):
         X_t = torch.from_numpy(X_np)
         mag_t = torch.from_numpy(mag_np)
 
-        lst_tp = []
-        lst_fp = []
-        lst_tn = []
-        lst_fn = []
-
         bs = int(self.cfg.get("BATCH_SIZE", 131072))
         pin = (device.type == "cuda")
         loader = DataLoader(
@@ -269,7 +264,6 @@ class gaNdalF(object):
 
         self.classifier_model.eval()
 
-        # for i in range(20):
         probs_raw_chunks = []
         probs_cal_chunks = []
 
