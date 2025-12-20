@@ -1,7 +1,11 @@
+import sys
+
 from gandalf_galaxie_dataset import DESGalaxies
 from gandalf_calibration_model.gaNdalF_calibration_model import MagAwarePlatt
 from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import binned_statistic, median_abs_deviation
+# from gandalf_calibration_model.calibration_benchmark import collect_classifier_outputs, run_calibration_suite
+from sklearn.isotonic import IsotonicRegression
 from Handler import *
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
@@ -57,7 +61,7 @@ class gaNdalF(object):
         self.classifier_model = None
         self.classifier_data = None
         self.T_cal = 1.0
-        self.mag_platt = None
+        self.iso_cal = None  # IsotonicRegression
 
         self.flow_galaxies = None
         self.flow_model = None
@@ -94,29 +98,47 @@ class gaNdalF(object):
         return galaxies
 
     def _load_calibration(self):
-        """"""
         try:
-            self.gandalf_logger.log_info_stream(f"Load calibration model {self.cfg["FILENAME_CALIBRATION_ARTIFACTS"]}")
-            cal_path = os.path.join(
-                self.cfg["PATH_TRAINED_NN"], self.cfg["FILENAME_CALIBRATION_ARTIFACTS"]
+            self.gandalf_logger.log_info_stream(
+                f"Load calibration model {self.cfg['FILENAME_CALIBRATION_ARTIFACTS']}"
             )
-            if os.path.exists(cal_path):
-                cal = joblib.load(cal_path)
-                self.T_cal = float(cal.get("temperature", 1.0))
-                mp_state = cal.get("mag_platt", None)
-                if mp_state is not None:
-                    self.mag_platt = MagAwarePlatt()
-                    self.mag_platt.load_state_dict(mp_state)
+            cal_path = os.path.join(self.cfg["PATH_TRAINED_NN"], self.cfg["FILENAME_CALIBRATION_ARTIFACTS"])
+
+            if not os.path.exists(cal_path):
+                self.gandalf_logger.log_info_stream("No calibration file found – using raw probabilities.")
+                self.gandalf_logger.log_error("No calibration file found – using raw probabilities.")
+                self.T_cal = 1.0
+                self.iso_cal = None
+                return
+
+            cal = joblib.load(cal_path)
+
+            # optional: temperature falls du es weiterhin drin hast
+            self.T_cal = float(cal.get("temperature", 1.0))
+
+            # bevorzugt: direkt gespeichertes IsotonicRegression-Objekt
+            calib_obj = cal.get("calibrator", None)
+
+            if calib_obj is None:
+                self.iso_cal = None
                 self.gandalf_logger.log_info_stream(
-                    f"Loaded calibration (T={self.T_cal:.3f}, mag_platt={'yes' if self.mag_platt else 'no'})"
-                )
+                    "Calibration file has no 'calibrator' entry – using raw probabilities.")
             else:
-                self.gandalf_logger.log_info_stream("No calibration_artifacts.pkl found – using raw probabilities.")
-                self.gandalf_logger.log_error("No calibration_artifacts.pkl found – using raw probabilities.")
+                # Dein gespeichertes Objekt ist sehr wahrscheinlich ein IsotonicCalibrator (Wrapper)
+                # oder direkt ein sklearn IsotonicRegression.
+                if isinstance(calib_obj, IsotonicRegression):
+                    self.iso_cal = calib_obj
+                    kind = "sklearn.IsotonicRegression"
+                else:
+                    self.iso_cal = calib_obj
+                    kind = type(calib_obj).__name__
+
+                self.gandalf_logger.log_info_stream(f"Loaded calibration: {kind}")
+
         except Exception as e:
             self.gandalf_logger.log_error(f"Loading calibration failed: {e}")
             self.T_cal = 1.0
-            self.mag_platt = None
+            self.iso_cal = None
 
     def _hidden_sizes_from_filename(self, fname: str):
         m = re.search(r"_hs_(\[.*?\])_", fname)
@@ -229,6 +251,11 @@ class gaNdalF(object):
         X_t = torch.from_numpy(X_np)
         mag_t = torch.from_numpy(mag_np)
 
+        lst_tp = []
+        lst_fp = []
+        lst_tn = []
+        lst_fn = []
+
         bs = int(self.cfg.get("BATCH_SIZE", 131072))
         pin = (device.type == "cuda")
         loader = DataLoader(
@@ -241,6 +268,8 @@ class gaNdalF(object):
         )
 
         self.classifier_model.eval()
+
+        # for i in range(20):
         probs_raw_chunks = []
         probs_cal_chunks = []
 
@@ -252,18 +281,17 @@ class gaNdalF(object):
                 # raw
                 p_raw = torch.sigmoid(logits).float().cpu().numpy()
 
-                # temperature scaling
-                if self.T_cal != 1.0:
-                    p_T = torch.sigmoid((logits / self.T_cal)).float().cpu().numpy()
-                else:
-                    p_T = p_raw
+                # isotonic calibration: p -> iso(p)
+                apply_calib = bool(self.cfg.get("CALIB_CLASSIFIER", True)) and (self.iso_cal is not None)
 
-                # mag-aware platt
-                if self.mag_platt is not None:
-                    mb_np = mb.numpy()
-                    p_cal = self.mag_platt.transform(p_T, mb_np)
+                # isotonic calibration: p -> iso(p)
+                if self.cfg.get("CALIB_CLASSIFIER", True) and (self.iso_cal is not None):
+                    if hasattr(self.iso_cal, "predict_proba"):
+                        p_cal = self.iso_cal.predict_proba(p_raw).astype(np.float32)
+                    else:
+                        p_cal = self.iso_cal.predict(p_raw).astype(np.float32)
                 else:
-                    p_cal = p_T
+                    p_cal = p_raw
 
                 probs_raw_chunks.append(p_raw)
                 probs_cal_chunks.append(p_cal)
@@ -271,7 +299,7 @@ class gaNdalF(object):
         p_raw = np.concatenate(probs_raw_chunks).astype(np.float32)
         p_cal = np.concatenate(probs_cal_chunks).astype(np.float32)
 
-        p_for_sampling = p_cal if self.cfg.get("CALIB_CLASSIFIER", True) else p_raw
+        p_for_sampling = p_cal if apply_calib else p_raw
 
         if threshold is None:
             threshold = getattr(self, "thr_best", None)
@@ -279,20 +307,31 @@ class gaNdalF(object):
             threshold = 0.5
 
         y_true = self.classifier_data[self.cfg["OUTPUT_COLS_CF"]].to_numpy(int).ravel()
-        y_pred = ((p_for_sampling if self.cfg.get("CALIB_CLASSIFIER", True) else p_raw) >= threshold).astype(int)
 
         rng = np.random.default_rng(int(self.cfg.get('BERNOULLI_SEED', 41)))
         y_sampled = ((p_for_sampling if self.cfg.get("CALIB_CLASSIFIER", True) else p_raw) > rng.random(p_raw.shape[0])).astype(int)
 
         df_gandalf = self.classifier_data.copy()
-        df_gandalf["true detected"] = y_true
-        df_gandalf["threshold detected"] = y_pred
+        df_gandalf["true mcal_galaxy"] = y_true
         df_gandalf["sampled mcal_galaxy"] = y_sampled
-        df_gandalf["probability detected raw"] = p_raw
-        df_gandalf["probability detected"] = p_for_sampling
+        df_gandalf["probability mcal_galaxy raw"] = p_raw
+        df_gandalf["probability mcal_galaxy"] = p_for_sampling
 
         acc = accuracy_score(y_true, y_sampled)
         self.gandalf_logger.log_info_stream(f"Accuracy (deterministic, thr={threshold:.3f}): {acc * 100:.2f}%")
+
+        if apply_calib:
+            os.makedirs(self.cfg["PATH_PLOTS"], exist_ok=True)
+            plot_reliability_uncal_vs_iso(
+                y_true,
+                p_raw,
+                p_cal,
+                title="Reliability: uncalibrated vs isotonic",
+                save_path=f"{self.cfg['PATH_PLOTS']}/{self.cfg['RUN_NUMBER']}reliability_uncal_vs_isotonic.png",
+                n_bins=20,
+                max_points=500_000,
+            )
+
         return df_gandalf, self.classifier_data
 
     def run_flow(self, data_frame=None):

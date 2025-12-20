@@ -4607,3 +4607,159 @@ def plot_rate_ratio_by_mag(
     if show_plot:
         plt.show()
     plt.close(fig)
+
+def reliability_curve_quantile(y, p, n_bins=20, min_count=500):
+    y = np.asarray(y).astype(float)
+    p = np.asarray(p).astype(float)
+
+    edges = np.quantile(p, np.linspace(0, 1, n_bins + 1))
+    edges = np.unique(edges)
+    if len(edges) < 3:
+        edges = np.linspace(0, 1, 3)
+
+    ids = np.digitize(p, edges) - 1
+    ids = np.clip(ids, 0, len(edges) - 2)
+
+    mean_p, frac_pos, counts = [], [], []
+    for b in range(len(edges) - 1):
+        m = (ids == b)
+        c = int(np.sum(m))
+        if c < min_count:
+            continue
+        mean_p.append(float(np.mean(p[m])))
+        frac_pos.append(float(np.mean(y[m])))
+        counts.append(c)
+
+    return np.array(mean_p), np.array(frac_pos), np.array(counts)
+
+def plot_reliability_uncal_vs_iso(y_true, p_raw, p_iso, *, title, save_path=None, n_bins=20, max_points=500_000):
+    y = np.asarray(y_true).astype(int)
+    p0 = np.asarray(p_raw).astype(float)
+    p1 = np.asarray(p_iso).astype(float)
+
+    # optional downsample für Speed
+    if max_points is not None and y.size > max_points:
+        rng = np.random.default_rng(123)
+        idx = rng.choice(y.size, size=int(max_points), replace=False)
+        y, p0, p1 = y[idx], p0[idx], p1[idx]
+
+    plt.figure()
+    plt.plot([0, 1], [0, 1])
+
+    m0, f0, _ = reliability_curve_quantile(y, p0, n_bins=n_bins, min_count=500)
+    m1, f1, _ = reliability_curve_quantile(y, p1, n_bins=n_bins, min_count=500)
+
+    plt.plot(m0, f0, marker="o", label="uncalibrated")
+    plt.plot(m1, f1, marker="o", label="isotonic")
+
+    plt.xlabel("Mean predicted probability")
+    plt.ylabel("Fraction of positives")
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=200)
+    plt.show()
+
+
+def plot_selection_rate_by_mag(
+    df,
+    *,
+    mag_col,
+    y_col="true mcal_galaxy",
+    p_raw_col="probability mcal_galaxy raw",
+    p_cal_col="probability mcal_galaxy",
+    sampled_col="sampled mcal_galaxy",
+    bin_width=0.5,
+    mag_range=None,
+    min_count=500,
+    show_sampled=True,
+    title=None,
+    save_path=None,
+    show_plot=False,
+):
+    # --- extract arrays ---
+    mag = np.asarray(df[mag_col], float)
+    y   = np.asarray(df[y_col], float)
+    p_raw = np.asarray(df[p_raw_col], float)
+    p_cal = np.asarray(df[p_cal_col], float)
+    s = np.asarray(df[sampled_col], float) if (show_sampled and sampled_col in df.columns) else None
+
+    # drop NaNs
+    mask = np.isfinite(mag) & np.isfinite(y) & np.isfinite(p_raw) & np.isfinite(p_cal)
+    if s is not None:
+        mask &= np.isfinite(s)
+    mag, y, p_raw, p_cal = mag[mask], y[mask], p_raw[mask], p_cal[mask]
+    if s is not None:
+        s = s[mask]
+
+    # clip probs for sanity
+    p_raw = np.clip(p_raw, 0.0, 1.0)
+    p_cal = np.clip(p_cal, 0.0, 1.0)
+
+    # bin edges
+    if mag_range is None:
+        lo = np.nanpercentile(mag, 0.5)
+        hi = np.nanpercentile(mag, 99.5)
+        mag_range = (float(lo), float(hi))
+
+    lo, hi = mag_range
+    edges = np.arange(lo, hi + bin_width, bin_width)
+    if len(edges) < 3:
+        raise ValueError("mag_range/bin_width give too few bins.")
+
+    # assign bins
+    bin_id = np.digitize(mag, edges) - 1
+    nb = len(edges) - 1
+
+    x = []
+    mean_y = []
+    mean_praw = []
+    mean_pcal = []
+    mean_s = []
+    counts = []
+
+    for b in range(nb):
+        m = (bin_id == b)
+        c = int(np.sum(m))
+        if c < min_count:
+            continue
+        counts.append(c)
+        x.append(0.5 * (edges[b] + edges[b+1]))
+        mean_y.append(float(np.mean(y[m])))
+        mean_praw.append(float(np.mean(p_raw[m])))
+        mean_pcal.append(float(np.mean(p_cal[m])))
+        if s is not None:
+            mean_s.append(float(np.mean(s[m])))
+
+    x = np.asarray(x)
+    mean_y = np.asarray(mean_y)
+    mean_praw = np.asarray(mean_praw)
+    mean_pcal = np.asarray(mean_pcal)
+    counts = np.asarray(counts)
+    if s is not None:
+        mean_s = np.asarray(mean_s)
+
+    plt.figure(figsize=(16, 9))
+    plt.plot(x, mean_y, marker="o", linestyle="-", label=r"$\langle y \rangle$ (true)")
+    plt.plot(x, mean_praw, marker="o", linestyle="-", label=r"$\langle p_{\rm raw}\rangle$")
+    plt.plot(x, mean_pcal, marker="o", linestyle="-", label=r"$\langle p_{\rm cal}\rangle$")
+
+    if s is not None:
+        plt.plot(x, mean_s, marker="o", linestyle="--", label=r"$\langle \mathrm{sampled}\rangle$")
+
+    plt.ylim(-0.02, 1.02)
+    plt.xlabel(mag_col)
+    plt.ylabel("Rate")
+    if title is None:
+        title = f"Selection rate vs magnitude (bin_width={bin_width}, min_count={min_count})"
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, alpha=0.2)
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=250)
+    if show_plot:
+        plt.show()
+    plt.close()

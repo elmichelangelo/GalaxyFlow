@@ -16,6 +16,7 @@ from Handler import (
     plot_balrog_histogram_with_error_and_detection,
     plot_rate_ratio_by_mag,
     plot_confusion_matrix,
+    plot_selection_rate_by_mag,
     plot_features,
     plot_binning_statistics_combined,
     plot_balrog_histogram_with_error,
@@ -25,6 +26,18 @@ from Handler import (
     run_flow_cuts,
     plot_balrog_histogram_with_error_and_detection_true_balrog
 )
+
+from gandalf_calibration_model.calibration_benchmark import (
+    collect_classifier_outputs, run_calibration_suite, run_covariate_sweep,
+    IdentityCalibrator, BetaCalibrator, IsotonicCalibrator,
+    MagAwarePlattCalibrator, MagBinnedWrapper
+)
+
+from gandalf_calibration_model.calibration_diagnostics import (
+    fit_and_predict_on_test, per_bin_metrics,
+    plot_reliability, plot_reliability_slices, add_delta_to_uncal, summarize_delta
+)
+
 from gandalf import gaNdalF
 import argparse
 import matplotlib.pyplot as plt
@@ -72,74 +85,154 @@ def load_config_and_parser(system_path):
 
     return config
 
+def print_brier_score(y_true, p_detect, *, name="Brier", clip_eps=1e-12, sample_weight=None):
+    """
+    Computes and prints the Brier score: mean((p - y)^2).
 
-def plot_classifier(cfg, df_gandalf):
+    Parameters
+    ----------
+    y_true : array-like
+        True labels, values in {0,1} (or bool).
+    p_detect : array-like
+        Predicted probabilities in [0,1].
+    name : str
+        Label for console output.
+    clip_eps : float
+        Clip probabilities to [clip_eps, 1-clip_eps] for numerical safety.
+    sample_weight : array-like or None
+        Optional weights per sample.
+
+    Returns
+    -------
+    brier : float
+        Brier score.
+    """
+    y = np.asarray(y_true)
+    p = np.asarray(p_detect, dtype=float)
+
+    # Flatten
+    y = y.reshape(-1)
+    p = p.reshape(-1)
+
+    if y.shape[0] != p.shape[0]:
+        raise ValueError(f"Length mismatch: y_true has {y.shape[0]}, p_detect has {p.shape[0]}")
+
+    # Drop NaNs (in either)
+    mask = np.isfinite(p) & np.isfinite(y)
+    y = y[mask]
+    p = p[mask]
+
+    # Convert bool -> int
+    if y.dtype == bool:
+        y = y.astype(int)
+
+    # Basic validation
+    uniq = np.unique(y)
+    if not np.all((uniq == 0) | (uniq == 1)):
+        raise ValueError(f"y_true must be 0/1 (or bool). Found unique values: {uniq[:20]}")
+
+    # Clip probabilities
+    p = np.clip(p, clip_eps, 1.0 - clip_eps)
+
+    # Weights
+    if sample_weight is None:
+        brier = float(np.mean((p - y) ** 2))
+        n_eff = y.size
+    else:
+        w = np.asarray(sample_weight).reshape(-1)[mask]
+        if w.shape[0] != y.shape[0]:
+            raise ValueError("sample_weight length mismatch after NaN filtering.")
+        w = np.clip(w, 0.0, np.inf)
+        if w.sum() == 0:
+            raise ValueError("sample_weight sums to zero.")
+        brier = float(np.sum(w * (p - y) ** 2) / np.sum(w))
+        n_eff = float((np.sum(w) ** 2) / np.sum(w ** 2))  # effective sample size (Kish)
+
+    pos_rate = float(np.mean(y))
+    mse = brier  # identical here
+
+    print(f"[{name}]")
+    print(f"  N used          : {y.size} (N_eff≈{n_eff:.1f})")
+    print(f"  Positive rate   : {pos_rate:.6f}")
+    print(f"  Brier score     : {brier:.8f}")
+    print(f"  (lower is better; perfect = 0)")
+
+    return brier
+
+
+def plot_classifier(cfg, logger, df_gandalf):
     if cfg["SAVE_PLOT"] is True:
+        logger.log_info_stream(f"Create Plots Folder")
         os.makedirs(cfg["PATH_PLOTS"], exist_ok=True)
 
-    plot_confusion_matrix(
-        df_gandalf=df_gandalf,
-        # df_balrog=df_balrog,
-        y_true_col="mcal_galaxy",
-        y_pred_col="sampled mcal_galaxy",
-        show_plot=cfg['SHOW_PLOT'],
-        save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}thr_confusion_matrix.png",
-        title=f"Confusion Matrix"
-    )
+    if cfg["PLOT_CLASSIFIER_INPUT"] is True:
+        try:
+            plot_features_single(
+                cfg=cfg,
+                df_gandalf=df_gandalf,
+                columns=cfg["INPUT_COLS"],
+                title_prefix=f"Classifier Input Columns",
+                savename=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}feature_input_classifier.pdf"
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot classifier input columns: {e}")
 
-    plot_confusion_matrix(
-        df_gandalf=df_gandalf,
-        # df_balrog=df_balrog,
-        y_true_col="mcal_galaxy",
-        y_pred_col="sampled mcal_galaxy",
-        show_plot=cfg['SHOW_PLOT'],
-        save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}smpl_confusion_matrix.png",
-        title=f"Confusion Matrix"
-    )
+    # if cfg["PLOT_CONFUSION_MATRIX"] is True:
+    #     try:
+    #         plot_confusion_matrix(
+    #             df_gandalf=df_gandalf,
+    #             y_true_col="mcal_galaxy",
+    #             y_pred_col="sampled mcal_galaxy",
+    #             show_plot=cfg['SHOW_PLOT'],
+    #             save_plot=cfg['SAVE_PLOT'],
+    #             save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}confusion_matrix.png",
+    #             title=f"Confusion Matrix"
+    #         )
+    #     except Exception as e:
+    #         logger.log_error(f"Error plot confusion matrix: {e}")
 
-    plot_roc_curve_gandalf(
-        df_gandalf=df_gandalf,
-        # df_balrog=df_balrog,
-        y_true_col="mcal_galaxy",
-        y_pred_col="sampled mcal_galaxy",
-        show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}thr_roc_curve.pdf",
-        title=f"Receiver Operating Characteristic (ROC) Curve threshold",
-    )
+    # if cfg["PLOT_ROC_CURVE"] is True:
+    #     try:
+    #         plot_roc_curve_gandalf(
+    #             df_gandalf=df_gandalf,
+    #             y_true_col="mcal_galaxy",
+    #             y_pred_col="sampled mcal_galaxy",
+    #             show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
+    #             save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}roc_curve.pdf",
+    #             title=f"Receiver Operating Characteristic (ROC) Curve threshold",
+    #         )
+    #     except Exception as e:
+    #         logger.log_error(f"Error plot roc curve: {e}")
 
-    plot_roc_curve_gandalf(
-        df_gandalf=df_gandalf,
-        # df_balrog=df_balrog,
-        y_true_col="mcal_galaxy",
-        y_pred_col="sampled mcal_galaxy",
-        show_plot=cfg['SHOW_PLOT'], save_plot=cfg['SAVE_PLOT'],
-        save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}smpl_roc_curve.pdf",
-        title=f"Receiver Operating Characteristic (ROC) Curve sample",
-    )
+    # if cfg["PLOT_RATE_RATIO"] is True:
+    #     try:
+    #         plot_rate_ratio_by_mag(
+    #             mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
+    #             y_true=df_gandalf["mcal_galaxy"].to_numpy().astype(int).ravel(),
+    #             probs_raw=df_gandalf["sampled mcal_galaxy"].to_numpy(float),
+    #             calibrated=False,
+    #             bin_width=1,
+    #             mag_label="BDF_MAG_DERED_CALIB_Z",
+    #             show_density_ratio=False,
+    #             save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}rate_ratio.pdf"
+    #         )
+    #     except Exception as e:
+    #         logger.log_error(f"Error plot rate ratio: {e}")
 
-    # plot_rate_ratio_by_mag(
-    #     mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
-    #     y_true=df_gandalf["mcal_galaxy"].to_numpy().astype(int).ravel(),
-    #     probs_raw=df_gandalf["sampled mcal_galaxy"].to_numpy(float),
-    #     calibrated=False,
-    #     bin_width=1,
-    #     mag_label="BDF_MAG_DERED_CALIB_Z",
-    #     show_density_ratio=False,
-    #     save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}thr_rate_ratio_raw_only.pdf"
-    # )
-    #
-    # plot_rate_ratio_by_mag(
-    #     mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
-    #     y_true=df_gandalf["mcal_galaxy"].to_numpy().astype(int).ravel(),
-    #     probs_raw=df_gandalf["sampled mcal_galaxy"].to_numpy(float),
-    #     calibrated=False,
-    #     bin_width=1,
-    #     mag_label="BDF_MAG_DERED_CALIB_Z",
-    #     show_density_ratio=False,
-    #     save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}smpl_rate_ratio_raw_only.pdf"
-    # )
+    if cfg.get("PLOT_RATE_RATIO", False):  # oder neues Flag
+        try:
+            plot_selection_rate_by_mag(
+                df_gandalf,
+                mag_col=cfg.get("MAG_COL", "BDF_MAG_DERED_CALIB_I"),
+                bin_width=0.5,
+                min_count=2000,
+                show_sampled=True,
+                save_path=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}selection_rate_by_mag.png",
+                show_plot=cfg["SHOW_PLOT"],
+                title="Selection rate per mag-bin: <y> vs <p_raw> vs <p_cal> (+ <sampled>)",
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot rate ratio: {e}")
 
 
 def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
@@ -441,23 +534,17 @@ def main(cfg, logger):
     # Init gaNdalF model
     model = gaNdalF(logger, cfg=cfg)
 
-    # plot_compare_true_wide_histogram(
-    #     cfg=cfg,
-    #     df_gandalf_selected=None,
-    #     df_balrog_selected=None
-    # )
-
     # Init Classifier model from gaNdalF
     model.init_classifier()
 
     # Scale input data for gaNdalF run
     logger.log_info_stream(f"Scale classifier data")
+
     model.classifier_galaxies.scale_data(
         cfg_key_cols_interest="COLUMNS_OF_INTEREST_CF",
         cfg_key_filename_scaler="FILENAME_STANDARD_SCALER_CF",
     )
 
-    # Run gaNdalF classifier
     df_gandalf, df_balrog = model.run_classifier()
 
     # add new gaNdalF ID
@@ -482,24 +569,13 @@ def main(cfg, logger):
     logger.log_info_stream(f"Inverse scale classifier data")
     df_gandalf = model.classifier_galaxies.inverse_scale_data(df_gandalf)
     df_balrog = model.classifier_galaxies.inverse_scale_data(df_balrog)
+    print_brier_score(df_gandalf["true mcal_galaxy"], df_gandalf["probability mcal_galaxy"], name="Detection probability")
 
-    if cfg["CHECK_INPUT_PLOT"] is True:
-        logger.log_info_stream(f"Plot input columns")
-        os.makedirs(cfg['PATH_PLOTS'], exist_ok=True)
-        try:
-            plot_features_single(
-                cfg=cfg,
-                df_gandalf=df_gandalf,
-                columns=cfg["INPUT_COLS"],
-                title_prefix=f"Classifier Input Columns",
-                savename=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}feature_input_classifier.pdf"
-            )
-            plot_classifier(
-                cfg=cfg,
-                df_gandalf=df_gandalf,
-            )
-        except Exception as e:
-            logger.log_error(f"Error plot classifier: {e}")
+    plot_classifier(
+        cfg=cfg,
+        logger=logger,
+        df_gandalf=df_gandalf,
+    )
 
     if cfg["SAVE_CLF_DATA"] is True:
         logger.log_info_stream(f"Save classifier data")
@@ -511,6 +587,10 @@ def main(cfg, logger):
             cfg=cfg,
             df=df_balrog,
             filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}balrog_Classified.pkl")
+
+    if cfg["STOP_AFTER_CLASSIFIER"] is True:
+        logger.log_info_stream(f"Stop run after classifier was done!")
+        sys.exit()
 
     model.init_flow(
         data_frame=df_gandalf,
