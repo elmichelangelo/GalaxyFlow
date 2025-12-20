@@ -338,8 +338,8 @@ class gaNdalF(object):
         try:
             flow_detected = df_gandalf_input[df_gandalf_input[self.cfg["DETECTION_TYPE"]]==1].copy()
         except KeyError:
-            self.gandalf_logger.log_info_stream(f"using detected instead if {self.cfg["DETECTION_TYPE"]} due to key error")
-            self.gandalf_logger.log_error(f"using detected instead if {self.cfg["DETECTION_TYPE"]} due to key error")
+            self.gandalf_logger.log_info_stream(f"using detected instead if {self.cfg['DETECTION_TYPE']} due to key error")
+            self.gandalf_logger.log_error(f"using detected instead if {self.cfg['DETECTION_TYPE']} due to key error")
             flow_detected = df_gandalf_input[df_gandalf_input["detected"] == 1].copy()
 
         input_data = torch.tensor(flow_detected[self.cfg["INPUT_COLS"]].values, dtype=torch.float32)
