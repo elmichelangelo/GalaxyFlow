@@ -232,10 +232,10 @@ class gaNdalF(object):
         model.eval()
         self.gandalf_logger.log_info_stream(
             f"Flow model initialized "
-            f"number hidden = {self.cfg["NUMBER_HIDDEN"]}; "
-            f"number layers = {self.cfg["NUMBER_LAYERS"]}; "
-            f"act_name = {self.cfg["ACTIVATION_FUNCTION_NF"]}; "
-            f"number blocks = {self.cfg["NUMBER_BLOCKS"]}"
+            f"number hidden = {self.cfg['NUMBER_HIDDEN']}; "
+            f"number layers = {self.cfg['NUMBER_LAYERS']}; "
+            f"act_name = {self.cfg['ACTIVATION_FUNCTION_NF']}; "
+            f"number blocks = {self.cfg['NUMBER_BLOCKS']}"
         )
         return model
 
