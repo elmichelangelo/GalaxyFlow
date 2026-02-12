@@ -400,7 +400,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             save_plot=cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv.pdf",
             sample_size=100000,  # None,
-            x_range=(20, 25),
+            x_range=(18, 27.5),
             title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison"
         )
 

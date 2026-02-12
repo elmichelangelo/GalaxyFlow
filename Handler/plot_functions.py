@@ -2884,13 +2884,13 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
     for i, col in enumerate(columns.keys()):
         df_detected = pd.DataFrame({
             f"{col}": df_gandalf_detected_sample[col].to_list() + df_balrog_detected_sample[col].to_list(),
-            f"BDF_MAG_DERED_CALIB_R": df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list() + df_balrog_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list(),
+            f"BDF_MAG_DERED_CALIB_I": df_gandalf_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list() + df_balrog_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list(),
             f"Catalog": ["gaNdalF" for _ in range(len(df_gandalf_detected_sample[col]))] + ["Balrog" for _ in range(len(df_balrog_detected_sample[col]))],
         })
 
         df_not_detected = pd.DataFrame({
             f"{col}": df_gandalf_not_detected_sample[col].to_list() + df_balrog_not_detected_sample[col].to_list(),
-            f"BDF_MAG_DERED_CALIB_R": df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list() + df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_R"].to_list(),
+            f"BDF_MAG_DERED_CALIB_I": df_gandalf_not_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list() + df_balrog_not_detected_sample["BDF_MAG_DERED_CALIB_I"].to_list(),
             f"Catalog": ["gaNdalF" for _ in range(len(df_gandalf_not_detected_sample[col]))] + ["Balrog" for _ in range(len(df_balrog_not_detected_sample[col]))],
         })
 
@@ -2910,7 +2910,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         try:
             sns.kdeplot(
                 data=df_detected,
-                x=f"BDF_MAG_DERED_CALIB_R",
+                x=f"BDF_MAG_DERED_CALIB_I",
                 y=f"{col}",
                 hue="Catalog",
                 ax=ax,
@@ -2929,7 +2929,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         try:
             sns.kdeplot(
                 data=df_not_detected,
-                x=f"BDF_MAG_DERED_CALIB_R",
+                x=f"BDF_MAG_DERED_CALIB_I",
                 y=f"{col}",
                 hue="Catalog",
                 ax=ax,
@@ -2950,10 +2950,10 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
 
         # Add axis labels only to the bottom row subplots
         if train_plot is True:
-            ax.set_xlabel('BDF Mag R')  # , fontsize=font_size_label
+            ax.set_xlabel('BDF Mag I')  # , fontsize=font_size_label
         else:
             if i >= len(axes) - num_cols:
-                ax.set_xlabel('BDF Mag R') # , fontsize=font_size_label
+                ax.set_xlabel('BDF Mag I') # , fontsize=font_size_label
 
         # Remove any unused subplots
     if train_plot is False:
