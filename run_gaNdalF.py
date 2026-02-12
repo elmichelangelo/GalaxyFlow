@@ -682,11 +682,25 @@ def main(cfg, logger):
     logger.log_info_stream(f"Merge flow catalog")
     df_merged = df_gandalf_selected.merge(df_gandalf_injection_counts, how="left", on="gandalf_id")
 
-    logger.log_info_stream(f"Save flow catalog")
-    save_catalogs(
-        cfg=cfg,
-        df=df_merged,
-        filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}gandalf_Emulated_Classified_{cfg['NUMBER_SAMPLES']}_{len(df_merged)}.h5")
+    if cfg["SAVE_FLW_DATA"] is True:
+        logger.log_info_stream(f"Save flow catalog")
+        if cfg["SAVE_FLW_H5"] is True:
+            logger.log_info_stream(f"Save flow catalog as h5")
+            save_catalogs(
+                cfg=cfg,
+                df=df_merged,
+                filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}gandalf_Emulated_Classified_{cfg['NUMBER_SAMPLES']}_{len(df_merged)}.h5")
+        else:
+            logger.log_info_stream(f"Save flow catalog as pkl")
+            save_catalogs(
+                cfg=cfg,
+                df=df_merged,
+                filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}gandalf_Emulated_Classified_{cfg['NUMBER_SAMPLES']}_{len(df_merged)}.pkl")
+            save_catalogs(
+                cfg=cfg,
+                df=df_balrog_selected,
+                filename=f"{cfg['RUN_DATE']}_{cfg['RUN_NUMBER']}balrog_Emulated_Classified_{cfg['NUMBER_SAMPLES']}_{len(df_balrog_selected)}.pkl")
+
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
