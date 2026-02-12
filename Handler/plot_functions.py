@@ -1732,12 +1732,12 @@ def plot_number_density_fluctuation(
     # Create subsets for detected and not detected objects
     # ----------------------------------------------------------------------
     if calibrated is True:
-        gandalf_detection_flag = "detected"
+        gandalf_detection_flag = "sampled mcal_galaxy"
     else:
-        gandalf_detection_flag = "detected non calibrated"
-    df_balrog_detected = df_balrog[df_balrog["detected"] == 1]
+        gandalf_detection_flag = "sampled mcal_galaxy raw"
+    df_balrog_detected = df_balrog[df_balrog["mcal_galaxy"] == 1]
     df_gandalf_detected = df_gandalf[df_gandalf[gandalf_detection_flag] == 1]
-    df_balrog_not_detected = df_balrog[df_balrog["detected"] == 0]
+    df_balrog_not_detected = df_balrog[df_balrog["mcal_galaxy"] == 0]
     df_gandalf_not_detected = df_gandalf[df_gandalf[gandalf_detection_flag] == 0]
 
     # ----------------------------------------------------------------------
@@ -1848,7 +1848,7 @@ def plot_number_density_fluctuation(
             fluct_balrog_detected,
             color=color_marker_balrog_detected[0],
             marker=color_marker_balrog_detected[1],
-            label="Balrog detected",
+            label="Balrog selected",
             linewidth=2,  # Line width
             markersize=8,  # Marker size
             # alpha=0.5
@@ -1858,7 +1858,7 @@ def plot_number_density_fluctuation(
             fluct_gandalf_detected,
             color=color_marker_gandalf_detected[0],
             marker=color_marker_gandalf_detected[1],
-            label="gaNdalF detected",
+            label="gaNdalF selected",
             linewidth=2,  # Line width
             markersize=8,  # Marker size
             # alpha=0.5
@@ -1868,7 +1868,7 @@ def plot_number_density_fluctuation(
             fluct_balrog_not_detected,
             color=color_marker_gandalf_not_detected[0],
             marker=color_marker_gandalf_not_detected[1],
-            label="Balrog non-detected",
+            label="Balrog non-selected",
             linewidth=2,  # Line width
             markersize=8,  # Marker size
             alpha=0.5
@@ -1878,7 +1878,7 @@ def plot_number_density_fluctuation(
             fluct_gandalf_not_detected,
             color=color_marker_balrog_not_detected[0],
             marker=color_marker_balrog_not_detected[1],
-            label="gaNdalF non-detected",
+            label="gaNdalF non-selected",
             linewidth=2,  # Line width
             markersize=8,  # Marker size
             alpha=0.5
@@ -1899,7 +1899,7 @@ def plot_number_density_fluctuation(
             color=color_marker_difference_detected[0],
             marker=color_marker_difference_detected[1],
             # alpha=0.5,
-            label="Relative Percentage Difference detected"
+            label="Relative Percentage Difference selected"
         )
         ax_diff.plot(
             bin_centers,
@@ -1907,7 +1907,7 @@ def plot_number_density_fluctuation(
             color=color_marker_difference_not_detected[0],
             marker=color_marker_difference_not_detected[1],
             alpha=0.5,
-            label="Relative Percentage Difference non-detected"
+            label="Relative Percentage Difference non-selected"
         )
 
         # Draw a horizontal line at 0 to highlight no difference
@@ -2923,7 +2923,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
             )
 
         except Exception as e:
-            print(f"An error occurred with plotting seaborn gandalf detected: {e}")
+            print(f"An error occurred with plotting seaborn gandalf selected: {e}")
 
         # Plot contours
         try:
@@ -2942,7 +2942,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
             )
 
         except Exception as e:
-            print(f"An error occurred with plotting seaborn gandalf not detected: {e}")
+            print(f"An error occurred with plotting seaborn gandalf not selected: {e}")
 
         ax.set_xlim(x_range)
         ax.set_ylim(y_range)
@@ -2962,10 +2962,10 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
 
     # Customize layout and legend
     legend_elements = [
-        Line2D([0], [0], color=color_gandalf_detected, lw=plot_linewidth, alpha=0.5, linestyle='-', label='gaNdalF detected'),
-        Line2D([0], [0], color=color_balrog_detected, lw=plot_linewidth, alpha=0.5, linestyle='-', label='Balrog detected'),
-        mpatches.Patch(color=color_gandalf_not_detected, alpha=0.5, label='gaNdalF non-detected'),
-        mpatches.Patch(color=color_balrog_not_detected, alpha=0.5, label='Balrog non-detected')
+        Line2D([0], [0], color=color_gandalf_detected, lw=plot_linewidth, alpha=0.5, linestyle='-', label='gaNdalF selected'),
+        Line2D([0], [0], color=color_balrog_detected, lw=plot_linewidth, alpha=0.5, linestyle='-', label='Balrog selected'),
+        mpatches.Patch(color=color_gandalf_not_detected, alpha=0.5, label='gaNdalF non-selected'),
+        mpatches.Patch(color=color_balrog_not_detected, alpha=0.5, label='Balrog non-selected')
     ]
 
     fig.legend(
@@ -4632,7 +4632,7 @@ def reliability_curve_quantile(y, p, n_bins=20, min_count=500):
 
     return np.array(mean_p), np.array(frac_pos), np.array(counts)
 
-def plot_reliability_uncal_vs_iso(y_true, p_raw, p_iso, *, title, save_path=None, n_bins=20, max_points=500_000):
+def plot_reliability_uncal_vs_iso(y_true, p_raw, p_iso, *, title, save_path=None, save_plot=True, show_plot=False, n_bins=20, max_points=500_000):
     y = np.asarray(y_true).astype(int)
     p0 = np.asarray(p_raw).astype(float)
     p1 = np.asarray(p_iso).astype(float)
@@ -4657,9 +4657,10 @@ def plot_reliability_uncal_vs_iso(y_true, p_raw, p_iso, *, title, save_path=None
     plt.title(title)
     plt.legend()
     plt.tight_layout()
-    if save_path:
+    if save_plot is True:
         plt.savefig(save_path, dpi=200)
-    plt.show()
+    if show_plot is True:
+        plt.show()
 
 
 def plot_selection_rate_by_mag(
@@ -4745,8 +4746,8 @@ def plot_selection_rate_by_mag(
     plt.plot(x, mean_praw, marker="o", linestyle="-", label=r"$\langle p_{\rm raw}\rangle$")
     plt.plot(x, mean_pcal, marker="o", linestyle="-", label=r"$\langle p_{\rm cal}\rangle$")
 
-    if s is not None:
-        plt.plot(x, mean_s, marker="o", linestyle="--", label=r"$\langle \mathrm{sampled}\rangle$")
+    # if s is not None:
+    #     plt.plot(x, mean_s, marker="o", linestyle="--", label=r"$\langle \mathrm{sampled}\rangle$")
 
     plt.ylim(-0.02, 1.02)
     plt.xlabel(mag_col)

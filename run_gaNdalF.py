@@ -22,6 +22,7 @@ from Handler import (
     plot_balrog_histogram_with_error,
     plot_features_compare,
     plot_compare_corner,
+    plot_reliability_uncal_vs_iso,
     compute_injection_counts,
     run_flow_cuts,
     plot_balrog_histogram_with_error_and_detection_true_balrog
@@ -177,19 +178,19 @@ def plot_classifier(cfg, logger, df_gandalf):
         except Exception as e:
             logger.log_error(f"Error plot classifier input columns: {e}")
 
-    # if cfg["PLOT_CONFUSION_MATRIX"] is True:
-    #     try:
-    #         plot_confusion_matrix(
-    #             df_gandalf=df_gandalf,
-    #             y_true_col="mcal_galaxy",
-    #             y_pred_col="sampled mcal_galaxy",
-    #             show_plot=cfg['SHOW_PLOT'],
-    #             save_plot=cfg['SAVE_PLOT'],
-    #             save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}confusion_matrix.png",
-    #             title=f"Confusion Matrix"
-    #         )
-    #     except Exception as e:
-    #         logger.log_error(f"Error plot confusion matrix: {e}")
+    if cfg["PLOT_CONFUSION_MATRIX"] is True:
+        try:
+            plot_confusion_matrix(
+                df_gandalf=df_gandalf,
+                y_true_col="mcal_galaxy",
+                y_pred_col="sampled mcal_galaxy",
+                show_plot=cfg['SHOW_PLOT'],
+                save_plot=cfg['SAVE_PLOT'],
+                save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}confusion_matrix.pdf",
+                title=f"Confusion Matrix"
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot confusion matrix: {e}")
 
     # if cfg["PLOT_ROC_CURVE"] is True:
     #     try:
@@ -204,21 +205,6 @@ def plot_classifier(cfg, logger, df_gandalf):
     #     except Exception as e:
     #         logger.log_error(f"Error plot roc curve: {e}")
 
-    # if cfg["PLOT_RATE_RATIO"] is True:
-    #     try:
-    #         plot_rate_ratio_by_mag(
-    #             mag=df_gandalf["BDF_MAG_DERED_CALIB_Z"].to_numpy(float),
-    #             y_true=df_gandalf["mcal_galaxy"].to_numpy().astype(int).ravel(),
-    #             probs_raw=df_gandalf["sampled mcal_galaxy"].to_numpy(float),
-    #             calibrated=False,
-    #             bin_width=1,
-    #             mag_label="BDF_MAG_DERED_CALIB_Z",
-    #             show_density_ratio=False,
-    #             save_name=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}rate_ratio.pdf"
-    #         )
-    #     except Exception as e:
-    #         logger.log_error(f"Error plot rate ratio: {e}")
-
     if cfg.get("PLOT_RATE_RATIO", False):  # oder neues Flag
         try:
             plot_selection_rate_by_mag(
@@ -227,12 +213,28 @@ def plot_classifier(cfg, logger, df_gandalf):
                 bin_width=0.5,
                 min_count=2000,
                 show_sampled=True,
-                save_path=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}selection_rate_by_mag.png",
+                save_path=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}selection_rate_by_mag.pdf",
                 show_plot=cfg["SHOW_PLOT"],
                 title="Selection rate per mag-bin: <y> vs <p_raw> vs <p_cal> (+ <sampled>)",
             )
         except Exception as e:
             logger.log_error(f"Error plot rate ratio: {e}")
+
+    if cfg.get("PLOT_RELIABILITY_ISO", False):
+        try:
+            plot_reliability_uncal_vs_iso(
+                df_gandalf["true mcal_galaxy"],
+                df_gandalf["probability mcal_galaxy raw"],
+                df_gandalf["probability mcal_galaxy"],
+                title="Reliability: uncalibrated vs isotonic",
+                save_path=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}reliability_uncal_vs_isotonic.pdf",
+                save_plot=cfg["SAVE_PLOT"],
+                show_plot=cfg["SHOW_PLOT"],
+                n_bins=20,
+                max_points=500_000,
+            )
+        except Exception as e:
+            logger.log_error(f"Error plot reliability iso: {e}")
 
 
 def plot_flow(cfg, logger, df_gandalf, df_balrog, prefix=""):
@@ -571,11 +573,12 @@ def main(cfg, logger):
     df_balrog = model.classifier_galaxies.inverse_scale_data(df_balrog)
     print_brier_score(df_gandalf["true mcal_galaxy"], df_gandalf["probability mcal_galaxy"], name="Detection probability")
 
-    plot_classifier(
-        cfg=cfg,
-        logger=logger,
-        df_gandalf=df_gandalf,
-    )
+    if cfg["PLOT_CLASSIFIER"] is True:
+        plot_classifier(
+            cfg=cfg,
+            logger=logger,
+            df_gandalf=df_gandalf,
+        )
 
     if cfg["SAVE_CLF_DATA"] is True:
         logger.log_info_stream(f"Save classifier data")

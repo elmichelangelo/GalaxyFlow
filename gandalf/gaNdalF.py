@@ -314,17 +314,17 @@ class gaNdalF(object):
         acc = accuracy_score(y_true, y_sampled)
         self.gandalf_logger.log_info_stream(f"Accuracy (deterministic, thr={threshold:.3f}): {acc * 100:.2f}%")
 
-        if apply_calib:
-            os.makedirs(self.cfg["PATH_PLOTS"], exist_ok=True)
-            plot_reliability_uncal_vs_iso(
-                y_true,
-                p_raw,
-                p_cal,
-                title="Reliability: uncalibrated vs isotonic",
-                save_path=f"{self.cfg['PATH_PLOTS']}/{self.cfg['RUN_NUMBER']}reliability_uncal_vs_isotonic.png",
-                n_bins=20,
-                max_points=500_000,
-            )
+        # if apply_calib:
+        #     os.makedirs(self.cfg["PATH_PLOTS"], exist_ok=True)
+        #     plot_reliability_uncal_vs_iso(
+        #         y_true,
+        #         p_raw,
+        #         p_cal,
+        #         title="Reliability: uncalibrated vs isotonic",
+        #         save_path=f"{self.cfg['PATH_PLOTS']}/{self.cfg['RUN_NUMBER']}reliability_uncal_vs_isotonic.pdf",
+        #         n_bins=20,
+        #         max_points=500_000,
+        #     )
 
         return df_gandalf, self.classifier_data
 

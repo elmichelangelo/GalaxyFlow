@@ -298,14 +298,14 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
     df_balrog_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_BALROG']}")
     df_gandalf_clf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_GANDALF']}")
 
-    detection_rate_balrog = df_balrog_clf["detected"].mean()
-    detection_rate_gandalf = df_gandalf_clf["sampled detected"].mean()
+    detection_rate_balrog = df_balrog_clf["mcal_galaxy"].mean()
+    detection_rate_gandalf = df_gandalf_clf["sampled mcal_galaxy"].mean()
 
-    n_detected_balrog = df_balrog_clf["detected"].sum()
-    n_detected_gandalf = df_gandalf_clf["sampled detected"].sum()
+    n_detected_balrog = df_balrog_clf["mcal_galaxy"].sum()
+    n_detected_gandalf = df_gandalf_clf["sampled mcal_galaxy"].sum()
 
-    print(f"Balrog detection rate: {detection_rate_balrog:.4f} ({n_detected_balrog} / {len(df_balrog_clf)})")
-    print(f"gaNdalF detection rate: {detection_rate_gandalf:.4f} ({n_detected_gandalf} / {len(df_gandalf_clf)})")
+    print(f"Balrog selection rate: {detection_rate_balrog:.4f} ({n_detected_balrog} / {len(df_balrog_clf)})")
+    print(f"gaNdalF selection rate: {detection_rate_gandalf:.4f} ({n_detected_gandalf} / {len(df_gandalf_clf)})")
 
     df_balrog_clf_deep_cut = df_balrog_clf
     df_gandalf_clf_deep_cut = df_gandalf_clf
@@ -320,14 +320,14 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
 
     if cfg["PLT_FIG_1"] is True:
         plot_multivariate_clf(
-            df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 1],
-            df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled detected'] == 1],
-            df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['detected'] == 0],
-            df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled detected'] == 0],
+            df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['mcal_galaxy'] == 1],
+            df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled mcal_galaxy'] == 1],
+            df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['mcal_galaxy'] == 0],
+            df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled mcal_galaxy'] == 0],
             columns={
                     "BDF_MAG_DERED_CALIB_R": {
                         "label": "BDF Mag R",
-                        "range": [17.5, 26.5],
+                        "range": [20, 25],
                         "position": [0, 0]
                     },
                     "BDF_MAG_DERED_CALIB_Z": {
@@ -400,7 +400,7 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
             save_plot=cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv.pdf",
             sample_size=100000,  # None,
-            x_range=(17.5, 26.5),
+            x_range=(20, 25),
             title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison"
         )
 
@@ -702,22 +702,25 @@ def main(cfg, path_data, path_master_cat, path_gandalf_odet, filename_flw_balrog
             df_clf_balrog = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_BALROG']}")
             df_clf_gandalf = pd.read_pickle(f"{cfg['PATH_DATA']}/{cfg['FILENAME_CLF_GANDALF']}")
 
-            df_balrog_clf_deep_cut = apply_deep_cuts(
-                path_master_cat=path_master_cat,
-                data_frame=df_clf_balrog
-            )
-            df_gandalf_clf_deep_cut = apply_deep_cuts(
-                path_master_cat=path_master_cat,
-                data_frame=df_clf_gandalf
-            )
+            df_balrog_clf_deep_cut = df_clf_balrog
+            df_gandalf_clf_deep_cut = df_clf_gandalf
+
+            # df_balrog_clf_deep_cut = apply_deep_cuts(
+            #     path_master_cat=path_master_cat,
+            #     data_frame=df_clf_balrog
+            # )
+            # df_gandalf_clf_deep_cut = apply_deep_cuts(
+            #     path_master_cat=path_master_cat,
+            #     data_frame=df_clf_gandalf
+            # )
 
             if cfg["CALC_METRIC_DET"] is True:
-                df_clf_balrog_detected = df_balrog_clf_deep_cut[df_balrog_clf_deep_cut["detected"] == 1]
-                df_clf_gandalf_detected = df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut["detected"] == 1]
+                df_clf_balrog_detected = df_balrog_clf_deep_cut[df_balrog_clf_deep_cut["mcal_galaxy"] == 1]
+                df_clf_gandalf_detected = df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut["sampled mcal_galaxy"] == 1]
 
             if cfg["CALC_METRIC_NOT_DET"] is True:
-                df_clf_balrog_not_detected = df_balrog_clf_deep_cut[df_balrog_clf_deep_cut["detected"] == 0]
-                df_clf_gandalf_not_detected = df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut["detected"] == 0]
+                df_clf_balrog_not_detected = df_balrog_clf_deep_cut[df_balrog_clf_deep_cut["mcal_galaxy"] == 0]
+                df_clf_gandalf_not_detected = df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut["sampled mcal_galaxy"] == 0]
 
             del df_clf_balrog, df_clf_gandalf
 
