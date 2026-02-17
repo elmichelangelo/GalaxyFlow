@@ -4746,16 +4746,13 @@ def plot_selection_rate_by_mag(
     plt.plot(x, mean_praw, marker="o", linestyle="-", label=r"$\langle p_{\rm raw}\rangle$")
     plt.plot(x, mean_pcal, marker="o", linestyle="-", label=r"$\langle p_{\rm cal}\rangle$")
 
-    # if s is not None:
-    #     plt.plot(x, mean_s, marker="o", linestyle="--", label=r"$\langle \mathrm{sampled}\rangle$")
-
     plt.ylim(-0.02, 1.02)
-    plt.xlabel(mag_col)
-    plt.ylabel("Rate")
+    plt.xlabel(mag_col, fontsize=18)
+    plt.ylabel("Rate", fontsize=18)
     if title is None:
         title = f"Selection rate vs magnitude (bin_width={bin_width}, min_count={min_count})"
-    plt.title(title)
-    plt.legend()
+    plt.title(title, fontsize=18, fontweight="bold")
+    plt.legend(fontsize=16)
     plt.grid(True, alpha=0.2)
     plt.tight_layout()
 

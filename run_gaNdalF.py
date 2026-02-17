@@ -215,7 +215,7 @@ def plot_classifier(cfg, logger, df_gandalf):
                 show_sampled=True,
                 save_path=f"{cfg['PATH_PLOTS']}/{cfg['RUN_NUMBER']}selection_rate_by_mag.pdf",
                 show_plot=cfg["SHOW_PLOT"],
-                title="Selection rate per mag-bin: <y> vs <p_raw> vs <p_cal> (+ <sampled>)",
+                title="Selection rate per mag-bin",
             )
         except Exception as e:
             logger.log_error(f"Error plot rate ratio: {e}")

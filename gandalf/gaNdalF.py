@@ -111,7 +111,8 @@ class gaNdalF(object):
                 self.iso_cal = None
                 return
 
-            cal = joblib.load(cal_path)
+            with open(cal_path, "rb") as f:
+                cal = pickle.load(f)
 
             # optional: temperature falls du es weiterhin drin hast
             self.T_cal = float(cal.get("temperature", 1.0))
