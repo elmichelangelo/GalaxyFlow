@@ -61,7 +61,7 @@ class gaNdalF(object):
         self.classifier_model = None
         self.classifier_data = None
         self.T_cal = 1.0
-        self.iso_cal = None  # IsotonicRegression
+        # self.iso_cal = None  # IsotonicRegression
 
         self.flow_galaxies = None
         self.flow_model = None
@@ -99,47 +99,28 @@ class gaNdalF(object):
 
     def _load_calibration(self):
         try:
-            self.gandalf_logger.log_info_stream(
-                f"Load calibration model {self.cfg['FILENAME_CALIBRATION_ARTIFACTS']}"
-            )
-            cal_path = os.path.join(self.cfg["PATH_TRAINED_NN"], self.cfg["FILENAME_CALIBRATION_ARTIFACTS"])
+            fname = self.cfg["FILENAME_CALIBRATION_ARTIFACTS"]
+            self.gandalf_logger.log_info_stream(f"Load calibration model {fname}")
+
+            cal_path = os.path.join(self.cfg["PATH_TRAINED_NN"], fname)
 
             if not os.path.exists(cal_path):
-                self.gandalf_logger.log_info_stream("No calibration file found – using raw probabilities.")
                 self.gandalf_logger.log_error("No calibration file found – using raw probabilities.")
-                self.T_cal = 1.0
-                self.iso_cal = None
+                self.iso_x = None
+                self.iso_y = None
                 return
 
-            with open(cal_path, "rb") as f:
-                cal = pickle.load(f)
+            d = np.load(cal_path, allow_pickle=True)
+            self.iso_x = d["x"].astype(np.float64)
+            self.iso_y = d["y"].astype(np.float64)
 
-            # optional: temperature falls du es weiterhin drin hast
-            self.T_cal = float(cal.get("temperature", 1.0))
-
-            # bevorzugt: direkt gespeichertes IsotonicRegression-Objekt
-            calib_obj = cal.get("calibrator", None)
-
-            if calib_obj is None:
-                self.iso_cal = None
-                self.gandalf_logger.log_info_stream(
-                    "Calibration file has no 'calibrator' entry – using raw probabilities.")
-            else:
-                # Dein gespeichertes Objekt ist sehr wahrscheinlich ein IsotonicCalibrator (Wrapper)
-                # oder direkt ein sklearn IsotonicRegression.
-                if isinstance(calib_obj, IsotonicRegression):
-                    self.iso_cal = calib_obj
-                    kind = "sklearn.IsotonicRegression"
-                else:
-                    self.iso_cal = calib_obj
-                    kind = type(calib_obj).__name__
-
-                self.gandalf_logger.log_info_stream(f"Loaded calibration: {kind}")
+            kind = "NPZ isotonic curve"
+            self.gandalf_logger.log_info_stream(f"Loaded calibration: {kind}")
 
         except Exception as e:
             self.gandalf_logger.log_error(f"Loading calibration failed: {e}")
-            self.T_cal = 1.0
-            self.iso_cal = None
+            self.iso_x = None
+            self.iso_y = None
 
     def _hidden_sizes_from_filename(self, fname: str):
         m = re.search(r"_hs_(\[.*?\])_", fname)
@@ -276,15 +257,13 @@ class gaNdalF(object):
                 # raw
                 p_raw = torch.sigmoid(logits).float().cpu().numpy()
 
-                # isotonic calibration: p -> iso(p)
-                apply_calib = bool(self.cfg.get("CALIB_CLASSIFIER", True)) and (self.iso_cal is not None)
+                apply_calib = bool(self.cfg.get("CALIB_CLASSIFIER", True)) and (self.iso_x is not None) and (
+                            self.iso_y is not None)
 
-                # isotonic calibration: p -> iso(p)
-                if self.cfg.get("CALIB_CLASSIFIER", True) and (self.iso_cal is not None):
-                    if hasattr(self.iso_cal, "predict_proba"):
-                        p_cal = self.iso_cal.predict_proba(p_raw).astype(np.float32)
-                    else:
-                        p_cal = self.iso_cal.predict(p_raw).astype(np.float32)
+                if apply_calib:
+                    # isotonic curve from NPZ
+                    p_cal = np.interp(p_raw, self.iso_x, self.iso_y).astype(np.float32)
+                    p_cal = np.clip(p_cal, 1e-12, 1.0 - 1e-12).astype(np.float32)
                 else:
                     p_cal = p_raw
 

@@ -11,7 +11,6 @@ Also creates a reliability plot comparing uncalibrated vs isotonic on a held-out
 import os
 import sys
 import gc
-import pickle
 import logging
 from datetime import datetime
 
@@ -146,6 +145,38 @@ def init_output_paths(cfg):
     os.makedirs(cfg["PATH_CALIB"], exist_ok=True)
 
 
+def save_isotonic_npz(iso_calibrator, save_path_npz, meta):
+    """
+    Save isotonic calibration as portable arrays (x/y thresholds) to .npz.
+    No pickle/joblib/sklearn objects stored -> robust across cluster/OS.
+    """
+    # Find underlying sklearn IsotonicRegression
+    ir = None
+    if hasattr(iso_calibrator, "X_thresholds_") and hasattr(iso_calibrator, "y_thresholds_"):
+        ir = iso_calibrator
+    elif hasattr(iso_calibrator, "iso"):
+        ir = iso_calibrator.iso
+    elif hasattr(iso_calibrator, "model"):
+        ir = iso_calibrator.model
+    elif hasattr(iso_calibrator, "ir_"):
+        ir = iso_calibrator.ir_
+    else:
+        # last resort: search any attribute with thresholds
+        for name in dir(iso_calibrator):
+            obj = getattr(iso_calibrator, name, None)
+            if hasattr(obj, "X_thresholds_") and hasattr(obj, "y_thresholds_"):
+                ir = obj
+                break
+
+    if ir is None:
+        raise RuntimeError("Could not locate sklearn IsotonicRegression inside IsotonicCalibrator.")
+
+    x = np.asarray(ir.X_thresholds_, dtype=np.float64)
+    y = np.asarray(ir.y_thresholds_, dtype=np.float64)
+
+    np.savez(save_path_npz, x=x, y=y, **meta)
+
+
 # -----------------------------
 # Main
 # -----------------------------
@@ -202,30 +233,26 @@ def main(cfg, logger):
     # Predict on test
     p_iso_test = safe_clip(iso.predict_proba(p_test))
 
-    # Save model (+ metadata)
-    model_name = f"isotonic_seed{seed}_cal{len(idx_cal)}_test{len(idx_test)}.pkl"
+    # Save calibration as NPZ (portable)
+    model_name = f"{cfg['RUN_DATE']}_isotonic_cal.npz"
     save_path = os.path.join(cfg["PATH_CALIB"], model_name)
 
-    payload = {
+    meta = {
         "name": "isotonic",
-        "calibrator": iso,
         "mag_col": mag_col,
-        "seed": seed,
-        "test_size": test_size,
-        "max_fit": max_fit,
+        "seed": int(seed),
+        "test_size": float(test_size),
+        "max_fit": -1 if max_fit is None else int(max_fit),
         "n_total": int(len(y)),
         "n_cal": int(len(idx_cal)),
         "n_test": int(len(idx_test)),
         "pos_rate": float(np.mean(y)),
         "created": cfg["RUN_DATE"],
-        # optional: remember sklearn version to diagnose future warnings
         "sklearn_version": __import__("sklearn").__version__,
     }
 
-    with open(save_path, "wb") as f:
-        pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    logger.log_info_stream(f"Saved isotonic calibration model to: {save_path}")
+    save_isotonic_npz(iso, save_path, meta)
+    logger.log_info_stream(f"Saved portable isotonic calibration to: {save_path}")
 
     # Reliability plot
     plot_path = os.path.join(cfg["PATH_PLOTS"], "reliability_uncalibrated_vs_isotonic.png")

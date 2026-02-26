@@ -3046,13 +3046,13 @@ def plot_balrog_histogram_with_error(
             x=col,
             ax=ax_hist,
             bins=bins,
-            fill=True,
-            # element="step",
-            alpha=alpha_fill,
+            fill=False,
+            element="step",
+            # alpha=alpha_fill,
             stat="density",
             color=color_gandalf,
             # log_scale=(False, True),
-            edgecolor=None,
+            # edgecolor=None,
             label="gaNdalF"
         )
         sns.histplot(
@@ -3060,13 +3060,13 @@ def plot_balrog_histogram_with_error(
             x=col,
             ax=ax_hist,
             bins=bins,
-            fill=True,
-            # element="step",
-            alpha=alpha_fill,
+            fill=False,
+            element="step",
+            # alpha=alpha_fill,
             stat="density",
             color=color_balrog,
             # log_scale=(False, True),
-            edgecolor=None,
+            # edgecolor=None,
             label="Balrog"
         )
         ax_hist.set_yscale('log')
@@ -3176,7 +3176,7 @@ def plot_balrog_histogram_with_error(
         )
 
         # Adjust error plot y-limits if desired
-        ax_error.set_ylim(-50, 50)
+        ax_error.set_ylim(-10, 10)
 
     # Create custom legend handles (outside loop, only once per figure)
     handles_fig = [
@@ -3185,7 +3185,7 @@ def plot_balrog_histogram_with_error(
     ]
 
     # Move legend to the top right of the figure
-    fig.legend(handles=handles_fig, loc="upper right", bbox_to_anchor=(0.98, 0.96), ncol=1,
+    fig.legend(handles=handles_fig, loc="upper right", bbox_to_anchor=(0.85, 0.15), ncol=1,
                frameon=True)  # Ensure frame is visible
     # Adjust layout and add title
     plt.suptitle(title, y=0.99)  # fontsize=font_size_title,
