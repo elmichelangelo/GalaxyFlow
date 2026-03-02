@@ -235,13 +235,14 @@ class gaNdalF(object):
 
         bs = int(self.cfg.get("BATCH_SIZE", 131072))
         pin = (device.type == "cuda")
+        num_workers = int(self.cfg.get("NUM_WORKERS", 2))
         loader = DataLoader(
             TensorDataset(X_t, mag_t),
             batch_size=bs,
             shuffle=False,
-            num_workers=max(1, os.cpu_count() // 2),
+            num_workers=num_workers,
             pin_memory=pin,
-            persistent_workers=False
+            persistent_workers=(num_workers > 0),
         )
 
         self.classifier_model.eval()
