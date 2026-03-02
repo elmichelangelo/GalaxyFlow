@@ -635,9 +635,8 @@ def main(cfg, logger):
     df_balrog_selected = df_balrog[df_balrog["mcal_galaxy"]==1]
     df_gandalf_selected = df_gandalf[df_gandalf["sampled mcal_galaxy"]==1]
 
-    logger.log_info_stream(f"Plot flow before mcal cuts")
-
     if cfg["PLOT_FLOW"] is True:
+        logger.log_info_stream(f"Plot flow before mcal cuts")
         try:
             plot_flow(
                 cfg=cfg,
@@ -659,7 +658,7 @@ def main(cfg, logger):
     df_balrog_selected = unsheared_mag_cut(df_balrog_selected)
     df_balrog_selected = binary_cut(df_balrog_selected)
 
-    logger.log_info_stream(f"Plot flow after mcal cuts")
+
     #
     # plot_compare_true_wide_histogram(
     #     cfg=cfg,
@@ -668,6 +667,7 @@ def main(cfg, logger):
     # )
 
     if cfg["PLOT_FLOW"] is True:
+        logger.log_info_stream(f"Plot flow after mcal cuts")
         try:
             plot_flow(
                 cfg=cfg,
