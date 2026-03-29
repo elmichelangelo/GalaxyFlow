@@ -1,10 +1,15 @@
 import seaborn as sns
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
+from matplotlib.ticker import ScalarFormatter, MultipleLocator, FormatStrFormatter
 import matplotlib.patches as mpatches
+from matplotlib.patches import Patch
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
+import matplotlib as mpl
+import matplotlib.ticker as ticker
+from matplotlib import colors as mcolors
+import colorsys
 
 import pandas as pd
 import numpy as np
@@ -13,6 +18,7 @@ import os
 from natsort import natsorted
 
 from scipy.stats import gaussian_kde
+from sympy.abc import alpha
 from torchvision.transforms import ToTensor
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, brier_score_loss
 from sklearn.calibration import calibration_curve
@@ -21,7 +27,6 @@ from io import BytesIO
 from matplotlib.table import Table
 
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
-
 
 from Handler.helper_functions import string_to_tuple, calculate_kde
 import time
@@ -1674,417 +1679,270 @@ def plot_balrog_histogram(df_gandalf, df_balrog, columns, labels, ranges, binwid
 
 
 def plot_number_density_fluctuation(
-        df_balrog,  # DataFrame containing Balrog data
-        df_gandalf,  # DataFrame containing Gandalf data
-        columns,  # List of column names to plot
-        labels,  # Corresponding labels for x-axes
-        ranges,  # List of (min, max) tuples for each column
-        title,  # Title for the entire figure
-        show_plot,  # Bool: display the figure?
-        save_plot,  # Bool: save the figure to disk?
-        save_name,  # Path/filename for saving the figure
-        calibrated=True
+        df_balrog,
+        df_gandalf,
+        columns,
+        labels,
+        ranges,
+        title,
+        show_plot,
+        save_plot,
+        save_name,
+        calibrated=True,
+        n_feature_rows=5,   # 4 oder 5
+        num_bins=20,
+        use_latex=True
 ):
     """
-    Plot the number density fluctuations for detected and not detected objects
-    in the Balrog and Gandalf datasets.
+    Plot number-density fluctuations in a layout with 3 columns and
+    either 4 or 5 rows of features.
 
-    Approach:
-    ----------
-    For each column of interest, this function:
-    1. Splits Balrog and Gandalf datasets into detected vs. not detected subsets.
-    2. Computes binned histograms for each subset (Balrog detected, Gandalf detected, etc.).
-    3. Normalizes each binned histogram by its own mean count, giving a "fluctuation" (N/<N>).
-    4. Plots both the normalized binned histograms (top sub-panel) and the difference
-       between these normalized histograms (bottom sub-panel).
+    Feature layout:
+        row 1: MAG r, MAG i, MAG z
+        row 2: MAGLIM r, MAGLIM i, MAGLIM z
+        row 3: FWHM r, FWHM i, FWHM z
+        row 4: AIRMASS r, AIRMASS i, AIRMASS z
+        row 5: optional extra row, e.g. BDF_T, BDF_G, EBV_SFD98
 
-    The difference plotted is:
-        (Gandalf_counts / <Gandalf_counts>) - (Balrog_counts / <Balrog_counts>)
-    for both detected and not detected objects.
-
-    Notes on "physical correctness":
-    --------------------------------
-    - This function *does* correctly show relative differences in number counts,
-      as a function of some parameter(s). It’s akin to looking at fractional fluctuations.
-    - Whether this is “physically correct” depends on your scientific question. Typically,
-      to make this more robust, you’d also compute error bars (e.g., Poisson errors) on each
-      histogram bin or use a more rigorous approach to comparing two distributions
-      (like a ratio plot with uncertainties).
-    - As is, this code is a standard approach for visualizing and comparing
-      the shapes of distributions, not necessarily capturing detailed statistical
-      significance or systematic errors.
-
-    Returns:
-        None
+    Each feature panel itself consists of:
+        - upper subplot: N / <N>
+        - lower subplot: relative difference
     """
-    import matplotlib as mpl
-    # Use LaTeX fonts in matplotlib
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.family'] = 'serif'
-    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    mpl.rcParams['axes.labelsize'] = 24
-    mpl.rcParams['font.size'] = 28
-    mpl.rcParams['legend.fontsize'] = 24
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 20
+    print("Start Plotting number density")
+    if use_latex is True:
+        import matplotlib as mpl
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 28
+        mpl.rcParams['legend.fontsize'] = 16
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
 
-    # ----------------------------------------------------------------------
-    # Create subsets for detected and not detected objects
-    # ----------------------------------------------------------------------
-    if calibrated is True:
+    if n_feature_rows not in (4, 5):
+        raise ValueError("n_feature_rows must be 4 or 5.")
+
+    ncols = 3
+    max_panels = ncols * n_feature_rows
+
+    columns = list(columns[:max_panels])
+    labels = list(labels[:max_panels])
+    ranges = list(ranges[:max_panels])
+
+    if not (len(columns) == len(labels) == len(ranges)):
+        raise ValueError("columns, labels and ranges must have the same length.")
+
+    if calibrated:
         gandalf_detection_flag = "sampled mcal_galaxy"
     else:
         gandalf_detection_flag = "sampled mcal_galaxy raw"
+
     df_balrog_detected = df_balrog[df_balrog["mcal_galaxy"] == 1]
     df_gandalf_detected = df_gandalf[df_gandalf[gandalf_detection_flag] == 1]
     df_balrog_not_detected = df_balrog[df_balrog["mcal_galaxy"] == 0]
     df_gandalf_not_detected = df_gandalf[df_gandalf[gandalf_detection_flag] == 0]
 
-    # ----------------------------------------------------------------------
-    # Define colors/markers for different subsets
-    # ----------------------------------------------------------------------
-    color_marker_gandalf_detected = ['darkgreen', 'o']  # ['#ff8c00', 'o']
-    color_marker_balrog_detected = ['purple', 's']  # ['#51a6fb', 's']
-    color_marker_gandalf_not_detected = ['green', 'D']  # ['black', 'D']
-    color_marker_balrog_not_detected = ['darkviolet', '^']  # ['grey', '^']
-    color_marker_difference_detected = ['black', 'v']  # ['purple', 'v']
-    color_marker_difference_not_detected = ['grey', 'P']  # ['lightgrey', 'P']
+    color_marker_gandalf_detected = ['darkgreen', 'o']
+    color_marker_balrog_detected = ['purple', 's']
+    color_marker_gandalf_not_detected = ['green', 'D']
+    color_marker_balrog_not_detected = ['darkviolet', '^']
+    color_marker_difference_detected = ['dimgrey', 'o']
+    color_marker_difference_not_detected = ['dimgrey', '^']
 
-    # ----------------------------------------------------------------------
-    # Determine layout for subplots
-    # ----------------------------------------------------------------------
-    ncols = 5
-    nrows = (len(columns) + ncols - 1) // ncols  # Enough rows to accommodate columns
+    fig = plt.figure(figsize=(5.5 * ncols, 3.8 * n_feature_rows))
+    main_gs = GridSpec(n_feature_rows, ncols, figure=fig, hspace=0.35, wspace=0.15)
 
-    # Create the main figure
-    fig = plt.figure(figsize=(5 * ncols, 8 * nrows))
-    main_gs = GridSpec(nrows, ncols, figure=fig)
+    legend_handles_main = None
+    legend_labels_main = None
+    legend_handles_diff = None
+    legend_labels_diff = None
 
-    # Font sizes
-    # font_size_labels = 16
-    # font_size_title = 24
+    epsilon = 1e-10
 
-    # ----------------------------------------------------------------------
-    # Loop over each column to create the subplots
-    # ----------------------------------------------------------------------
     for idx, col in enumerate(columns):
-        # Identify which row/column in the grid
         row_idx = idx // ncols
         col_idx = idx % ncols
 
-        # Create a "2-row" subplot for each column:
-        # top row for normalized counts, bottom row for their difference
         inner_gs = GridSpecFromSubplotSpec(
             2, 1,
             subplot_spec=main_gs[row_idx, col_idx],
             height_ratios=[3, 1],
-            hspace=0  # No vertical space between subplots in this group
+            hspace=0.0
         )
 
         ax_main = fig.add_subplot(inner_gs[0])
         ax_diff = fig.add_subplot(inner_gs[1], sharex=ax_main)
 
-        # ------------------------------------------------------------------
-        # Determine bin ranges:
-        # If a range is specified, use it; otherwise use the min/max from the data
-        # ------------------------------------------------------------------
         bin_range = ranges[idx]
-        if bin_range:
+        if bin_range is not None:
             range_min, range_max = bin_range
         else:
             range_min = min(df_balrog[col].min(), df_gandalf[col].min())
             range_max = max(df_balrog[col].max(), df_gandalf[col].max())
 
-        num_bins = 20
         bins = np.linspace(range_min, range_max, num_bins + 1)
 
-        # ------------------------------------------------------------------
-        # Compute histograms for each subset in the same bin edges
-        # ------------------------------------------------------------------
-        counts_balrog_detected, _ = np.histogram(df_balrog_detected[col], bins=bins)
-        counts_gandalf_detected, _ = np.histogram(df_gandalf_detected[col], bins=bins)
-        counts_balrog_not_detected, _ = np.histogram(df_balrog_not_detected[col], bins=bins)
-        counts_gandalf_not_detected, _ = np.histogram(df_gandalf_not_detected[col], bins=bins)
+        balrog_det_vals = df_balrog_detected[col].dropna().to_numpy()
+        gandalf_det_vals = df_gandalf_detected[col].dropna().to_numpy()
+        balrog_nondet_vals = df_balrog_not_detected[col].dropna().to_numpy()
+        gandalf_nondet_vals = df_gandalf_not_detected[col].dropna().to_numpy()
 
-        # ------------------------------------------------------------------
-        # Compute mean counts for each subset (avoid divide-by-zero with epsilon)
-        # ------------------------------------------------------------------
-        epsilon = 1e-10
+        counts_balrog_detected, _ = np.histogram(balrog_det_vals, bins=bins)
+        counts_gandalf_detected, _ = np.histogram(gandalf_det_vals, bins=bins)
+        counts_balrog_not_detected, _ = np.histogram(balrog_nondet_vals, bins=bins)
+        counts_gandalf_not_detected, _ = np.histogram(gandalf_nondet_vals, bins=bins)
+
         mean_counts_balrog_detected = np.mean(counts_balrog_detected) + epsilon
         mean_counts_gandalf_detected = np.mean(counts_gandalf_detected) + epsilon
         mean_counts_balrog_not_detected = np.mean(counts_balrog_not_detected) + epsilon
         mean_counts_gandalf_not_detected = np.mean(counts_gandalf_not_detected) + epsilon
 
-        # ------------------------------------------------------------------
-        # Calculate fractional fluctuations:
-        # (counts / mean_counts) for each bin
-        # ------------------------------------------------------------------
         fluct_balrog_detected = counts_balrog_detected / mean_counts_balrog_detected
         fluct_gandalf_detected = counts_gandalf_detected / mean_counts_gandalf_detected
         fluct_balrog_not_detected = counts_balrog_not_detected / mean_counts_balrog_not_detected
         fluct_gandalf_not_detected = counts_gandalf_not_detected / mean_counts_gandalf_not_detected
 
-        # ------------------------------------------------------------------
-        # Calculate differences in fluctuations for each bin:
-        # (Gandalf / mean_Gandalf) - (Balrog / mean_Balrog)
-        # ------------------------------------------------------------------
-        # detected_diff_values = fluct_gandalf_detected - fluct_balrog_detected
-        # not_detected_diff_values = fluct_gandalf_not_detected - fluct_balrog_not_detected
+        detected_diff_values = (
+            100.0 * np.abs(fluct_gandalf_detected - fluct_balrog_detected)
+            / (0.5 * (fluct_gandalf_detected + fluct_balrog_detected) + epsilon)
+        )
+        not_detected_diff_values = (
+            100.0 * np.abs(fluct_gandalf_not_detected - fluct_balrog_not_detected)
+            / (0.5 * (fluct_gandalf_not_detected + fluct_balrog_not_detected) + epsilon)
+        )
 
-        detected_diff_values = 100*np.abs(fluct_gandalf_detected - fluct_balrog_detected)/(1/2*(fluct_gandalf_detected + fluct_balrog_detected))
-        not_detected_diff_values = 100*np.abs(fluct_gandalf_not_detected - fluct_balrog_not_detected)/(1/2*(fluct_gandalf_not_detected + fluct_balrog_not_detected + epsilon))
+        bin_centers = 0.5 * (bins[:-1] + bins[1:])
 
-        # detected_diff_values = 100 * np.abs(fluct_gandalf_detected - fluct_balrog_detected) / fluct_balrog_detected
-        # not_detected_diff_values = 100 * np.abs(fluct_gandalf_not_detected - fluct_balrog_not_detected) / fluct_balrog_not_detected
-
-        # Bin centers for plotting
-        bin_centers = (bins[:-1] + bins[1:]) / 2
-
-        # ==================================================================
-        # Top subplot: fractional fluctuations (N / <N>)
-        # ==================================================================
+        # Upper panel: no dashed line
         ax_main.plot(
-            bin_centers,
-            fluct_balrog_detected,
-            color=color_marker_balrog_detected[0],
-            marker=color_marker_balrog_detected[1],
+            bin_centers, fluct_balrog_detected,
+            color='darkgreen',  # color_marker_balrog_detected[0]
+            marker='o',  #color_marker_balrog_detected[1],
             label="Balrog selected",
-            linewidth=2,  # Line width
-            markersize=8,  # Marker size
-            # alpha=0.5
+            linewidth=3,
+            alpha=0.5,
+            markersize=6,
         )
         ax_main.plot(
-            bin_centers,
-            fluct_gandalf_detected,
-            color=color_marker_gandalf_detected[0],
-            marker=color_marker_gandalf_detected[1],
+            bin_centers, fluct_gandalf_detected,
+            color='darkviolet',  #color_marker_gandalf_detected[0],
+            marker='o',  # color_marker_gandalf_detected[1],
             label="gaNdalF selected",
-            linewidth=2,  # Line width
-            markersize=8,  # Marker size
-            # alpha=0.5
+            linewidth=3,
+            alpha=0.5,
+            markersize=6,
         )
         ax_main.plot(
-            bin_centers,
-            fluct_balrog_not_detected,
-            color=color_marker_gandalf_not_detected[0],
-            marker=color_marker_gandalf_not_detected[1],
+            bin_centers, fluct_balrog_not_detected,
+            color="darkgreen",  #color_marker_gandalf_not_detected[0],
+            marker='^',  #color_marker_gandalf_not_detected[1],  # '^'
             label="Balrog non-selected",
-            linewidth=2,  # Line width
-            markersize=8,  # Marker size
+            linewidth=3,
+            markersize=6,
             alpha=0.5
         )
         ax_main.plot(
-            bin_centers,
-            fluct_gandalf_not_detected,
-            color=color_marker_balrog_not_detected[0],
-            marker=color_marker_balrog_not_detected[1],
+            bin_centers, fluct_gandalf_not_detected,
+            color="darkviolet",  # color_marker_balrog_not_detected[0],
+            marker='^',  # color_marker_balrog_not_detected[1],
             label="gaNdalF non-selected",
-            linewidth=2,  # Line width
-            markersize=8,  # Marker size
+            linewidth=3,
+            markersize=6,
             alpha=0.5
         )
 
-        # Draw a horizontal line at 1 to represent the mean level
-        ax_main.axhline(0, color='black', linestyle='--')
         ax_main.set_xlim(range_min, range_max)
-        ax_main.set_ylabel("$N / <N>$")  # , fontsize=font_size_labels
-        ax_main.grid(True)
+        if col_idx == 0:
+            ax_main.set_ylabel(r"$N/\langle N\rangle$")
+        else:
+            ax_main.set_ylabel("")
+            ax_main.tick_params(axis='y', labelleft=False)
 
-        # ==================================================================
-        # Bottom subplot: difference in fractional fluctuations
-        # ==================================================================
+        ax_main.grid(True, alpha=0.3)
+
+        # Lower panel
         ax_diff.plot(
-            bin_centers,
-            detected_diff_values,
+            bin_centers, detected_diff_values,
             color=color_marker_difference_detected[0],
             marker=color_marker_difference_detected[1],
-            # alpha=0.5,
-            label="Relative Percentage Difference selected"
+            label="Relative Percentage Difference selected",
+            linewidth=3,
+            markersize=6,
+            alpha=0.5,
         )
         ax_diff.plot(
-            bin_centers,
-            not_detected_diff_values,
+            bin_centers, not_detected_diff_values,
             color=color_marker_difference_not_detected[0],
             marker=color_marker_difference_not_detected[1],
             alpha=0.5,
-            label="Relative Percentage Difference non-selected"
+            label="Relative Percentage Difference non-selected",
+            linewidth=3,
+            markersize=6,
         )
 
-        # Draw a horizontal line at 0 to highlight no difference
-        ax_diff.axhline(1, color='black', linestyle='--')
+        ax_diff.axhline(0, color='black', linestyle='--', linewidth=1.0)
         ax_diff.set_xlim(range_min, range_max)
-        ax_diff.set_xlabel(labels[idx])  # , fontsize=font_size_labels
-        ax_diff.set_ylabel("Difference")  # , fontsize=font_size_labels - 2
-        ax_diff.grid(True)
+        ax_diff.set_xlabel(labels[idx])
 
-        # Hide the top subplot’s x-axis tick labels to avoid overlap
+        if col_idx == 0:
+            ax_diff.set_ylabel("Diff.")
+        else:
+            ax_diff.set_ylabel("")
+            ax_diff.tick_params(axis='y', labelleft=False)
+
+        ax_diff.grid(True, alpha=0.3)
+
         plt.setp(ax_main.get_xticklabels(), visible=False)
 
-    # ----------------------------------------------------------------------
-    # Create a unified legend outside the subplots
-    # ----------------------------------------------------------------------
-    handles, labels_legend = ax_main.get_legend_handles_labels()
-    handles_diff, labels_diff = ax_diff.get_legend_handles_labels()
+        if legend_handles_main is None:
+            legend_handles_main, legend_labels_main = ax_main.get_legend_handles_labels()
+            legend_handles_diff, legend_labels_diff = ax_diff.get_legend_handles_labels()
 
-    fig.legend(
-        handles + handles_diff,
-        labels_legend + labels_diff,
-        loc='upper right',
-        ncol=2,
-        # fontsize=font_size_labels,
-        bbox_to_anchor=(0.95, 0.95),
-        borderaxespad=0.,
-    )
-    # plt.subplots_adjust(right=0.8)
-    # Adjust spacing so the subplots and title fit
-    plt.tight_layout(rect=[0, 0, 1, 0.9])
-    plt.suptitle(title, y=0.99)  # fontsize=font_size_title,
+    total_slots = n_feature_rows * ncols
+    for idx in range(len(columns), total_slots):
+        row_idx = idx // ncols
+        col_idx = idx % ncols
+        ax_dummy = fig.add_subplot(main_gs[row_idx, col_idx])
+        ax_dummy.axis("off")
 
-    # ----------------------------------------------------------------------
-    # Save and/or show the final plot
-    # ----------------------------------------------------------------------
+    if legend_handles_main is not None and legend_handles_diff is not None:
+        fig.legend(
+            legend_handles_main + legend_handles_diff,
+            legend_labels_main + legend_labels_diff,
+            loc='upper center',
+            ncol=3,
+            bbox_to_anchor=(0.5, 0.95),
+            frameon=True,
+        )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.93])
+    plt.suptitle(title, y=0.995)
+
     if save_plot:
         plt.savefig(save_name, dpi=300, bbox_inches="tight")
     if show_plot:
         plt.show()
 
-    # Close the figure to free memory
     plt.close()
 
 
-def plot_tomo_bin_redshift_bootstrap(zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means,
-                                     title="Wide n(z)", show_plot=True, save_plot=False, save_name=None, all_bins=True):
-    """"""
-
-    if not gandalf_files or balrog_file is None:
-        raise ValueError("Required files not found in the folder.")
-
-    num_bins = 1
-    lst_x_lims = [
-        (0, 0.8),
-        (0.05, 0.8),
-        (0.5, 1.05),
-        (0.6, 1.3)
-    ]
-    if all_bins is True:
-        num_bins = len(balrog_file)  # Number of tomographic bins
-
-
-    # Define colors
-    color_gandalf = 'darkgreen'
-    color_balrog = 'purple'
-
-    # Font sizes
-    font_size_labels = 16
-    font_size_title = 24
-
-    # Create the plot
-    fig, axes = plt.subplots(num_bins, 1, figsize=(16, 9))
-    if num_bins == 1:
-        ax = [axes]
-    else:
-        ax = axes
-
-    for bin_idx in range(num_bins):  # Iterate over tomographic bins
-        # Plot bootstrap lines for gaNdalF in the background
-        for idx, gandalf_hist in enumerate(gandalf_files):
-            if isinstance(gandalf_hist, pd.DataFrame):  # Handle DataFrame
-                ax[bin_idx].plot(
-                    zmean,
-                    gandalf_hist.iloc[bin_idx, :],  # Row corresponding to the current tomographic bin
-                    color=color_gandalf,
-                    alpha=0.1,
-                    lw=1
-                )
-            elif isinstance(gandalf_hist, np.ndarray):  # Handle numpy array
-                ax[bin_idx].plot(
-                    zmean,
-                    gandalf_hist[bin_idx, :],  # Row corresponding to the current tomographic bin
-                    color=color_gandalf,
-                    alpha=0.1,
-                    lw=1
-                )
-
-        # Plot Balrog distribution in the foreground
-        if isinstance(balrog_file, pd.DataFrame):
-            ax[bin_idx].plot(
-                zmean,
-                balrog_file.iloc[bin_idx, :],  # Row corresponding to the current tomographic bin
-                color=color_balrog,
-                lw=0.5
-            )
-        elif isinstance(balrog_file, np.ndarray):
-            ax[bin_idx].plot(
-                zmean,
-                balrog_file[bin_idx, :],  # Row corresponding to the current tomographic bin
-                color=color_balrog,
-                lw=0.5
-            )
-
-        # Plot gaNdalF mean line and shaded ±1σ range
-        ax[bin_idx].axvline(gandalf_means[bin_idx], color=color_gandalf, linestyle='-', linewidth=1,
-                            label=f'<z> gaNdalF {gandalf_means[bin_idx]:.4f} ± {gandalf_stds[bin_idx]:.3f}')
-        ax[bin_idx].axvspan(
-            gandalf_means[bin_idx] - gandalf_stds[bin_idx],
-            gandalf_means[bin_idx] + gandalf_stds[bin_idx],
-            color=color_gandalf, alpha=0.2
-        )
-
-        # Plot Balrog mean line and shaded ±0.01 range
-        ax[bin_idx].axvline(balrog_means[bin_idx], color=color_balrog, linestyle='-', linewidth=1,
-                            label=f'<z> Balrog {balrog_means[bin_idx]:.4f} ± 0.01')
-        ax[bin_idx].axvspan(
-            balrog_means[bin_idx] - 0.01,
-            balrog_means[bin_idx] + 0.01,
-            color=color_balrog, alpha=0.2
-        )
-
-        # Customize each subplot
-        ax[bin_idx].set_xlim(lst_x_lims[bin_idx])
-        ax[bin_idx].set_ylim(0, 7)
-        # Remove y-tick labels but keep tick marks
-        ax[bin_idx].set_yticklabels([])  # Remove numerical labels
-        ax[bin_idx].tick_params(axis='y', length=5, direction='in', left=True, right=True)
-
-        # Add "Probability Density" label on the y-axis for each subplot
-        ax[bin_idx].set_ylabel(f'bin {bin_idx + 1}', fontsize=font_size_labels)
-        # ax[bin_idx].set_ylabel(f'$p(z)$ bin {bin_idx + 1}', fontsize=font_size_labels)
-        ax[bin_idx].legend()
-        ax[bin_idx].grid()
-
-        if bin_idx == num_bins - 1:
-            ax[bin_idx].set_xlabel(r'$z$', fontsize=font_size_labels)
-
-    fig.suptitle(title, fontsize=font_size_title)  # Set the title for the whole figure
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout
-
-    fig.text(
-        -0.04, 0.5, 'Probability Density',
-        fontsize=font_size_labels,
-        va='center', rotation='vertical'
-    )
-
-    if show_plot:
-        plt.show()
-    if save_plot and save_name:
-        plt.savefig(save_name, bbox_inches='tight', dpi=300)
-
-
-def plot_tomo_bin_redshift_bootstrap_all_in_one(zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds,
+def plot_tomo_bin_mean_z_bootstrap(zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds,
                                                 balrog_means, title="Wide n(z)", show_plot=True, save_plot=False,
-                                                save_name=None):
+                                                save_name=None, use_latex=True):
     """"""
-    import matplotlib as mpl
-    import matplotlib.ticker as ticker
-    # Use LaTeX fonts in matplotlib
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.family'] = 'serif'
-    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    mpl.rcParams['axes.labelsize'] = 24
-    mpl.rcParams['font.size'] = 28
-    mpl.rcParams['legend.fontsize'] = 20
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 20
+
+    print("Start Plotting <z> histogram")
+    if use_latex is True:
+        import matplotlib as mpl
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 28
+        mpl.rcParams['legend.fontsize'] = 20
+        mpl.rcParams['xtick.labelsize'] = 20
+        mpl.rcParams['ytick.labelsize'] = 20
 
     if not gandalf_files or balrog_file is None:
         raise ValueError("Required files not found in the folder.")
@@ -2610,20 +2468,31 @@ def plot_binning_statistics_properties(
     plt.close()
 
 
-def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, standard_levels=3, title="",
-                                     save_plot=False, show_plot=True, save_name="", plot_scatter=False):
-    print("Start plotting")
+def plot_binning_statistics_combined(
+        df_gandalf,
+        df_balrog,
+        sample_size=10000,
+        standard_levels=3,
+        title="",
+        save_plot=False,
+        show_plot=True,
+        save_name="",
+        plot_scatter=False,
+        only_band="r",
+        use_latex=True
+):
+    print("Start plotting Binning Statistics")
 
-    # import matplotlib as mpl
-    # # Use LaTeX fonts in matplotlib
-    # mpl.rcParams['text.usetex'] = True
-    # mpl.rcParams['font.family'] = 'serif'
-    # mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    # mpl.rcParams['axes.labelsize'] = 24
-    # mpl.rcParams['font.size'] = 28
-    # mpl.rcParams['legend.fontsize'] = 24
-    # mpl.rcParams['xtick.labelsize'] = 20
-    # mpl.rcParams['ytick.labelsize'] = 20
+    if use_latex is True:
+        import matplotlib as mpl
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 28
+        mpl.rcParams['legend.fontsize'] = 20
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
 
     # Define colors and levels
     color_gandalf = 'darkgreen'
@@ -2633,25 +2502,28 @@ def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, s
     dict_conditions = {
         "r": {
             "FWHM_WMEAN": {"Short_Name": "FWHM", "Limits": [(0.75, 1.25), (-0.04, 0.04)]},
-            "AIRMASS_WMEAN": {"Short_Name": "AIRMASS", "Limits": [(0.95, 1.45), (-0.04, 0.04)]},
+            "AIRMASS_WMEAN": {"Short_Name": "Airmass", "Limits": [(0.95, 1.45), (-0.04, 0.04)]},
             "MAGLIM": {"Short_Name": "MAGLIM", "Limits": [(23.25, 24.5), (-0.04, 0.04)]},
             "EBV_SFD98": {"Short_Name": "EBV_SFD98", "Limits": [(-0.005, 0.1), (-0.04, 0.05)]},
         },
         "i": {
             "FWHM_WMEAN": {"Short_Name": "FWHM", "Limits": [(0.72, 1.1), (-0.04, 0.04)]},
-            "AIRMASS_WMEAN": {"Short_Name": "AIRMASS", "Limits": [(0.95, 1.45), (-0.04, 0.04)]},
+            "AIRMASS_WMEAN": {"Short_Name": "Airmass", "Limits": [(0.95, 1.45), (-0.04, 0.04)]},
             "MAGLIM": {"Short_Name": "MAGLIM", "Limits": [(22.75, 24), (-0.04, 0.04)]},
             "EBV_SFD98": {"Short_Name": "EBV_SFD98", "Limits": [(-0.005, 0.1), (-0.04, 0.05)]},
         },
         "z": {
             "FWHM_WMEAN": {"Short_Name": "FWHM", "Limits": [(0.68, 1.12), (-0.04, 0.05)]},
-            "AIRMASS_WMEAN": {"Short_Name": "AIRMASS", "Limits": [(0.95, 1.45), (-0.04, 0.05)]},
+            "AIRMASS_WMEAN": {"Short_Name": "Airmass", "Limits": [(0.95, 1.45), (-0.04, 0.05)]},
             "MAGLIM": {"Short_Name": "MAGLIM", "Limits": [(22, 23.25), (-0.04, 0.05)]},
             "EBV_SFD98": {"Short_Name": "EBV_SFD98", "Limits": [(-0.005, 0.1), (-0.05, 0.06)]},
         }
     }
 
     for band_idx, band in enumerate(dict_conditions.keys()):
+        if only_band is not None:
+            if band != only_band:
+                continue
         fig = plt.figure(figsize=(18, 24))  # Adjust height as needed
         main_gs = GridSpec(4, 1, figure=fig)  # Rows: conditions, Columns: bands main_gs = GridSpec(len(conditions), len(bands), figure=fig)  # Rows: conditions, Columns: bands
 
@@ -2659,10 +2531,13 @@ def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, s
             # Construct condition and label strings
             if condition_base != "EBV_SFD98":
                 condition = f"{condition_base}_{band.upper()}"
-                label = f"{dict_conditions[band][condition_base]['Short_Name']} {band.upper()}"
+                if dict_conditions[band][condition_base]['Short_Name'] == "MAGLIM":
+                    label = rf"$m_\mathrm{{{band.lower()}, lim}}$"
+                else:
+                    label = f"{dict_conditions[band][condition_base]['Short_Name']} {band.lower()}"
             else:
-                condition = condition_base  # EBV_SFD98 does not vary by band
-                label = dict_conditions[band][condition_base]['Short_Name']
+                condition = condition_base
+                label = "E(B-V) SFD98"
 
             print(f"Plotting {band.upper()} - {condition}, {label}")
 
@@ -2670,7 +2545,7 @@ def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, s
             inner_gs = GridSpecFromSubplotSpec(2, 1,  # 2 rows, 1 column
                                                subplot_spec=main_gs[condition_idx],  # band_idx
                                                height_ratios=[3, 1],  # Adjust as needed
-                                               hspace=0.05)  # No space between distribution and error plots
+                                               hspace=0.10)  # No space between distribution and error plots
 
             # Subplots for main plot and error bar plot
             ax_main = fig.add_subplot(inner_gs[0])
@@ -2772,11 +2647,11 @@ def plot_binning_statistics_combined(df_gandalf, df_balrog, sample_size=10000, s
                            label=f"$<$abs. res.$>$ = {bin_nan_median:.3f}", linewidth=3)  # bin_means.mean()
 
             # Adjust axis limits
-            if len(residual) > 0:
-                m, s = np.median(residual), median_abs_deviation(residual)
-                y_range = [m - 4 * s, m + 4 * s]
-            else:
-                y_range = [-0.02, 0.02]
+            # if len(residual) > 0:
+            #     m, s = np.median(residual), median_abs_deviation(residual)
+            #     y_range = [m - 4 * s, m + 4 * s]
+            # else:
+            y_range = [-1, 1]
 
             ax_main.set_ylim(dict_conditions[band][condition_base]['Limits'][1])
             ax_main.set_xlim(dict_conditions[band][condition_base]['Limits'][0])
@@ -2840,17 +2715,18 @@ def make_gif(frame_folder, name_save_folder, fps=10):
     
 def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not_detected, df_gandalf_not_detected,
                           columns, show_plot, save_plot, save_name, train_plot=False, sample_size=5000, x_range=(18, 26),
-                          title='Histogram'):
-    import matplotlib as mpl
-    # Use LaTeX fonts in matplotlib
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.family'] = 'serif'
-    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    mpl.rcParams['axes.labelsize'] = 20
-    mpl.rcParams['font.size'] = 24
-    mpl.rcParams['legend.fontsize'] = 20
-    mpl.rcParams['xtick.labelsize'] = 16
-    mpl.rcParams['ytick.labelsize'] = 16
+                          title='Histogram', use_latex=True):
+    print("Start Plotting multivariate")
+    if use_latex is True:
+        import matplotlib as mpl
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 28
+        mpl.rcParams['legend.fontsize'] = 16
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
 
     print("Sample data...")
     if sample_size is None:
@@ -2874,7 +2750,7 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
         num_cols = 1
         num_rows = 1
 
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15), sharex=True)
 
     color_balrog_detected = 'purple'  # '#51a6fb'
     color_gandalf_detected = 'darkgreen'  # '#ff8c00'
@@ -2950,15 +2826,18 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
 
         # Add axis labels only to the bottom row subplots
         if train_plot is True:
-            ax.set_xlabel('BDF Mag I')  # , fontsize=font_size_label
+            ax.set_xlabel('True mag-i (bdf)')
         else:
-            if i >= len(axes) - num_cols:
-                ax.set_xlabel('BDF Mag I') # , fontsize=font_size_label
+            if pos[0] == num_rows - 1:
+                ax.set_xlabel('True mag-i (bdf)')
+            else:
+                ax.set_xlabel("")
+                ax.tick_params(axis="x", labelbottom=False)
 
         # Remove any unused subplots
     if train_plot is False:
         fig.delaxes(axes[0, 3])
-        fig.delaxes(axes[1, 3])
+        fig.delaxes(axes[0, 1])
 
     # Customize layout and legend
     legend_elements = [
@@ -2971,8 +2850,8 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
     fig.legend(
         handles=legend_elements,
         loc='upper right',
-        #fontsize=font_size_legend,
-        bbox_to_anchor=(1.0, 0.76)
+        # fontsize=font_size_legend,
+        bbox_to_anchor=(0.96, 0.84)
     )
 
     plt.suptitle(title)  # , fontsize=font_size_title
@@ -2987,18 +2866,19 @@ def plot_multivariate_clf(df_balrog_detected, df_gandalf_detected, df_balrog_not
 
 def plot_balrog_histogram_with_error(
     df_gandalf, df_balrog, columns, labels, ranges, binwidths,
-    title, show_plot, save_plot, save_name
+    title, show_plot, save_plot, save_name, use_latex=True
 ):
-    import matplotlib as mpl
-    # # Use LaTeX fonts in matplotlib
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.family'] = 'serif'
-    mpl.rcParams['font.serif'] = ['Computer Modern Roman']
-    mpl.rcParams['axes.labelsize'] = 24
-    mpl.rcParams['font.size'] = 28
-    mpl.rcParams['legend.fontsize'] = 12
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 12
+    print("Start Plotting mcal propertie hist")
+    if use_latex is True:
+        import matplotlib as mpl
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 28
+        mpl.rcParams['legend.fontsize'] = 20
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
 
     # Define colors and levels
     color_gandalf = 'darkgreen'
@@ -3133,8 +3013,8 @@ def plot_balrog_histogram_with_error(
         # Formatting
         # ax_error.set_ylabel('% Error')  # , fontsize=font_size_labels
         if col_idx == 0:
-            ax_hist.set_ylabel(r"$\mathrm{Density}$", fontsize=12, labelpad=6)
-            ax_hist.tick_params(axis='y', labelsize=10)
+            ax_hist.set_ylabel(r"$\mathrm{Density}$", labelpad=6)
+            ax_hist.tick_params(axis='y')
 
             ax_error.set_ylabel(
                 r"$f_i = 100\,\frac{\hat p_{B,i}-\hat p_{G,i}}{\hat p_{B,i}}$",
@@ -4761,3 +4641,1710 @@ def plot_selection_rate_by_mag(
     if show_plot:
         plt.show()
     plt.close()
+
+
+def plot_mag_diff_density(
+        df_gandalf_flw,
+        df_balrog_flw,
+        sample_data=False,
+        sample_size=150000,
+        plt_point_cloud=False,
+        title="",
+        save_name="mag_diff_density.pdf",
+        save_plot=False,
+        show_plot=False,
+        use_latex=True
+):
+    print("Start plotting mag diff density")
+
+    if use_latex is True:
+        import matplotlib as mpl
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 18
+        mpl.rcParams['font.size'] = 28
+        mpl.rcParams['legend.fontsize'] = 16
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
+
+    def adjust_lightness(color, amount=1.0):
+        """
+        amount > 1  -> heller
+        amount < 1  -> dunkler
+        """
+        r, g, b = mcolors.to_rgb(color)
+        h, l, s = colorsys.rgb_to_hls(r, g, b)
+        l = max(0, min(1, l * amount))
+        return colorsys.hls_to_rgb(h, l, s)
+
+    def build_mag_diff_long_df(df_gandalf_sel, df_balrog_sel, bands=("r", "i", "z")):
+        dfs = []
+
+        for catalog_name, df in [("gaNdalF", df_gandalf_sel), ("Balrog", df_balrog_sel)]:
+            for band in bands:
+                true_col = f"BDF_MAG_DERED_CALIB_{band.upper()}"
+                meas_col = f"unsheared/mag_{band}"
+
+                df_band = pd.DataFrame({
+                    "catalog": catalog_name,
+                    "band": band,
+                    "true_mag": df[true_col].to_numpy(),
+                    "measured_mag": df[meas_col].to_numpy(),
+                })
+
+                df_band["diff_mag"] = df_band["measured_mag"] - df_band["true_mag"]
+                dfs.append(df_band)
+
+        return pd.concat(dfs, ignore_index=True)
+
+    def compute_bin_stats(df, x_col="true_mag", y_col="diff_mag", bin_size=0.25, x_min=19, x_max=25):
+        bins = np.arange(x_min, x_max + bin_size, bin_size)
+
+        stats = {
+            "bin_left": [],
+            "bin_right": [],
+            "mean": [],
+            "median": [],
+            "std": [],
+            "count": [],
+        }
+
+        x = df[x_col].to_numpy()
+        y = df[y_col].to_numpy()
+
+        for i in range(len(bins) - 1):
+            left = bins[i]
+            right = bins[i + 1]
+            mask = (x >= left) & (x < right)
+
+            vals = y[mask]
+            vals = vals[np.isfinite(vals)]  # <- wichtig
+
+            stats["bin_left"].append(left)
+            stats["bin_right"].append(right)
+            stats["count"].append(len(vals))  # besser nach NaN-Filter zählen
+
+            if vals.size > 0:
+                stats["mean"].append(np.mean(vals))
+                stats["median"].append(np.median(vals))
+                stats["std"].append(np.std(vals))
+            else:
+                stats["mean"].append(np.nan)
+                stats["median"].append(np.nan)
+                stats["std"].append(np.nan)
+
+        return pd.DataFrame(stats)
+
+    def draw_bin_stats(
+            ax,
+            stats_df,
+            color_mean="black",
+            color_median="black",
+            color_std="gray",
+            lw_box=0.8,
+            lw_line=1.0,
+            alpha=0.9,
+            linestyle_std="--",
+            linestyle_mean="-",
+            linestyle_median="-.",
+            zorder=5,
+    ):
+        for _, row in stats_df.iterrows():
+            if np.isnan(row["mean"]) or np.isnan(row["std"]) or np.isnan(row["median"]):
+                continue
+
+            left = row["bin_left"]
+            right = row["bin_right"]
+            mean = row["mean"]
+            median = row["median"]
+            std = row["std"]
+
+            ax.vlines(
+                left, mean - std, mean + std,
+                color=color_std, linewidth=lw_box, alpha=alpha,
+                linestyles=linestyle_std, zorder=zorder
+            )
+            ax.vlines(
+                right, mean - std, mean + std,
+                color=color_std, linewidth=lw_box, alpha=alpha,
+                linestyles=linestyle_std, zorder=zorder
+            )
+            ax.hlines(
+                mean - std, left, right,
+                color=color_std, linewidth=lw_box, alpha=alpha,
+                linestyles=linestyle_std, zorder=zorder
+            )
+            ax.hlines(
+                mean + std, left, right,
+                color=color_std, linewidth=lw_box, alpha=alpha,
+                linestyles=linestyle_std, zorder=zorder
+            )
+
+            ax.hlines(
+                mean, left, right,
+                color=color_mean, linewidth=lw_line, alpha=alpha,
+                linestyles=linestyle_mean, zorder=zorder
+            )
+            ax.hlines(
+                median, left, right,
+                color=color_median, linewidth=lw_line, alpha=alpha,
+                linestyles=linestyle_median, zorder=zorder
+            )
+
+    if sample_data is True:
+        df_gandalf_flw = df_gandalf_flw.sample(sample_size, random_state=42)
+        df_balrog_flw = df_balrog_flw.sample(sample_size, random_state=42)
+
+    df_magdiff = build_mag_diff_long_df(
+        df_gandalf_flw,
+        df_balrog_flw,
+        bands=("r", "i", "z")
+    )
+
+    band_color_map = {
+        "r": "tab:red",
+        "i": "tab:green",
+        "z": "tab:blue",
+    }
+
+    band_positions = {
+        "r": (0, 0),
+        "i": (0, 1),
+        "z": (1, 0),
+    }
+
+    fig = plt.figure(figsize=(14, 10))
+    outer = fig.add_gridspec(2, 2, wspace=0.25, hspace=0.28)
+
+    legend_ax = fig.add_subplot(outer[1, 1])
+    legend_ax.axis("off")
+
+    for band, (row, col) in band_positions.items():
+        df_band = df_magdiff[df_magdiff["band"] == band]
+        band_color = band_color_map[band]
+
+        gandalf_contour_color = adjust_lightness(band_color, 0.75)
+        gandalf_mean_color = adjust_lightness(band_color, 0.75)
+        gandalf_median_color = adjust_lightness(band_color, 0.75)
+        gandalf_point_color = adjust_lightness(band_color, 0.75)
+
+        inner = outer[row, col].subgridspec(
+            2, 2,
+            width_ratios=[4.5, 1.4],
+            height_ratios=[4.0, 1.4],
+            wspace=0.12,
+            hspace=0.15
+        )
+
+        ax_scatter = fig.add_subplot(inner[0, 0])
+        ax_hist = fig.add_subplot(inner[0, 1], sharey=ax_scatter)
+        ax_stats = fig.add_subplot(inner[1, 0], sharex=ax_scatter)
+        ax_empty = fig.add_subplot(inner[1, 1])
+        ax_empty.axis("off")
+
+        if plt_point_cloud is True:
+            # point cloud
+            sel_balrog = df_band[df_band["catalog"] == "Balrog"]
+            sel_gandalf = df_band[df_band["catalog"] == "gaNdalF"]
+
+            ax_scatter.scatter(
+                sel_balrog["true_mag"],
+                sel_balrog["diff_mag"],
+                s=1.2,
+                alpha=0.05,
+                color="dimgray",
+                edgecolors="none",
+                rasterized=True,
+                zorder=0,
+            )
+
+            ax_scatter.scatter(
+                sel_gandalf["true_mag"],
+                sel_gandalf["diff_mag"],
+                s=1.2,
+                alpha=0.05,
+                color=gandalf_point_color,
+                edgecolors="none",
+                rasterized=True,
+                zorder=0.1,
+            )
+
+        # Balrog: filled KDE + contours
+        sel_balrog = df_band[df_band["catalog"] == "Balrog"].copy()
+        sel_gandalf = df_band[df_band["catalog"] == "gaNdalF"].copy()
+
+        sel_balrog = sel_balrog[
+            np.isfinite(sel_balrog["true_mag"]) & np.isfinite(sel_balrog["diff_mag"])
+            ]
+        sel_gandalf = sel_gandalf[
+            np.isfinite(sel_gandalf["true_mag"]) & np.isfinite(sel_gandalf["diff_mag"])
+            ]
+
+        # Balrog: filled KDE
+        sns.kdeplot(
+            data=sel_balrog,
+            x="true_mag",
+            y="diff_mag",
+            fill=False,
+            levels=4,
+            alpha=1,
+            color="dimgray",
+            bw_adjust=0.8,
+            ax=ax_scatter,
+            warn_singular=False,
+            zorder=2
+        )
+
+        # gaNdalF: contour lines only
+        sns.kdeplot(
+            data=sel_gandalf,
+            x="true_mag",
+            y="diff_mag",
+            fill=False,
+            levels=4,
+            linewidths=1.9,
+            color=gandalf_contour_color,
+            bw_adjust=0.8,
+            ax=ax_scatter,
+            warn_singular=False,
+            zorder=4
+        )
+
+        # bin statistics overlays
+        stats_balrog = compute_bin_stats(sel_balrog, bin_size=0.25, x_min=18, x_max=25)
+        stats_gandalf = compute_bin_stats(sel_gandalf, bin_size=0.25, x_min=18, x_max=25)
+
+        draw_bin_stats(
+            ax_stats,
+            stats_balrog,
+            color_mean="dimgray",
+            color_median="dimgray",
+            color_std="gray",
+            lw_box=0.9,
+            lw_line=1.0,
+            alpha=0.95,
+            linestyle_std="-",
+            linestyle_mean="-",
+            linestyle_median=":",
+            zorder=5,
+        )
+
+        draw_bin_stats(
+            ax_stats,
+            stats_gandalf,
+            color_mean=gandalf_mean_color,
+            color_median=gandalf_median_color,
+            color_std=adjust_lightness(band_color, 1.25),
+            lw_box=0.9,
+            lw_line=1.0,
+            alpha=0.75,
+            linestyle_std="-",
+            linestyle_mean="-",
+            linestyle_median=":",
+            zorder=6,
+        )
+
+        # side histogram
+        bins = np.linspace(-0.6, 0.6, 60)
+        # Balrog: filled histogram
+        weights_balrog = np.ones(len(sel_balrog["diff_mag"])) / len(sel_balrog["diff_mag"])
+        ax_hist.hist(
+            sel_balrog["diff_mag"],
+            bins=bins,
+            orientation="horizontal",
+            weights=weights_balrog,
+            histtype="stepfilled",
+            alpha=0.80,
+            color="gray",
+            zorder=2
+        )
+
+        weights_gandalf = np.ones(len(sel_gandalf["diff_mag"])) / len(sel_gandalf["diff_mag"])
+        ax_hist.hist(
+            sel_gandalf["diff_mag"],
+            bins=bins,
+            orientation="horizontal",
+            weights=weights_gandalf,
+            histtype="step",
+            linewidth=1.8,
+            alpha=0.80,
+            color=gandalf_contour_color,
+            zorder=4
+        )
+
+        # zero lines
+        ax_scatter.axhline(0, color="black", linestyle="-.", linewidth=1.0, alpha=0.5)
+        # ax_stats.axhline(0, color="black", linestyle="-.", linewidth=1.2, alpha=0.5)
+        ax_hist.axhline(0, color="black", linestyle="-.", linewidth=1.2, alpha=0.5)
+        ax_hist.set_xlabel("Probability")
+
+        # labels
+        ax_stats.set_xlim(17, 25.5)
+        ax_stats.set_ylim(-1, 1)
+        ax_stats.set_xlabel(f"True {band}-mag (bdf)")
+        ax_stats.grid(True, alpha=0.25)
+
+        ax_scatter.tick_params(axis="x", labelbottom=False)
+        ax_scatter.set_xlabel("")
+        ax_scatter.set_ylabel(f"")
+
+        bbox_scatter = ax_scatter.get_position()
+        bbox_stats = ax_stats.get_position()
+
+        x_text = bbox_scatter.x0 - 0.05
+        y_text = 0.5 * (bbox_scatter.y1 + bbox_stats.y0)
+
+        fig.text(
+            x_text,
+            y_text,
+            f"Measured - True {band}-mag (mcal - bdf)",
+            rotation=90,
+            va="center",
+            ha="center",
+            fontsize=16,
+        )
+
+        ax_scatter.set_xlim(17, 25.5)
+        ax_scatter.set_ylim(-1, 1)
+        ax_scatter.grid(True, alpha=0.25)
+
+        ax_hist.grid(True, axis="y", alpha=0.25)
+        ax_hist.tick_params(axis="y", labelleft=False)
+
+    legend_handles = [
+        # plt.Rectangle((0, 0), 1, 1, fc="gray", alpha=0.25, label="Balrog KDE fill"),
+        Line2D([0], [0], color=adjust_lightness("tab:red", 0.75), lw=2.0, label="gaNdalF"),
+        Line2D([0], [0], color=adjust_lightness("tab:gray", 0.75), lw=2.0, label="Balrog"),
+        Line2D([0], [0], color="black", lw=1.2, linestyle=":", label="median"),
+        Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="mean"),
+    ]
+
+    plt.tight_layout()
+
+    legend_ax.legend(
+        handles=legend_handles,
+        loc="center",
+        frameon=True
+    )
+
+    plt.suptitle(title)
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+
+def plot_selections_completeness(
+        df_balrog,
+        df_gandalf,
+        plot_residual = False,
+        bins = np.arange(18, 27, 0.25),
+        title="",
+        save_name="selection_completeness.pdf",
+        save_plot=False,
+        show_plot=False,
+        use_latex=True
+):
+    print("Start Plotting selection completeness")
+    if use_latex is True:
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 24
+        mpl.rcParams['legend.fontsize'] = 16
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
+
+    def compute_completeness_from_split(df_detected, df_not_detected, mag_col, bins):
+        det_vals = df_detected[mag_col].dropna().to_numpy()
+        notdet_vals = df_not_detected[mag_col].dropna().to_numpy()
+
+        n_det, edges = np.histogram(det_vals, bins=bins)
+        n_notdet, _ = np.histogram(notdet_vals, bins=bins)
+
+        n_total = n_det + n_notdet
+
+        completeness = np.full_like(n_total, np.nan, dtype=float)
+        err = np.full_like(n_total, np.nan, dtype=float)
+
+        valid = n_total > 0
+        completeness[valid] = n_det[valid] / n_total[valid]
+        err[valid] = np.sqrt(completeness[valid] * (1.0 - completeness[valid]) / n_total[valid])
+
+        bin_centers = 0.5 * (edges[:-1] + edges[1:])
+
+        return pd.DataFrame({
+            "bin_left": edges[:-1],
+            "bin_right": edges[1:],
+            "bin_center": bin_centers,
+            "n_det": n_det,
+            "n_notdet": n_notdet,
+            "n_total": n_total,
+            "completeness": completeness,
+            "err": err,
+        })
+
+    df_balrog_detected = df_balrog[df_balrog['mcal_galaxy'] == 1]
+    df_balrog_not_detected = df_balrog[df_balrog['mcal_galaxy'] == 0]
+    df_gandalf_detected = df_gandalf[df_gandalf['sampled mcal_galaxy'] == 1]
+    df_gandalf_not_detected = df_gandalf[df_gandalf['sampled mcal_galaxy'] == 0]
+
+    mag_cols = {
+        "r": "BDF_MAG_DERED_CALIB_R",
+        "i": "BDF_MAG_DERED_CALIB_I",
+        "z": "BDF_MAG_DERED_CALIB_Z",
+    }
+
+    colors = {
+        "r": "tab:red",
+        "i": "tab:green",
+        "z": "tab:blue",
+    }
+
+    if plot_residual:
+        fig, (ax, ax_ratio) = plt.subplots(
+            2, 1, figsize=(9, 8), sharex=True,
+            gridspec_kw={"height_ratios": [3, 1]}
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(9, 6))
+        ax_ratio = None
+
+    balrog_results = {}
+    gandalf_results = {}
+
+    for band, mag_col in mag_cols.items():
+        balrog_df = compute_completeness_from_split(
+            df_balrog_detected, df_balrog_not_detected, mag_col, bins
+        )
+        gandalf_df = compute_completeness_from_split(
+            df_gandalf_detected, df_gandalf_not_detected, mag_col, bins
+        )
+
+        balrog_results[band] = balrog_df
+        gandalf_results[band] = gandalf_df
+
+        color = colors.get(band, None)
+
+        ax.plot(
+            balrog_df["bin_center"],
+            balrog_df["completeness"],
+            lw=2.5,
+            color=color,
+            label=f"Balrog {band}-mag"
+        )
+
+        ax.errorbar(
+            gandalf_df["bin_center"],
+            gandalf_df["completeness"],
+            yerr=gandalf_df["err"],
+            fmt="o",
+            ms=4.5,
+            capsize=2,
+            color=color,
+            alpha=0.95,
+            label=f"gaNdalF {band}-mag"
+        )
+
+        if plot_residual is True:
+            valid = (
+                    np.isfinite(balrog_df["completeness"].to_numpy()) &
+                    np.isfinite(gandalf_df["completeness"].to_numpy())
+            )
+
+            diff = gandalf_df["completeness"].to_numpy() - balrog_df["completeness"].to_numpy()
+            diff_err = gandalf_df["err"].to_numpy()
+
+            ax_ratio.axhline(0.0, color="black", lw=1, ls="--")
+            ax_ratio.errorbar(
+                gandalf_df["bin_center"][valid],
+                diff[valid],
+                yerr=diff_err[valid],
+                fmt="o",
+                ms=3.5,
+                capsize=2,
+                color=color,
+                alpha=0.95,
+            )
+
+    ax.set_ylabel("Selection Fraction")
+    ax.set_ylim(0.0, 1.0)
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+
+    # ax.axhline(1.0, ls="--", color="gray", lw=2)
+
+    ax.set_xlabel("Reference Magnitude")
+    ax.legend(ncol=1)
+
+    if plot_residual:
+        ax.set_xlabel("")
+        ax_ratio.set_xlabel("Reference Magnitude (bdf)")
+        ax_ratio.set_ylabel(r"$\Delta$")
+        ax_ratio.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+
+def plot_zmean_hist(
+        df_gandalf,
+        gandalf_means,
+        balrog_means,
+        bins,
+        title="zmean_hist",
+        show_plot=True,
+        save_plot=False,
+        save_name="zmean_hist.pdf",
+        use_latex=True
+):
+    print("Start Plotting <z> histogram")
+    if use_latex is True:
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['font.family'] = 'serif'
+        mpl.rcParams['font.serif'] = ['Computer Modern Roman']
+        mpl.rcParams['axes.labelsize'] = 24
+        mpl.rcParams['font.size'] = 24
+        mpl.rcParams['legend.fontsize'] = 16
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
+
+    lst_tomo_bins = ['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey='row')
+    axes = axes.flatten()
+
+    for idx, tbin in enumerate(lst_tomo_bins):
+        ax = axes[idx]
+        mean = balrog_means[idx]
+
+        sns.histplot(
+            data=df_gandalf,
+            x=tbin,
+            bins=bins,
+            stat="probability",
+            ax=ax,
+            color="mediumpurple",
+            edgecolor="mediumpurple",
+            linewidth=1.0,
+        )
+
+        ax.axvspan(mean - 0.01, mean + 0.01, alpha=0.25, color='gray')
+        ax.axvline(mean, linestyle='--', color='black')
+        ax.axvline(gandalf_means[idx], linestyle='--', color='blue')
+        ax_title = tbin.replace("Mean ", "")
+        ax.set_title(ax_title, fontsize=18)
+        ax.grid(True, alpha=0.3)
+        ax.set_xlabel(r"$\langle z \rangle $")
+        ax.xaxis.set_major_locator(MultipleLocator(0.01))
+        ax.xaxis.set_minor_locator(MultipleLocator(0.005))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        if idx in [1, 3]:
+            ax.set_ylabel("")
+
+    legend_elements = [
+        Patch(facecolor='mediumpurple', edgecolor='mediumpurple', alpha=0.8, label='gaNdalF realizations'),
+        Line2D([0], [0], color='black', linestyle='--', label='Balrog mean'),
+        Line2D([0], [0], color='blue', linestyle='--', label='gaNdalF mean'),
+        Patch(facecolor='gray', edgecolor='gray', alpha=0.25, label=r'Balrog err $\pm\,0.01$')
+    ]
+
+    plt.suptitle(title)
+    fig.legend(handles=legend_elements, loc='upper right')
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+    plt.close(fig)
+
+
+def plot_selection_and_magbias_by_conditions(
+    df,
+    mag_col="BDF_MAG_DERED_CALIB_R",
+    meas_col="unsheared/mag_r",
+    selection_col="mcal_galaxy",
+    condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+    condition_labels=None,
+    n_condition_bins=3,
+    mag_bin_width=0.25,
+    mag_range=(18.0, 25.0),
+    title="Selection and photometric bias vs. observing conditions",
+    save_name="selection_magbias_conditions_r.pdf",
+    save_plot=False,
+    show_plot=True,
+    use_latex=True,
+):
+    """
+    3x2 plot:
+      left column: selection fraction vs true r-band magnitude
+      right column: measured minus true r-band magnitude vs true r-band magnitude
+    for quantile bins of different observing conditions.
+    """
+
+    if use_latex:
+        import matplotlib as mpl
+        mpl.rcParams["text.usetex"] = True
+        mpl.rcParams["font.family"] = "serif"
+        mpl.rcParams["font.serif"] = ["Computer Modern Roman"]
+        mpl.rcParams["axes.labelsize"] = 16
+        mpl.rcParams["font.size"] = 16
+        mpl.rcParams["legend.fontsize"] = 12
+        mpl.rcParams["xtick.labelsize"] = 13
+        mpl.rcParams["ytick.labelsize"] = 13
+
+    if condition_labels is None:
+        condition_labels = {
+            "MAGLIM_R": r"$m_\mathrm{r, lim}$",
+            "FWHM_WMEAN_R": r"FWHM r",
+            "AIRMASS_WMEAN_R": r"Airmass r",
+        }
+
+    df_plot = df[[mag_col, meas_col, selection_col, *condition_cols]].copy()
+    df_plot_selected = df_plot[df_plot[selection_col]==1].copy()
+
+    # clean
+    # df_plot = df_plot.replace([np.inf, -np.inf], np.nan)
+    # df_plot = df_plot.dropna(subset=[mag_col, meas_col, selection_col, *condition_cols])
+
+    # selection as numeric 0/1
+    df_plot[selection_col] = df_plot[selection_col].astype(float)
+
+    # photometric residual
+    df_plot_selected["mag_residual"] = df_plot_selected[meas_col] - df_plot_selected[mag_col]
+
+    # true-mag bins
+    mag_bins = np.arange(mag_range[0], mag_range[1] + mag_bin_width, mag_bin_width)
+    mag_centers = 0.5 * (mag_bins[:-1] + mag_bins[1:])
+
+    # figure
+    nrows = len(condition_cols)
+    fig, axes = plt.subplots(
+        nrows=nrows,
+        ncols=2,
+        figsize=(12, 4.0 * nrows),
+        sharex=True
+    )
+
+    if nrows == 1:
+        axes = np.array([axes])
+
+    # colors for condition quantile bins
+    palette = sns.color_palette("viridis", n_condition_bins)
+
+    for row, cond_col in enumerate(condition_cols):
+        cond_label = condition_labels.get(cond_col, cond_col)
+
+        # quantile bins
+        qlabels = ["low", "mid", "high"]
+        df_cond = df_plot.copy()
+        df_cond_selected = df_plot_selected.copy()
+
+        # duplicates='drop' avoids crashes if values are too discrete
+        df_cond["cond_bin"] = pd.qcut(
+            df_cond[cond_col],
+            q=n_condition_bins,
+            labels=qlabels,
+            duplicates="drop"
+        )
+
+        df_cond_selected["cond_bin"] = pd.qcut(
+            df_cond_selected[cond_col],
+            q=n_condition_bins,
+            labels=qlabels,
+            duplicates="drop"
+        )
+
+        used_labels = [lab for lab in qlabels if lab in df_cond["cond_bin"].astype(str).unique()]
+
+        ax_sel = axes[row, 0]
+        ax_res = axes[row, 1]
+
+        for i, lab in enumerate(used_labels):
+            sub = df_cond[df_cond["cond_bin"].astype(str) == lab].copy()
+            sub_selected = df_cond_selected[df_cond_selected["cond_bin"].astype(str) == lab].copy()
+
+            if len(sub) == 0:
+                continue
+
+            # label text with actual value range
+            cond_min = sub[cond_col].min()
+            cond_max = sub[cond_col].max()
+            legend_label = f"{lab}: {cond_min:.2f}–{cond_max:.2f}"
+
+            cond_min_selected = sub_selected[cond_col].min()
+            cond_max_selected = sub_selected[cond_col].max()
+            legend_label_selected = f"{lab}: {cond_min_selected:.2f}–{cond_max_selected:.2f}"
+
+            # assign mag bins
+            sub["mag_bin"] = pd.cut(
+                sub[mag_col],
+                bins=mag_bins,
+                include_lowest=True,
+                right=False
+            )
+
+            sub_selected["mag_bin"] = pd.cut(
+                sub_selected[mag_col],
+                bins=mag_bins,
+                include_lowest=True,
+                right=False
+            )
+
+            grouped = sub.groupby("mag_bin", observed=False)
+            grouped_selected = sub_selected.groupby("mag_bin", observed=False)
+
+            # selection fraction
+            sel_mean = grouped[selection_col].mean().to_numpy()
+
+            # residual stats
+            res_mean = grouped_selected["mag_residual"].mean().to_numpy()
+            res_std = grouped_selected["mag_residual"].std().to_numpy()
+            res_count = grouped_selected["mag_residual"].count().to_numpy()
+            res_sem = res_std / np.sqrt(np.maximum(res_count, 1))
+
+            # left: selection fraction
+            ax_sel.plot(
+                mag_centers,
+                sel_mean,
+                marker="o",
+                markersize=3.5,
+                linewidth=1.8,
+                color=palette[i],
+                label=legend_label
+            )
+
+            # right: magnitude residual
+            ax_res.plot(
+                mag_centers,
+                res_mean,
+                marker="o",
+                markersize=3.5,
+                linewidth=1.8,
+                color=palette[i],
+                label=legend_label_selected
+            )
+            ax_res.fill_between(
+                mag_centers,
+                res_mean - res_sem,
+                res_mean + res_sem,
+                color=palette[i],
+                alpha=0.18
+            )
+
+        # formatting left panel
+        ax_sel.set_ylabel("Selection fraction")
+        # ax_sel.set_ylim(0.45, 0.9)
+        ax_sel.grid(True, alpha=0.25)
+        ax_sel.set_title(f"{cond_label}")
+
+        # formatting right panel
+        ax_res.axhline(0.0, color="black", linestyle="--", linewidth=1.0, alpha=0.7)
+        ax_res.set_ylabel("measured-true r-mag (mcal-bdf)")
+        ax_res.grid(True, alpha=0.25)
+        ax_res.set_title(f"{cond_label}")
+
+        # legends
+        ax_sel.legend(title="Observing Condition bin", loc="best", frameon=True, fontsize=10, title_fontsize=10)
+        ax_res.legend(title="Observing Condition bin", loc="best", frameon=True, fontsize=10, title_fontsize=10)
+
+    # bottom x-labels
+    for ax in axes[-1, :]:
+        ax.set_xlabel("True r-mag (bdf)")
+
+    fig.suptitle(title, y=0.995)
+    plt.tight_layout()
+
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+
+    plt.close(fig)
+
+
+def plot_magbias_compare_grid_by_conditions(
+    df_gandalf,
+    df_balrog,
+    mag_col="BDF_MAG_DERED_CALIB_R",
+    meas_col="unsheared/mag_r",
+    condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+    condition_labels=None,
+    n_condition_bins=3,
+    mag_bin_width=0.25,
+    mag_range=(18.0, 25.0),
+    y_range=(-0.04, 0.04),
+    diff_y_range=None,
+    title="gaNdalF vs. Balrog: photometric bias vs. observing conditions",
+    save_name="magbias_compare_grid_conditions_r.pdf",
+    save_plot=False,
+    show_plot=True,
+    use_latex=True,
+):
+    """
+    Grid plot:
+      columns = observing conditions
+      for each condition-bin row:
+          upper panel = measured - true magnitude vs. true magnitude
+          lower panel = difference (gaNdalF - Balrog)
+
+    Total panels:
+      n_condition_bins * len(condition_cols) * 2
+    """
+
+    if use_latex:
+        mpl.rcParams["text.usetex"] = True
+        mpl.rcParams["font.family"] = "serif"
+        mpl.rcParams["font.serif"] = ["Computer Modern Roman"]
+        mpl.rcParams["axes.labelsize"] = 14
+        mpl.rcParams["font.size"] = 16
+        mpl.rcParams["legend.fontsize"] = 16
+        mpl.rcParams["xtick.labelsize"] = 13
+        mpl.rcParams["ytick.labelsize"] = 13
+
+    if condition_labels is None:
+        condition_labels = {
+            "MAGLIM_R": r"$m_{\mathrm{r, lim}}$",
+            "FWHM_WMEAN_R": r"$\mathrm{FWHM}_r$",
+            "AIRMASS_WMEAN_R": r"$\mathrm{Airmass}_r$",
+        }
+
+    condition_inline_labels = {
+        "MAGLIM_R": r"m_{\mathrm{r, lim}}",
+        "FWHM_WMEAN_R": r"\mathrm{FWHM}_r",
+        "AIRMASS_WMEAN_R": r"\mathrm{Airmass}_r",
+    }
+
+    def prepare_df(df, catalog_name):
+        needed_cols = [mag_col, meas_col, *condition_cols]
+        out = df[needed_cols].copy()
+        out = out.replace([np.inf, -np.inf], np.nan)
+        out = out.dropna(subset=needed_cols)
+        out["catalog"] = catalog_name
+        out["mag_residual"] = out[meas_col] - out[mag_col]
+        return out
+
+    df_g = prepare_df(df_gandalf, "gaNdalF")
+    df_b = prepare_df(df_balrog, "Balrog")
+
+    mag_bins = np.arange(mag_range[0], mag_range[1] + mag_bin_width, mag_bin_width)
+    mag_centers = 0.5 * (mag_bins[:-1] + mag_bins[1:])
+
+    ncols = len(condition_cols)
+    nrows = n_condition_bins
+    total_rows = 2 * nrows
+
+    fig, axes = plt.subplots(
+        total_rows,
+        ncols,
+        figsize=(5.8 * ncols, 4.8 * nrows),
+        sharex="col",
+        gridspec_kw={
+            "height_ratios": [3, 1] * nrows,
+            "hspace": 0.08,
+            "wspace": 0.18,
+        },
+    )
+
+    if total_rows == 1 and ncols == 1:
+        axes = np.array([[axes]])
+    elif total_rows == 1:
+        axes = np.array([axes])
+    elif ncols == 1:
+        axes = np.array([[ax] for ax in axes])
+
+    col_colors = sns.color_palette("viridis", ncols)
+
+    def compute_stats(sub):
+        sub = sub.copy()
+        sub["mag_bin"] = pd.cut(
+            sub[mag_col],
+            bins=mag_bins,
+            include_lowest=True,
+            right=False,
+        )
+        grouped = sub.groupby("mag_bin", observed=False)["mag_residual"]
+
+        mean = grouped.mean().to_numpy()
+        std = grouped.std().to_numpy()
+        count = grouped.count().to_numpy()
+        sem = std / np.sqrt(np.maximum(count, 1))
+
+        mean[count == 0] = np.nan
+        sem[count == 0] = np.nan
+        return mean, sem
+
+    all_diffs = []
+    precomputed = {}
+
+    # Erste Runde: alles vorberechnen und sinnvolle diff_y_range bestimmen
+    for col_idx, cond_col in enumerate(condition_cols):
+        combined_cond = pd.concat([df_g[cond_col], df_b[cond_col]], axis=0)
+
+        try:
+            _, bin_edges = pd.qcut(
+                combined_cond,
+                q=n_condition_bins,
+                retbins=True,
+                duplicates="drop",
+            )
+        except ValueError:
+            bin_edges = np.linspace(
+                combined_cond.min(),
+                combined_cond.max(),
+                n_condition_bins + 1,
+            )
+
+        n_used_bins = len(bin_edges) - 1
+
+        def assign_condition_bins(df):
+            out = df.copy()
+            out["cond_bin_idx"] = pd.cut(
+                out[cond_col],
+                bins=bin_edges,
+                labels=False,
+                include_lowest=True,
+                right=True,
+            )
+            return out
+
+        df_g_cond = assign_condition_bins(df_g)
+        df_b_cond = assign_condition_bins(df_b)
+
+        precomputed[col_idx] = {
+            "cond_col": cond_col,
+            "bin_edges": bin_edges,
+            "n_used_bins": n_used_bins,
+            "df_g_cond": df_g_cond,
+            "df_b_cond": df_b_cond,
+        }
+
+        for row_idx in range(n_used_bins):
+            sub_g = df_g_cond[df_g_cond["cond_bin_idx"] == row_idx].copy()
+            sub_b = df_b_cond[df_b_cond["cond_bin_idx"] == row_idx].copy()
+
+            mean_g, sem_g = compute_stats(sub_g)
+            mean_b, sem_b = compute_stats(sub_b)
+
+            diff = mean_g - mean_b
+            diff_sem = np.sqrt(sem_g**2 + sem_b**2)
+
+            all_diffs.append(diff[np.isfinite(diff)])
+            all_diffs.append((diff + diff_sem)[np.isfinite(diff + diff_sem)])
+            all_diffs.append((diff - diff_sem)[np.isfinite(diff - diff_sem)])
+
+    if diff_y_range is None:
+        finite_vals = (
+            np.concatenate([x for x in all_diffs if len(x) > 0])
+            if all_diffs else np.array([0.0])
+        )
+        max_abs_diff = np.nanmax(np.abs(finite_vals)) if finite_vals.size > 0 else 0.01
+        max_abs_diff = max(max_abs_diff * 1.15, 0.01)
+        diff_y_range = (-max_abs_diff, max_abs_diff)
+
+    lst_bins = ["low", "mid", "high"]
+
+    for col_idx, cond_col in enumerate(condition_cols):
+        cond_label = condition_labels.get(cond_col, cond_col)
+        cond_inline_label = condition_inline_labels.get(cond_col, cond_col)
+        color = col_colors[col_idx]
+
+        bin_edges = precomputed[col_idx]["bin_edges"]
+        n_used_bins = precomputed[col_idx]["n_used_bins"]
+        df_g_cond = precomputed[col_idx]["df_g_cond"]
+        df_b_cond = precomputed[col_idx]["df_b_cond"]
+
+        for row_idx in range(nrows):
+            ax_main = axes[2 * row_idx, col_idx]
+            ax_diff = axes[2 * row_idx + 1, col_idx]
+
+            if row_idx >= n_used_bins:
+                ax_main.axis("off")
+                ax_diff.axis("off")
+                continue
+
+            sub_g = df_g_cond[df_g_cond["cond_bin_idx"] == row_idx].copy()
+            sub_b = df_b_cond[df_b_cond["cond_bin_idx"] == row_idx].copy()
+
+            edge_left = bin_edges[row_idx]
+            edge_right = bin_edges[row_idx + 1]
+
+            mean_g, sem_g = compute_stats(sub_g)
+            mean_b, sem_b = compute_stats(sub_b)
+
+            diff = mean_g - mean_b
+            diff_sem = np.sqrt(sem_g**2 + sem_b**2)
+
+            # Hauptpanel
+            ax_main.plot(
+                mag_centers,
+                mean_b,
+                color=color,
+                linewidth=4.0,
+                alpha=0.7,
+                linestyle=":",
+            )
+            ax_main.fill_between(
+                mag_centers,
+                mean_b - sem_b,
+                mean_b + sem_b,
+                color=color,
+                alpha=0.08,
+            )
+
+            ax_main.plot(
+                mag_centers,
+                mean_g,
+                color=color,
+                linewidth=4.0,
+                alpha=0.7,
+                linestyle="--",
+            )
+            ax_main.fill_between(
+                mag_centers,
+                mean_g - sem_g,
+                mean_g + sem_g,
+                color=color,
+                alpha=0.16,
+            )
+
+            ax_main.axhline(0.0, color="black", linestyle=":", linewidth=1.0, alpha=0.8)
+            # ax_main.set_xlim(*mag_range)
+            # ax_main.set_ylim(*y_range)
+            ax_main.grid(True, alpha=0.25)
+
+            if row_idx == 0:
+                ax_main.set_title(cond_label)
+
+            if col_idx == 0:
+                ax_main.set_ylabel("Measured - True\nr-mag (mcal - bdf)")
+
+            ax_main.text(
+                0.03,
+                0.94,
+                rf"{lst_bins[row_idx]}: ${edge_left:.2f} < {cond_inline_label} < {edge_right:.2f}$",
+                transform=ax_main.transAxes,
+                ha="left",
+                va="top",
+                fontsize=13,
+                bbox=dict(
+                    boxstyle="round,pad=0.2",
+                    facecolor="white",
+                    alpha=0.7,
+                    edgecolor="none",
+                ),
+            )
+
+            # Differenzpanel
+            ax_diff.axhline(0.0, color="black", lw=1.0, alpha=0.8)
+            ax_diff.plot(
+                mag_centers,
+                diff,
+                color=color,
+                linewidth=2.5,
+                linestyle="-",
+            )
+            ax_diff.fill_between(
+                mag_centers,
+                diff - diff_sem,
+                diff + diff_sem,
+                color=color,
+                alpha=0.18,
+            )
+
+            # ax_diff.set_xlim(*mag_range)
+            # ax_diff.set_ylim(*diff_y_range)
+            ax_diff.grid(True, alpha=0.25)
+
+            if col_idx == 0:
+                ax_diff.set_ylabel(r"$\Delta$")
+
+            if row_idx == nrows - 1:
+                ax_diff.set_xlabel("True r-mag (bdf)")
+
+    legend_handles = [
+        Line2D([0], [0], color="black", lw=2.5, linestyle="--", label="gaNdalF"),
+        Line2D([0], [0], color="black", lw=2.5, linestyle=":", label="Balrog"),
+        Line2D([0], [0], color="black", lw=2.5, linestyle="-", label=r"$\Delta$ (gaNdalF - Balrog)"),
+    ]
+
+    fig.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.97),
+        ncol=3,
+        frameon=True,
+    )
+
+    fig.suptitle(title, y=0.999)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+
+    plt.close(fig)
+
+
+# def plot_selection_compare_grid_by_conditions(
+#     df_gandalf,
+#     df_balrog,
+#     mag_col="BDF_MAG_DERED_CALIB_R",
+#     selection_col_gandalf="sampled mcal_galaxy",
+#     selection_col_balrog="mcal_galaxy",
+#     condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+#     condition_labels=None,
+#     n_condition_bins=3,
+#     mag_bin_width=0.25,
+#     mag_range=(18.0, 25.0),
+#     y_range=(-0.02, 1.02),
+#     title="gaNdalF vs. Balrog: selection vs. observing conditions",
+#     save_name="selection_compare_grid_conditions_r.pdf",
+#     save_plot=False,
+#     show_plot=True,
+#     use_latex=True,
+# ):
+#     """
+#     Grid plot:
+#       columns = observing conditions
+#       rows    = quantile bins of each condition
+#
+#     In each panel:
+#       selection fraction vs. true magnitude
+#       gaNdalF and Balrog are compared directly.
+#     """
+#
+#     if use_latex:
+#         mpl.rcParams["text.usetex"] = True
+#         mpl.rcParams["font.family"] = "serif"
+#         mpl.rcParams["font.serif"] = ["Computer Modern Roman"]
+#         mpl.rcParams["axes.labelsize"] = 14
+#         mpl.rcParams["font.size"] = 16
+#         mpl.rcParams["legend.fontsize"] = 16
+#         mpl.rcParams["xtick.labelsize"] = 13
+#         mpl.rcParams["ytick.labelsize"] = 13
+#
+#     if condition_labels is None:
+#         condition_labels = {
+#             "MAGLIM_R": r"$m_\mathrm{r, lim}$",
+#             "FWHM_WMEAN_R": r"FWHM r",
+#             "AIRMASS_WMEAN_R": r"Airmass r",
+#         }
+#
+#     def prepare_df(df, catalog_name, selection_col):
+#         needed_cols = [mag_col, selection_col, *condition_cols]
+#         out = df[needed_cols].copy()
+#         out = out.replace([np.inf, -np.inf], np.nan)
+#         out = out.dropna(subset=needed_cols)
+#         out["catalog"] = catalog_name
+#         out["selection"] = out[selection_col].astype(float)
+#         return out
+#
+#     df_g = prepare_df(df_gandalf, "gaNdalF", selection_col_gandalf)
+#     df_b = prepare_df(df_balrog, "Balrog", selection_col_balrog)
+#
+#     mag_bins = np.arange(mag_range[0], mag_range[1] + mag_bin_width, mag_bin_width)
+#     mag_centers = 0.5 * (mag_bins[:-1] + mag_bins[1:])
+#
+#     ncols = len(condition_cols)
+#     nrows = n_condition_bins
+#
+#     fig, axes = plt.subplots(
+#         nrows, ncols,
+#         figsize=(5.6 * ncols, 3.8 * nrows),
+#         sharex=True,
+#         sharey=True
+#     )
+#
+#     if nrows == 1 and ncols == 1:
+#         axes = np.array([[axes]])
+#     elif nrows == 1:
+#         axes = np.array([axes])
+#     elif ncols == 1:
+#         axes = np.array([[ax] for ax in axes])
+#
+#     col_colors = sns.color_palette("viridis", ncols)
+#
+#     def compute_selection_stats(sub):
+#         sub = sub.copy()
+#         sub["mag_bin"] = pd.cut(
+#             sub[mag_col],
+#             bins=mag_bins,
+#             include_lowest=True,
+#             right=False
+#         )
+#         grouped = sub.groupby("mag_bin", observed=False)["selection"]
+#
+#         mean = grouped.mean().to_numpy()
+#         count = grouped.count().to_numpy()
+#
+#         # binomial standard error
+#         sem = np.sqrt(mean * (1.0 - mean) / np.maximum(count, 1))
+#
+#         mean[count == 0] = np.nan
+#         sem[count == 0] = np.nan
+#         return mean, sem
+#
+#     for col_idx, cond_col in enumerate(condition_cols):
+#         cond_label = condition_labels.get(cond_col, cond_col)
+#         color = col_colors[col_idx]
+#
+#         combined_cond = pd.concat([df_g[cond_col], df_b[cond_col]], axis=0)
+#
+#         try:
+#             _, bin_edges = pd.qcut(
+#                 combined_cond,
+#                 q=n_condition_bins,
+#                 retbins=True,
+#                 duplicates="drop"
+#             )
+#         except ValueError:
+#             bin_edges = np.linspace(combined_cond.min(), combined_cond.max(), n_condition_bins + 1)
+#
+#         n_used_bins = len(bin_edges) - 1
+#
+#         def assign_condition_bins(df):
+#             out = df.copy()
+#             out["cond_bin_idx"] = pd.cut(
+#                 out[cond_col],
+#                 bins=bin_edges,
+#                 labels=False,
+#                 include_lowest=True,
+#                 right=True
+#             )
+#             return out
+#
+#         df_g_cond = assign_condition_bins(df_g)
+#         df_b_cond = assign_condition_bins(df_b)
+#
+#         for row_idx in range(nrows):
+#             ax = axes[row_idx, col_idx]
+#
+#             if row_idx >= n_used_bins:
+#                 ax.axis("off")
+#                 continue
+#
+#             sub_g = df_g_cond[df_g_cond["cond_bin_idx"] == row_idx].copy()
+#             sub_b = df_b_cond[df_b_cond["cond_bin_idx"] == row_idx].copy()
+#
+#             edge_left = bin_edges[row_idx]
+#             edge_right = bin_edges[row_idx + 1]
+#
+#             mean_g, sem_g = compute_selection_stats(sub_g)
+#             mean_b, sem_b = compute_selection_stats(sub_b)
+#
+#             # Balrog
+#             ax.plot(
+#                 mag_centers,
+#                 mean_b,
+#                 color=color,
+#                 linewidth=6.0,
+#                 alpha=0.6,
+#                 linestyle=":",
+#             )
+#             ax.fill_between(
+#                 mag_centers,
+#                 mean_b - sem_b,
+#                 mean_b + sem_b,
+#                 color=color,
+#                 alpha=0.08,
+#             )
+#
+#             # gaNdalF
+#             ax.plot(
+#                 mag_centers,
+#                 mean_g,
+#                 color=color,
+#                 linewidth=6.0,
+#                 alpha=0.6,
+#                 linestyle="--",
+#             )
+#             ax.fill_between(
+#                 mag_centers,
+#                 mean_g - sem_g,
+#                 mean_g + sem_g,
+#                 color=color,
+#                 alpha=0.16
+#             )
+#
+#             ax.set_xlim(*mag_range)
+#             ax.set_ylim(*y_range)
+#             ax.grid(True, alpha=0.25)
+#
+#             if row_idx == 0:
+#                 ax.set_title(cond_label)
+#
+#             if col_idx == 0:
+#                 ax.set_ylabel(f"Selection Fraction")
+#
+#             lst_quantiles = ["low", "mid", "high"]
+#             ax.text(
+#                 0.45, 0.94,
+#                 rf"{lst_quantiles[row_idx]}: ${edge_left:.2f} <$ {cond_label} $< {edge_right:.2f}$",
+#                 transform=ax.transAxes,
+#                 ha="left",
+#                 va="top",
+#                 fontsize=14,
+#                 bbox=dict(
+#                     boxstyle="round,pad=0.2",
+#                     facecolor="white",
+#                     alpha=0.7,
+#                     edgecolor="none"
+#                 )
+#             )
+#
+#             if row_idx == nrows - 1:
+#                 ax.set_xlabel("True r-mag (bdf)")
+#
+#     legend_handles = [
+#         Line2D([0], [0], color="black", lw=2.0, linestyle="--", label="gaNdalF"),
+#         Line2D([0], [0], color="black", lw=2.0, linestyle=":", label="Balrog"),
+#     ]
+#
+#     fig.legend(
+#         handles=legend_handles,
+#         loc="upper center",
+#         bbox_to_anchor=(0.85, 0.99),
+#         ncol=2,
+#         frameon=True
+#     )
+#
+#     fig.suptitle(title)
+#     plt.tight_layout()
+#
+#     if save_plot:
+#         plt.savefig(save_name, dpi=200, bbox_inches="tight")
+#     if show_plot:
+#         plt.show()
+#
+#     plt.close(fig)
+
+
+def plot_selection_compare_grid_by_conditions(
+    df_gandalf,
+    df_balrog,
+    mag_col="BDF_MAG_DERED_CALIB_R",
+    selection_col_gandalf="sampled mcal_galaxy",
+    selection_col_balrog="mcal_galaxy",
+    condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+    condition_labels=None,
+    n_condition_bins=3,
+    mag_bin_width=0.25,
+    mag_range=(18.0, 25.0),
+    y_range=(-0.02, 1.02),
+    diff_y_range=None,
+    title="gaNdalF vs. Balrog: selection vs. observing conditions",
+    save_name="selection_compare_grid_conditions_r.pdf",
+    save_plot=False,
+    show_plot=True,
+    use_latex=True,
+):
+    """
+    Grid plot:
+      columns = observing conditions
+      for each condition-bin row:
+          upper panel = selection fraction vs. true magnitude
+          lower panel = difference (gaNdalF - Balrog)
+
+    Total panels:
+      n_condition_bins * len(condition_cols) * 2
+    """
+
+    if use_latex:
+        mpl.rcParams["text.usetex"] = True
+        mpl.rcParams["font.family"] = "serif"
+        mpl.rcParams["font.serif"] = ["Computer Modern Roman"]
+        mpl.rcParams["axes.labelsize"] = 14
+        mpl.rcParams["font.size"] = 16
+        mpl.rcParams["legend.fontsize"] = 16
+        mpl.rcParams["xtick.labelsize"] = 13
+        mpl.rcParams["ytick.labelsize"] = 13
+
+    if condition_labels is None:
+        condition_labels = {
+            "MAGLIM_R": r"$m_{\mathrm{r, lim}}$",
+            "FWHM_WMEAN_R": r"$\mathrm{FWHM}_r$",
+            "AIRMASS_WMEAN_R": r"$\mathrm{Airmass}_r$",
+        }
+
+    condition_inline_labels = {
+        "MAGLIM_R": r"m_{\mathrm{r, lim}}",
+        "FWHM_WMEAN_R": r"\mathrm{FWHM}_r",
+        "AIRMASS_WMEAN_R": r"\mathrm{Airmass}_r",
+    }
+
+    def prepare_df(df, catalog_name, selection_col):
+        needed_cols = [mag_col, selection_col, *condition_cols]
+        out = df[needed_cols].copy()
+        out = out.replace([np.inf, -np.inf], np.nan)
+        out = out.dropna(subset=needed_cols)
+        out["catalog"] = catalog_name
+        out["selection"] = out[selection_col].astype(float)
+        return out
+
+    df_g = prepare_df(df_gandalf, "gaNdalF", selection_col_gandalf)
+    df_b = prepare_df(df_balrog, "Balrog", selection_col_balrog)
+
+    mag_bins = np.arange(mag_range[0], mag_range[1] + mag_bin_width, mag_bin_width)
+    mag_centers = 0.5 * (mag_bins[:-1] + mag_bins[1:])
+
+    ncols = len(condition_cols)
+    nrows = n_condition_bins
+    total_rows = 2 * nrows
+
+    fig, axes = plt.subplots(
+        total_rows,
+        ncols,
+        figsize=(5.8 * ncols, 4.8 * nrows),
+        sharex="col",
+        gridspec_kw={
+            "height_ratios": [3, 1] * nrows,
+            "hspace": 0.08,
+            "wspace": 0.18,
+        },
+    )
+
+    if total_rows == 1 and ncols == 1:
+        axes = np.array([[axes]])
+    elif total_rows == 1:
+        axes = np.array([axes])
+    elif ncols == 1:
+        axes = np.array([[ax] for ax in axes])
+
+    col_colors = sns.color_palette("viridis", ncols)
+
+    def compute_selection_stats(sub):
+        sub = sub.copy()
+        sub["mag_bin"] = pd.cut(
+            sub[mag_col],
+            bins=mag_bins,
+            include_lowest=True,
+            right=False,
+        )
+        grouped = sub.groupby("mag_bin", observed=False)["selection"]
+
+        mean = grouped.mean().to_numpy()
+        count = grouped.count().to_numpy()
+
+        # Binomial standard error
+        sem = np.sqrt(mean * (1.0 - mean) / np.maximum(count, 1))
+
+        mean[count == 0] = np.nan
+        sem[count == 0] = np.nan
+        return mean, sem
+
+    all_diffs = []
+
+    # first pass to estimate sensible diff y-range if not given
+    precomputed = {}
+    for col_idx, cond_col in enumerate(condition_cols):
+        combined_cond = pd.concat([df_g[cond_col], df_b[cond_col]], axis=0)
+
+        try:
+            _, bin_edges = pd.qcut(
+                combined_cond,
+                q=n_condition_bins,
+                retbins=True,
+                duplicates="drop",
+            )
+        except ValueError:
+            bin_edges = np.linspace(
+                combined_cond.min(),
+                combined_cond.max(),
+                n_condition_bins + 1,
+            )
+
+        n_used_bins = len(bin_edges) - 1
+
+        def assign_condition_bins(df):
+            out = df.copy()
+            out["cond_bin_idx"] = pd.cut(
+                out[cond_col],
+                bins=bin_edges,
+                labels=False,
+                include_lowest=True,
+                right=True,
+            )
+            return out
+
+        df_g_cond = assign_condition_bins(df_g)
+        df_b_cond = assign_condition_bins(df_b)
+
+        precomputed[col_idx] = {
+            "cond_col": cond_col,
+            "bin_edges": bin_edges,
+            "n_used_bins": n_used_bins,
+            "df_g_cond": df_g_cond,
+            "df_b_cond": df_b_cond,
+        }
+
+        for row_idx in range(n_used_bins):
+            sub_g = df_g_cond[df_g_cond["cond_bin_idx"] == row_idx].copy()
+            sub_b = df_b_cond[df_b_cond["cond_bin_idx"] == row_idx].copy()
+
+            mean_g, sem_g = compute_selection_stats(sub_g)
+            mean_b, sem_b = compute_selection_stats(sub_b)
+
+            diff = mean_g - mean_b
+            diff_sem = np.sqrt(sem_g**2 + sem_b**2)
+
+            all_diffs.append(diff[np.isfinite(diff)])
+            all_diffs.append((diff + diff_sem)[np.isfinite(diff + diff_sem)])
+            all_diffs.append((diff - diff_sem)[np.isfinite(diff - diff_sem)])
+
+    if diff_y_range is None:
+        finite_vals = np.concatenate([x for x in all_diffs if len(x) > 0]) if all_diffs else np.array([0.0])
+        max_abs_diff = np.nanmax(np.abs(finite_vals)) if finite_vals.size > 0 else 0.02
+        max_abs_diff = max(max_abs_diff * 1.15, 0.02)
+        diff_y_range = (-max_abs_diff, max_abs_diff)
+
+    lst_bins = ["low", "mid", "high"]
+
+    for col_idx, cond_col in enumerate(condition_cols):
+        cond_label = condition_labels.get(cond_col, cond_col)
+        cond_inline_label = condition_inline_labels.get(cond_col, cond_col)
+        color = col_colors[col_idx]
+
+        bin_edges = precomputed[col_idx]["bin_edges"]
+        n_used_bins = precomputed[col_idx]["n_used_bins"]
+        df_g_cond = precomputed[col_idx]["df_g_cond"]
+        df_b_cond = precomputed[col_idx]["df_b_cond"]
+
+        for row_idx in range(nrows):
+            ax_main = axes[2 * row_idx, col_idx]
+            ax_diff = axes[2 * row_idx + 1, col_idx]
+
+            if row_idx >= n_used_bins:
+                ax_main.axis("off")
+                ax_diff.axis("off")
+                continue
+
+            sub_g = df_g_cond[df_g_cond["cond_bin_idx"] == row_idx].copy()
+            sub_b = df_b_cond[df_b_cond["cond_bin_idx"] == row_idx].copy()
+
+            edge_left = bin_edges[row_idx]
+            edge_right = bin_edges[row_idx + 1]
+
+            mean_g, sem_g = compute_selection_stats(sub_g)
+            mean_b, sem_b = compute_selection_stats(sub_b)
+
+            diff = mean_g - mean_b
+            diff_sem = np.sqrt(sem_g**2 + sem_b**2)
+
+            # main panel
+            ax_main.plot(
+                mag_centers,
+                mean_b,
+                color=color,
+                linewidth=4.0,
+                alpha=0.7,
+                linestyle=":",
+            )
+            ax_main.fill_between(
+                mag_centers,
+                mean_b - sem_b,
+                mean_b + sem_b,
+                color=color,
+                alpha=0.08,
+            )
+
+            ax_main.plot(
+                mag_centers,
+                mean_g,
+                color=color,
+                linewidth=4.0,
+                alpha=0.7,
+                linestyle="--",
+            )
+            ax_main.fill_between(
+                mag_centers,
+                mean_g - sem_g,
+                mean_g + sem_g,
+                color=color,
+                alpha=0.16,
+            )
+
+            ax_main.set_xlim(*mag_range)
+            ax_main.set_ylim(*y_range)
+            ax_main.grid(True, alpha=0.25)
+
+            if row_idx == 0:
+                ax_main.set_title(cond_label)
+
+            if col_idx == 0:
+                ax_main.set_ylabel("Selection Fraction")
+
+            ax_main.text(
+                0.03,
+                0.94,
+                rf"{lst_bins[row_idx]}: ${edge_left:.2f} < {cond_inline_label} < {edge_right:.2f}$",
+                transform=ax_main.transAxes,
+                ha="left",
+                va="top",
+                fontsize=13,
+                bbox=dict(
+                    boxstyle="round,pad=0.2",
+                    facecolor="white",
+                    alpha=0.7,
+                    edgecolor="none",
+                ),
+            )
+
+            # difference panel
+            ax_diff.axhline(0.0, color="black", lw=1.0, alpha=0.8)
+            ax_diff.plot(
+                mag_centers,
+                diff,
+                color=color,
+                linewidth=2.5,
+                linestyle="-",
+            )
+            ax_diff.fill_between(
+                mag_centers,
+                diff - diff_sem,
+                diff + diff_sem,
+                color=color,
+                alpha=0.18,
+            )
+
+            ax_diff.set_xlim(*mag_range)
+            ax_diff.set_ylim(*diff_y_range)
+            ax_diff.grid(True, alpha=0.25)
+
+            if col_idx == 0:
+                ax_diff.set_ylabel(r"$\Delta$")
+
+            if row_idx == nrows - 1:
+                ax_diff.set_xlabel("True r-mag (bdf)")
+
+    legend_handles = [
+        Line2D([0], [0], color="black", lw=2.5, linestyle="--", label="gaNdalF"),
+        Line2D([0], [0], color="black", lw=2.5, linestyle=":", label="Balrog"),
+        Line2D([0], [0], color="black", lw=2.5, linestyle="-", label=r"$\Delta$ (gaNdalF - Balrog)"),
+    ]
+
+    fig.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.97),
+        ncol=3,
+        frameon=True,
+    )
+
+    fig.suptitle(title, y=0.999)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+
+    if save_plot:
+        plt.savefig(save_name, dpi=200, bbox_inches="tight")
+    if show_plot:
+        plt.show()
+
+    plt.close(fig)

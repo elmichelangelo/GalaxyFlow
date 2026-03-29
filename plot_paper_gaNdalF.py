@@ -78,6 +78,8 @@
 #         print(f"{column}: KL Divergence = {kl_not_detected[column]:.4f}, Percent Difference = {percent_diff_not_detected[column]:.2f}%")
 #
 #     return kl_detected, kl_not_detected, percent_diff_detected, percent_diff_not_detected
+import matplotlib.pyplot as plt
+
 
 def set_nan_2_default(data_frame, dict_default):
     for col, default_value in dict_default.items():
@@ -307,162 +309,199 @@ def plot_classifier(cfg, path_master_cat, path_save_plots):
     print(f"Balrog selection rate: {detection_rate_balrog:.4f} ({n_detected_balrog} / {len(df_balrog_clf)})")
     print(f"gaNdalF selection rate: {detection_rate_gandalf:.4f} ({n_detected_gandalf} / {len(df_gandalf_clf)})")
 
-    df_balrog_clf_deep_cut = df_balrog_clf
-    df_gandalf_clf_deep_cut = df_gandalf_clf
-    # df_balrog_clf_deep_cut = apply_deep_cuts(
-    #     path_master_cat=path_master_cat,
-    #     data_frame=df_balrog_clf
-    # )
-    # df_gandalf_clf_deep_cut = apply_deep_cuts(
-    #     path_master_cat=path_master_cat,
-    #     data_frame=df_gandalf_clf
-    # )
+    if cfg["PLT_OBSERVING_CONDITIONS"] is True:
+        print("Plot Fig 3")
+        plot_selection_and_magbias_by_conditions(
+            df=df_balrog_clf,
+            mag_col="BDF_MAG_DERED_CALIB_R",
+            meas_col="unsheared/mag_r",
+            selection_col="mcal_galaxy",
+            condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+            title = f"Balrog Selection and Photometric Bias in the r-Band",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_selection_magbias_r_conditions_balrog.pdf",
+            save_plot=cfg["SAVE_PLOT"],
+            show_plot=cfg["SHOW_PLOT"],
+        )
 
-    if cfg["PLT_FIG_1"] is True:
+    if cfg["PLT_SELECTION_COMPLETENESS"] is True:
+        print("Plot Fig 4")
+        plot_selections_completeness(
+            df_balrog=df_balrog_clf,
+            df_gandalf=df_gandalf_clf,
+            plot_residual=True,
+            bins=np.arange(18, 27, 0.25),
+            title = f"gaNdalF vs. Balrog: Selection Fraction",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_selection_fraction.pdf",
+            use_latex=cfg["USE_LATEX"]
+        )
+
+    if cfg["PLT_MULTI_CLASSIFIER"] is True:
+        print("Plot Fig 5")
         plot_multivariate_clf(
-            df_balrog_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['mcal_galaxy'] == 1],
-            df_gandalf_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled mcal_galaxy'] == 1],
-            df_balrog_not_detected=df_balrog_clf_deep_cut[df_balrog_clf_deep_cut['mcal_galaxy'] == 0],
-            df_gandalf_not_detected=df_gandalf_clf_deep_cut[df_gandalf_clf_deep_cut['sampled mcal_galaxy'] == 0],
+            df_balrog_detected=df_balrog_clf[df_balrog_clf['mcal_galaxy'] == 1],
+            df_gandalf_detected=df_gandalf_clf[df_gandalf_clf['sampled mcal_galaxy'] == 1],
+            df_balrog_not_detected=df_balrog_clf[df_balrog_clf['mcal_galaxy'] == 0],
+            df_gandalf_not_detected=df_gandalf_clf[df_gandalf_clf['sampled mcal_galaxy'] == 0],
             columns={
                     "BDF_MAG_DERED_CALIB_R": {
-                        "label": "BDF Mag R",
+                        "label": "True mag-r (bdf)",
                         "range": [18, 26.5],
                         "position": [0, 0]
                     },
-                    "BDF_MAG_DERED_CALIB_Z": {
-                        "label": "BDF Mag Z",
-                        "range": [17.5, 26.5],
-                        "position": [0, 1]
+                    "EBV_SFD98": {
+                        "label": "E(B-V) SFD98",
+                        "range": [-0.01, 0.12],
+                        "position": [1, 3]
                     },
-                    "BDF_T": {
-                        "label": "BDF T",
-                        "range": [-2, 3.5],
+                    "BDF_MAG_DERED_CALIB_Z": {
+                        "label": "True mag-z (bdf)",
+                        "range": [17.5, 26.5],
                         "position": [0, 2]
                     },
-                    "BDF_G": {
-                        "label": "BDF G",
-                        "range": [-0.1, 0.9],
+                    "FWHM_WMEAN_R": {
+                        "label": "FWHM r",
+                        "range": [0.7, 1.3],
                         "position": [1, 0]
                     },
-                    "FWHM_WMEAN_R": {
-                        "label": "FWHM R",
-                        "range": [0.7, 1.3],
+                    "FWHM_WMEAN_I": {
+                        "label": "FWHM i",
+                        "range": [0.7, 1.1],
                         "position": [1, 1]
                     },
-                    "FWHM_WMEAN_I": {
-                        "label": "FWHM I",
-                        "range": [0.7, 1.1],
+                    "FWHM_WMEAN_Z": {
+                        "label": "FWHM z",
+                        "range": [0.6, 1.16],
                         "position": [1, 2]
                     },
-                    "FWHM_WMEAN_Z": {
-                         "label": "FWHM Z",
-                         "range": [0.6, 1.16],
-                         "position": [2, 0]
-                     },
-                     "AIRMASS_WMEAN_R": {
-                         "label": "AIRMASS R",
-                         "range": [0.95, 1.45],
-                         "position": [2, 1]
-                     },
-                     "AIRMASS_WMEAN_I": {
-                         "label": "AIRMASS I",
-                         "range": [1, 1.45],
-                         "position": [2, 2]
-                     },
-                     "AIRMASS_WMEAN_Z": {
-                         "label": "AIRMASS Z",
-                         "range": [1, 1.4],
-                         "position": [2, 3]
-                     },
-                     "MAGLIM_R": {
-                         "label": "MAGLIM R",
-                         "range": [23, 24.8],
-                         "position": [3, 0]
-                     },
+                    "AIRMASS_WMEAN_R": {
+                        "label": "Airmass r",
+                        "range": [0.95, 1.45],
+                        "position": [2, 0]
+                    },
+                    "AIRMASS_WMEAN_I": {
+                        "label": "Airmass i",
+                        "range": [1, 1.45],
+                        "position": [2, 1]
+                    },
+                    "AIRMASS_WMEAN_Z": {
+                        "label": "Airmass z",
+                        "range": [1, 1.4],
+                        "position": [2, 2]
+                    },
+                    "BDF_T": {
+                        "label": r"Size ($T [\mathrm{arcsec}^2]$)",
+                        "range": [-2, 3.5],
+                        "position": [2, 3]
+                    },
+                    "MAGLIM_R": {
+                        "label": r"$m_\mathrm{r, lim}$",
+                        "range": [23, 24.8],
+                        "position": [3, 0]
+                    },
                      "MAGLIM_I": {
-                         "label": "MAGLIM I",
+                         "label": r"$m_\mathrm{i, lim}$",
                          "range": [22.4, 24.0],
                          "position": [3, 1]
                      },
                      "MAGLIM_Z": {
-                         "label": "MAGLIM Z",
+                         "label": r"$m_\mathrm{z, lim}$",
                          "range": [21.8, 23.2],
                          "position": [3, 2]
                      },
-                     "EBV_SFD98": {
-                         "label": "EBV SFD98",
-                         "range": [-0.01, 0.12],
-                         "position": [3, 3]
-                     }
+                    "BDF_G": {
+                        "label": r"Shape ($\sqrt{g_0^2+g_1^2}$)",
+                        "range": [-0.1, 0.9],
+                        "position": [3, 3]
+                    }
                 },
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_classifier_multiv.pdf",
             sample_size=100000,  # None,
             x_range=(18, 26.5),
-            title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison"
+            title=f"gaNdalF vs. Balrog: Photometric Property Distribution Comparison",
+            use_latex=cfg["USE_LATEX"]
         )
 
-    if cfg["PLT_FIG_2"] is True:
+    if cfg["PLT_NUMBER_DENSITY"] is True:
+        print("Plot Fig 6")
         plot_number_density_fluctuation(
-            df_balrog=df_balrog_clf_deep_cut,
-            df_gandalf=df_gandalf_clf_deep_cut,
+            df_balrog=df_balrog_clf,
+            df_gandalf=df_gandalf_clf,
             columns=[
                 "BDF_MAG_DERED_CALIB_R",
                 "BDF_MAG_DERED_CALIB_I",
                 "BDF_MAG_DERED_CALIB_Z",
-                "BDF_T",
-                "BDF_G",
+                "MAGLIM_R",
+                "MAGLIM_I",
+                "MAGLIM_Z",
                 "FWHM_WMEAN_R",
                 "FWHM_WMEAN_I",
                 "FWHM_WMEAN_Z",
                 "AIRMASS_WMEAN_R",
                 "AIRMASS_WMEAN_I",
                 "AIRMASS_WMEAN_Z",
-                "MAGLIM_R",
-                "MAGLIM_I",
-                "MAGLIM_Z",
+                "BDF_T",
+                "BDF_G",
                 "EBV_SFD98"
             ],
             labels=[
-                "BDF Mag R",
-                "BDF Mag I",
-                "BDF Mag Z",
-                "BDF T",
-                "BDF G",
-                "FWHM R",
-                "FWHM I",
-                "FWHM Z",
-                "AIRMASS R",
-                "AIRMASS I",
-                "AIRMASS Z",
-                "MAGLIM R",
-                "MAGLIM I",
-                "MAGLIM Z",
-                "EBV SFD98"
+                "True r-mag (bdf)",
+                "True i-mag (bdf)",
+                "True z-mag (bdf)",
+                r"$m_{r, \mathrm{lim}}$",
+                r"$m_{i, \mathrm{lim}}$",
+                r"$m_{z, \mathrm{lim}}$",
+                "FWHM r",
+                "FWHM i",
+                "FWHM z",
+                "Airmass r",
+                "Airmass i",
+                "Airmass z",
+                r"Size T [$\mathrm{arcsec}^2$]",
+                r"Shape ($\sqrt{g_0^2 + g_1^2}$)",
+                "E(B-V) SFD98"
             ],
             ranges=[
                 [18, 26],
                 [18, 26],
                 [18, 26],
-                [-1, 1.5],
-                [-0.1, 0.8],
+                [23.5, 24.5],
+                [23, 23.75],
+                [22, 23],
                 [0.8, 1.2],
                 [0.7, 1.1],
                 [0.7, 1.0],
                 [1, 1.4],
                 [1, 1.4],
                 [1, 1.4],
-                [23.5, 24.5],
-                [23, 23.75],
-                [22, 23],
+                [-1, 1.5],
+                [-0.1, 0.8],
                 [0, 0.05]
             ],
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
-            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_number_density_fluctuation.pdf",
-            title=f"gaNdalF vs. Balrog: Detection Number Density Comparison"
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_number_density_comparison.pdf",
+            title="gaNdalF vs. Balrog: Number Density Comparison",
+            n_feature_rows=5,
+            use_latex=cfg["USE_LATEX"],
+        )
+
+    if cfg["PLT_OBSERVING_CONDITIONS_COMPARE_CLF"] is True:
+        print("Plot Fig 7")
+        plot_selection_compare_grid_by_conditions(
+            df_gandalf=df_gandalf_clf,
+            df_balrog=df_balrog_clf,
+            mag_col="BDF_MAG_DERED_CALIB_R",
+            selection_col_gandalf="sampled mcal_galaxy",
+            selection_col_balrog="mcal_galaxy",
+            condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+            title="gaNdalF vs. Balrog: selection in the r-band",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_selection_conditions_compare.pdf",
+            save_plot=cfg["SAVE_PLOT"],
+            show_plot=cfg["SHOW_PLOT"],
         )
 
 def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_master_cat, path_save_plots, columns):
@@ -470,47 +509,8 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
     df_gandalf_flw = pd.read_pickle(f"{path_data}/{filename_flw_gandalf}")
     df_balrog_flw = pd.read_pickle(f"{path_data}/{filename_flw_balrog}")
 
-    # df_gandalf_flw_wo_nan = replace_nan(
-    #     data_frame=df_gandalf_flw,
-    #     cols=[
-    #         "unsheared/mag_r",
-    #         "unsheared/mag_i",
-    #         "unsheared/mag_z",
-    #         "unsheared/mag_err_r",
-    #         "unsheared/mag_err_i",
-    #         "unsheared/mag_err_z",
-    #         "unsheared/snr",
-    #         "unsheared/size_ratio",
-    #         "unsheared/e_1",
-    #         "unsheared/e_2",
-    #         "unsheared/T",
-    #     ],
-    #     default_values=[
-    #         37.5,
-    #         37.5,
-    #         37.5,
-    #         -9999,
-    #         -9999,
-    #         -9999,
-    #         -7070.360705084288,
-    #         -9999,
-    #         -9999,
-    #         -9999,
-    #     ]
-    # )
-    # df_gandalf_flw_wo_nan["Color unsheared MAG r-i"] = df_gandalf_flw_wo_nan["unsheared/mag_r"] - df_gandalf_flw_wo_nan["unsheared/mag_i"]
-    # df_gandalf_flw_wo_nan["Color unsheared MAG i-z"] = df_gandalf_flw_wo_nan["unsheared/mag_i"] - df_gandalf_flw_wo_nan["unsheared/mag_z"]
-    # df_gandalf_flw_wo_nan = check_idf_flux(df_gandalf_flw_wo_nan)
-    # weights_nan = assign_new_weights(
-    #     x=df_gandalf_flw_wo_nan["unsheared/snr"],
-    #     y=df_gandalf_flw_wo_nan["unsheared/size_ratio"],
-    #     path_grid=cfg['PATH_GRID_FILE']
-    # )
-    # df_gandalf_flw_wo_nan.loc[:, "unsheared/weight"] = weights_nan
-    # print("gandalf w/ nans before cuts", df_gandalf_flw_wo_nan["unsheared/mag_err_i"].min(), df_gandalf_flw_wo_nan["unsheared/mag_err_i"].max())
-    # df_gandalf_flw_wo_nan = apply_cuts(df_gandalf_flw_wo_nan, path_master_cat)
-    # print("gandalf w/ nans after cuts", df_gandalf_flw_wo_nan["unsheared/mag_err_i"].min(), df_gandalf_flw_wo_nan["unsheared/mag_err_i"].max())
-
+    df_balrog_flw = df_balrog_flw.reset_index(drop=True)
+    df_gandalf_flw = df_gandalf_flw.reset_index(drop=True)
 
     df_gandalf_flw["Color unsheared MAG r-i"] = df_gandalf_flw["unsheared/mag_r"] - df_gandalf_flw["unsheared/mag_i"]
     df_gandalf_flw["Color unsheared MAG i-z"] = df_gandalf_flw["unsheared/mag_i"] - df_gandalf_flw["unsheared/mag_z"]
@@ -521,79 +521,101 @@ def plot_flow(cfg, path_data, filename_flw_balrog, filename_flw_gandalf, path_ma
     df_balrog_flw = check_idf_flux(df_balrog_flw)
     df_gandalf_flw = check_idf_flux(df_gandalf_flw)
 
-    weights = assign_new_weights(
-        x=df_gandalf_flw["unsheared/snr"],
-        y=df_gandalf_flw["unsheared/size_ratio"],
-        path_grid=cfg['PATH_GRID_FILE']
-    )
-    df_gandalf_flw.loc[:, "unsheared/weight"] = weights
-    # print("gandalf w nans before cuts", df_gandalf_flw["unsheared/mag_err_i"].min(), df_gandalf_flw["unsheared/mag_err_i"].max())
-    df_balrog_flw_cut = df_balrog_flw  # apply_cuts(df_balrog_flw, path_master_cat)
-    df_gandalf_flw_cut = df_gandalf_flw  # apply_cuts(df_gandalf_flw, path_master_cat)
-    # print("gandalf w nans after cuts", df_gandalf_flw_cut["unsheared/mag_err_i"].min(), df_gandalf_flw_cut["unsheared/mag_err_i"].max())
-
     print(f"Length of Balrog objects: {len(df_balrog_flw)}")
     print(f"Length of gaNdalF objects: {len(df_gandalf_flw)}")
-    print(f"Length of Balrog objects after mag cut: {len(df_balrog_flw_cut)}")
-    print(f"Length of gaNdalF objects after mag cut: {len(df_gandalf_flw_cut)}")
 
-    if cfg["PLT_FIG_3"] is True:
+    if cfg["PLT_MAG_DIFF_DENSITY"]:
+        print("Plot Fig 8")
+        plot_mag_diff_density(
+            df_gandalf_flw=df_gandalf_flw,
+            df_balrog_flw=df_balrog_flw,
+            sample_data=True,
+            sample_size=150000,
+            plt_point_cloud=False,
+            title="gaNdalF vs. Balrog: Magnitude Difference Density",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_mag_diff_density.pdf",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            use_latex=cfg["USE_LATEX"],
+        )
+
+    if cfg["PLT_HIST_MCAL_PROPERTIES"] is True:
+        print("Plot Fig 9")
+        plot_balrog_histogram_with_error(
+            df_gandalf=df_gandalf_flw,
+            df_balrog=df_balrog_flw,
+            columns=columns,
+            labels=[
+                "measured mag r-i (mcal)",
+                "measured mag i-z (mcal)",
+                "SNR",
+                "measured mag-r (mcal)",
+                "measured mag-i (mcal)",
+                "measured mag-z (mcal)",
+                r"Size ($T [\mathrm{arcsec}^2]$)",
+                r"Size Ratio ($T/T_\mathrm{PSF}$)",
+                "e_1",
+                "e_2"
+            ],
+            ranges=[
+                [-0.5, 1.5],  # mag r-i
+                [-0.5, 1.5],  # mag i-z
+                [2, 100],  # snr
+                [18, 24.5],  # mag r
+                [18, 24.5],  # mag i
+                [18, 24.5],  # mag z
+                [0, 3.5],  # T
+                [-0.5, 5],  # size ratio
+                [-1.1, 1.1],  # e_1
+                [-1.1, 1.1]  # e_2
+            ],
+            binwidths=[
+                0.08,  # mag r-i
+                0.08,  # mag i-z
+                2,  # snr
+                None,  # mag r
+                None,  # mag i
+                None,  # mag z
+                0.2,  # T
+                0.2,  # size ratio
+                0.1,  # e_1
+                0.1  # e_2
+            ],
+            title = r"gaNdalF vs. Balrog: $\texttt{Metacalibration}$ Property Distribution Comparison",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_mcal_hist_plot.pdf",
+            use_latex=cfg["USE_LATEX"],
+        )
+
+    if cfg["PLT_BINNING_STATS"] is True:
+        print("Plot Fig 10")
         plot_binning_statistics_combined(
-            df_gandalf=df_gandalf_flw_cut,
-            df_balrog=df_balrog_flw_cut,
-            sample_size=10000,
+            df_gandalf=df_gandalf_flw,
+            df_balrog=df_balrog_flw,
+            sample_size=100000,
             plot_scatter=False,
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
             title="gaNdalF vs. Balrog: Measured Photometric Property Distribution Comparison",
             save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_binning_statistics_combined",
+            only_band="r",
+            use_latex=cfg["USE_LATEX"],
         )
 
-    if cfg["PLT_FIG_4"] is True:
-        plot_balrog_histogram_with_error(
-            df_gandalf=df_gandalf_flw_cut,
-            df_balrog=df_balrog_flw_cut,
-            columns=columns,
-            labels=[
-                "mag r-i",
-                "mag i-z",
-                "mag r",
-                "mag i",
-                "mag z",
-                "snr",
-                "size ratio",
-                "e_1",
-                "e_2",
-                "T"
-            ],
-            ranges=[
-                [-0.5, 1.5],  # mag r-i
-                [-0.5, 1.5],  # mag i-z
-                [18, 24.5],  # mag r
-                [18, 24.5],  # mag i
-                [18, 24.5],  # mag z
-                [2, 100],  # snr
-                [-0.5, 5],  # size ratio
-                [-1.1, 1.1],  # e_1
-                [-1.1, 1.1],  # e_2
-                [0, 3.5]  # T
-            ],
-            binwidths=[
-                0.08,  # mag r-i
-                0.08,  # mag i-z
-                None,  # mag r
-                None,  # mag i
-                None,  # mag z
-                2,  # snr
-                0.2,  # size ratio
-                0.1,  # e_1
-                0.1,  # e_2
-                0.2  # T
-            ],
-            title = r"gaNdalF vs. Balrog: $\texttt{Metacalibration}$ Property Distribution Comparison",
-            show_plot=cfg["SHOW_PLOT"],
+    if cfg["PLT_OBSERVING_CONDITIONS_COMPARE_FLOW"] is True:
+        print("Plot Fig 11")
+        plot_magbias_compare_grid_by_conditions(
+            df_gandalf=df_gandalf_flw,
+            df_balrog=df_balrog_flw,
+            mag_col="BDF_MAG_DERED_CALIB_R",
+            meas_col="unsheared/mag_r",
+            condition_cols=("MAGLIM_R", "FWHM_WMEAN_R", "AIRMASS_WMEAN_R"),
+            title="gaNdalF vs. Balrog",
+            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_compare_obs_cond_flow.pdf",
             save_plot=cfg["SAVE_PLOT"],
-            save_name=f"{path_save_plots}/{cfg['RUN_DATE']}_mcal_hist_plot.pdf"
+            show_plot=cfg["SHOW_PLOT"],
+            use_latex=True
         )
 
 
@@ -638,45 +660,23 @@ def load_zmean_and_files(cfg, path_zmean_folder, path_data_folder, path_gandalf_
 
     # Load gandalf mean redshift
     df_sompz_gandalf = pd.read_csv(path_gandalf_mean)
-    gandalf_means = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].median())
+    df_sompz_gandalf = df_sompz_gandalf.drop_duplicates(subset=["File Name"])
+    gandalf_means = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].mean())
     gandalf_stds = list(df_sompz_gandalf[['Mean Bin 1', 'Mean Bin 2', 'Mean Bin 3', 'Mean Bin 4']].std())
-    if cfg['PLT_MEAN_Z_COMPARE']:
-        plot_compare_mean_z_bootstrap(
-            data_frame=df_sompz_gandalf,
-            n_bins=25,
-            title="Compare Boostrap <z>",
-            show_plot=cfg['SHOW_PLOT'],
-            save_plot=cfg['SAVE_PLOT'],
-            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_compare_bootstrap_mean_z.pdf"
-        )
-        exit()
 
     # Balrog reference lines
     balrog_means = [0.3255, 0.5086, 0.7470, 0.9320]
 
-    return zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means
+    return zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means, df_sompz_gandalf
 
 def plot_redshift(cfg, path_data_folder, path_zmean_folder, path_gandalf_mean):
     """"""
-    zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means = load_zmean_and_files(
+    zmean, gandalf_files, balrog_file, gandalf_means, gandalf_stds, balrog_means, df_sompz_gandalf = load_zmean_and_files(
         cfg, path_zmean_folder, path_data_folder, path_gandalf_mean)
 
-    if cfg["PLT_FIG_5"] is True:
-        plot_tomo_bin_redshift_bootstrap(
-            zmean=zmean,
-            gandalf_files=gandalf_files,
-            balrog_file=balrog_file,
-            gandalf_means=gandalf_means,
-            gandalf_stds=gandalf_stds,
-            balrog_means=balrog_means,
-            title="gaNdalF vs. Balrog: Tomographic Redshift Distribution Comparison",
-            show_plot=cfg["SHOW_PLOT"],
-            save_plot=cfg["SAVE_PLOT"],
-            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_redshift_bin_1_bootstrap.pdf",
-            all_bins=False
-        )
-    if cfg["PLT_FIG_6"] is True:
-        plot_tomo_bin_redshift_bootstrap_all_in_one(
+    if cfg["PLT_ZMEAN_DIST"] is True:
+        print("Plot Fig 12")
+        plot_tomo_bin_mean_z_bootstrap(
             zmean=zmean,
             gandalf_files=gandalf_files,
             balrog_file=balrog_file,
@@ -687,6 +687,21 @@ def plot_redshift(cfg, path_data_folder, path_zmean_folder, path_gandalf_mean):
             show_plot=cfg["SHOW_PLOT"],
             save_plot=cfg["SAVE_PLOT"],
             save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_redshift_per_bin_bootstrap.pdf",
+            use_latex=cfg["USE_LATEX"]
+        )
+
+    if cfg['PLT_ZMEAN_HIST']:
+        print("Plot Fig 13")
+        plot_zmean_hist(
+            df_gandalf=df_sompz_gandalf,
+            gandalf_means=gandalf_means,
+            balrog_means=balrog_means,
+            bins=25,
+            title=r"gaNdalF vs. Balrog: $\langle z \rangle $ Histogram",
+            show_plot=cfg["SHOW_PLOT"],
+            save_plot=cfg["SAVE_PLOT"],
+            save_name=f"{cfg['PATH_SAVE_PLOTS']}/{cfg['RUN_DATE']}_zmean_histogram.pdf",
+            use_latex=cfg["USE_LATEX"]
         )
 
 

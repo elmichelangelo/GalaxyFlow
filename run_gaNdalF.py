@@ -547,7 +547,15 @@ def main(cfg, logger):
         cfg_key_filename_scaler="FILENAME_STANDARD_SCALER_CF",
     )
 
-    df_gandalf, df_balrog = model.run_classifier()
+    if cfg["RUN_CLASSIFIER"] is True:
+        df_gandalf, df_balrog = model.run_classifier()
+    else:
+        logger.log_info_stream(f"Skip classifier")
+        df_balrog = model.classifier_data.copy()
+        df_gandalf = df_balrog.copy()
+        df_gandalf["sampled mcal_galaxy"] = df_gandalf["mcal_galaxy"]
+        df_gandalf["true mcal_galaxy"] = df_gandalf["mcal_galaxy"]
+        df_gandalf["probability mcal_galaxy"] = df_gandalf["mcal_galaxy"]
 
     # add new gaNdalF ID
     logger.log_info_stream(f"Add gandalf_id")
