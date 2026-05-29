@@ -16,11 +16,10 @@ def plot_cuts(data_frame):
     return data_frame
 
 
-def unsheared_object_cuts(data_frame):
+def unsheared_object_cuts(data_frame, prob=False):
     """"""
     print("Apply unsheared object cuts")
     cuts = (data_frame["unsheared/extended_class_sof"] >= 2) & (data_frame["unsheared/flags_gold"] < 2)
-    data_frame = data_frame[cuts]
     print('Length of catalog after applying unsheared object cuts: {}'.format(len(data_frame)))
     return data_frame
 
@@ -97,17 +96,24 @@ def unsheared_mag_cut_gandalf(data_frame):
     return data_frame
 
 
-def unsheared_shear_cuts(data_frame):
+def unsheared_shear_cuts(data_frame, prob=False):
     """"""
     print("Apply unsheared shear cuts")
-    cuts = (
+    initial_cuts = (
             (10 < data_frame["unsheared/snr"]) &
             (data_frame["unsheared/snr"] < 1000) &
             (0.5 < data_frame["unsheared/size_ratio"]) &
             (data_frame["unsheared/T"] < 10)
     )
-    data_frame = data_frame[cuts]
-    data_frame = data_frame[~((2 < data_frame["unsheared/T"]) & (data_frame["unsheared/snr"] < 30))]
+
+    additional_condition = ~((2 < data_frame["unsheared/T"]) & (data_frame["unsheared/snr"] < 30))
+
+    combined_cuts = initial_cuts & additional_condition
+
+    if prob:
+        data_frame.loc[~combined_cuts, 'is_in'] = 0
+    else:
+        data_frame = data_frame[combined_cuts]
     print('Length of catalog after applying unsheared shear cuts: {}'.format(len(data_frame)))
     return data_frame
 
@@ -209,13 +215,26 @@ def binary_cut(data_frame):
     print('len w/ binaries', len(data_frame))
     return data_frame
 
-def binary_cut_gandalf(data_frame):
+def binary_cut_mag(data_frame):
     """"""
     highe_cut = np.greater(np.sqrt(np.power(data_frame['unsheared/e_1'], 2.) + np.power(data_frame['unsheared/e_2'], 2)), 0.8)
     c = 22.5
     m = 2.5
     magT_cut = np.log10(data_frame['unsheared/T']) < (c - data_frame['unsheared/mag_r']) / m
-    binaries = highe_cut * magT_cut
+    binaries = highe_cut & magT_cut
+
+    print("perform binaries cut")
+    data_frame = data_frame[~binaries]
+    print('len w/ binaries', len(data_frame))
+    return data_frame
+
+def binary_cut_gandalf(data_frame):
+    """"""
+    highe_cut = np.greater(np.sqrt(np.power(data_frame['unsheared/e_1'], 2.) + np.power(data_frame['unsheared/e_2'], 2)), 0.8)
+    c = 23.5
+    m = 2.5
+    magT_cut = np.log10(data_frame['unsheared/T']) < (c - data_frame['unsheared/mag_r']) / m
+    binaries = highe_cut & magT_cut
 
     print("perform binaries cut")
     data_frame = data_frame[~binaries]
@@ -300,6 +319,17 @@ def apply_quality_cuts(cfg, data_frame):
     df_merged = df_merged[df_merged['unsheared/lupt_err_r'] >= 0]
     df_merged = df_merged[df_merged['unsheared/lupt_err_z'] >= 0]
     df_merged = df_merged[data_frame.keys()]
+    return df_merged
+
+def apply_photometric_cuts_mcal(cfg, data_frame, flag_cat="", merge_with_flag=False):
+    """"""
+    if merge_with_flag is True:
+        df_merged = pd.merge(data_frame, flag_cat, on='bal_id', how='left')
+    else:
+        df_merged = data_frame
+    df_merged = unsheared_shear_cuts(data_frame=df_merged)
+    df_merged = binary_cut_gandalf(data_frame=df_merged)
+    df_merged = unsheared_mag_cut(data_frame=df_merged)
     return df_merged
 
 def run_flow_cuts(cfg, data_frame):
